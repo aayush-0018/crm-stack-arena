@@ -6,7 +6,6 @@ export interface ComputedLine {
   position: number;
   itemName: string;
   quantity: string;
-  unit: string | null;
   unitPricePaise: number;
   lineTotalPaise: number;
 }
@@ -43,7 +42,6 @@ export function computeTotals(
     position: i + 1,
     itemName: it.itemName,
     quantity: milliToQuantity(it.quantity),
-    unit: it.unit,
     unitPricePaise: it.unitPrice,
     lineTotalPaise: lineTotalPaise(it.quantity, it.unitPrice),
   }));

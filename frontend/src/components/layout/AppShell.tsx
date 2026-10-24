@@ -6,20 +6,21 @@ import {
   LayoutGrid,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
   SlidersHorizontal,
   UserPlus,
-  Zap,
+  X,
 } from 'lucide-react';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { dashboardApi, invoicesApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
 import BranchSwitcher from './BranchSwitcher';
-import CommandPalette from './CommandPalette';
 
 const ICON = { size: 17, strokeWidth: 1.6 };
 
@@ -52,8 +53,14 @@ export default function AppShell() {
   const { shop, user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false); // mobile drawer
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try {
+      return localStorage.getItem('crm.sidebar') !== '0';
+    } catch {
+      return true;
+    }
+  }); // desktop sidebar, remembered
   const [counts, setCounts] = useState<{ open?: number; outdated?: number }>({});
 
   // Badge counts; refreshed on navigation.
@@ -69,37 +76,53 @@ export default function AppShell() {
 
   useEffect(() => setMenuOpen(false), [pathname]);
 
+  const toggleSidebar = useCallback(
+    () =>
+      setSidebarOpen((open) => {
+        try {
+          localStorage.setItem('crm.sidebar', open ? '0' : '1');
+        } catch {
+          /* storage unavailable: lasts until reload */
+        }
+        return !open;
+      }),
+    [],
+  );
+
+  // Ctrl/⌘+B hides or shows the menu: the drawer on phones, the sidebar on larger screens.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
-      if (e.key === '/' && !typing) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        setPaletteOpen(true);
+        if (window.matchMedia('(min-width: 768px)').matches) toggleSidebar();
+        else setMenuOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [toggleSidebar]);
 
   const signOut = () => {
     logout();
     navigate('/login', { replace: true });
   };
 
-  const sidebar = (
+  const sidebar = (mobile: boolean) => (
     <div className="flex h-full flex-col px-3 pb-3 pt-4">
-      <BranchSwitcher />
-
-      <button
-        type="button"
-        onClick={() => setPaletteOpen(true)}
-        className="mt-5 flex h-9 w-full items-center gap-2.5 rounded-lg border border-line bg-white px-2.5 text-[14.5px] text-ink-2 shadow-soft hover:text-ink"
-      >
-        <Zap {...ICON} />
-        <span className="flex-1 text-left">Quick Actions</span>
-        <kbd className="rounded border border-line px-1.5 font-sans text-[11px] leading-[18px] text-ink-3">/</kbd>
-      </button>
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <BranchSwitcher />
+        </div>
+        <button
+          type="button"
+          onClick={mobile ? () => setMenuOpen(false) : toggleSidebar}
+          aria-label={mobile ? 'Close menu' : 'Hide menu'}
+          title={mobile ? 'Close menu' : 'Hide menu (Ctrl+B)'}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-3 hover:bg-hover hover:text-ink"
+        >
+          {mobile ? <X size={19} strokeWidth={1.6} /> : <PanelLeftClose size={17} strokeWidth={1.6} />}
+        </button>
+      </div>
 
       <nav className="mt-5 flex-1 space-y-0.5 overflow-y-auto">
         <NavItem to="/orders/new" icon={<Plus {...ICON} />} label="New order" />
@@ -147,28 +170,50 @@ export default function AppShell() {
 
   return (
     <div className="app-root flex h-screen bg-canvas">
-      {/* Desktop sidebar */}
-      <aside className="no-print hidden w-[272px] shrink-0 md:block">{sidebar}</aside>
+      {/* Desktop: full sidebar, or a slim rail with one button to bring it back */}
+      {sidebarOpen ? (
+        <aside className="no-print hidden w-[272px] shrink-0 md:block">{sidebar(false)}</aside>
+      ) : (
+        <div className="no-print hidden w-14 shrink-0 flex-col items-center pt-4 md:flex">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="Show menu"
+            title="Show menu (Ctrl+B)"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 hover:bg-hover hover:text-ink"
+          >
+            <PanelLeftOpen size={18} strokeWidth={1.6} />
+          </button>
+        </div>
+      )}
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer: hamburger opens it; the X, a tap outside, or picking a page closes it */}
       {menuOpen && (
         <div className="no-print fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)}>
           <div className="absolute inset-0 bg-ink/20" />
-          <aside className="absolute inset-y-0 left-0 w-[280px] bg-canvas shadow-pop" onClick={(e) => e.stopPropagation()}>
-            {sidebar}
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+            className="absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-canvas shadow-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sidebar(true)}
           </aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="no-print flex h-14 items-center gap-3 px-3 md:hidden">
-          <button aria-label="Open menu" onClick={() => setMenuOpen(true)} className="rounded-lg p-2 text-ink-2 hover:bg-hover">
-            <Menu size={20} strokeWidth={1.6} />
+          <button
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="rounded-lg p-2 text-ink-2 hover:bg-hover"
+          >
+            {menuOpen ? <X size={20} strokeWidth={1.6} /> : <Menu size={20} strokeWidth={1.6} />}
           </button>
           <span className="flex-1 truncate text-[15px] font-semibold">{shop?.name}</span>
-          <button aria-label="Quick actions" onClick={() => setPaletteOpen(true)} className="rounded-lg p-2 text-ink-2 hover:bg-hover">
-            <Zap size={18} strokeWidth={1.6} />
-          </button>
         </header>
         <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-white md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
           {/* Keyed by branch: switching remounts every page, so nothing from the old branch lingers. */}
@@ -176,7 +221,6 @@ export default function AppShell() {
         </main>
       </div>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

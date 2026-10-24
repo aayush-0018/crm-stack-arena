@@ -41,7 +41,6 @@ const money = (msg = 'Enter a valid amount (up to 2 decimals)') =>
 export const lineItemSchema = z.object({
   itemName: z.string().trim().min(1, 'Item name is required').max(200),
   quantity: z.string().refine(isValidQty, 'Enter a quantity above 0 (up to 3 decimals)'),
-  unit: z.string().trim().max(20),
   unitPrice: z.string().refine(isValidMoney, 'Enter a valid price'),
 });
 

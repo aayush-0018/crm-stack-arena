@@ -25,7 +25,6 @@ export const orderToForm = (o: Order): OrderFormState => ({
     key: `${o.id}-${it.position}`,
     itemName: it.itemName,
     quantity: String(Number(it.quantity)),
-    unit: it.unit ?? '',
     unitPrice: paiseToInput(it.unitPricePaise),
   })),
   discount: o.discountPaise ? paiseToInput(o.discountPaise) : '',
@@ -84,7 +83,7 @@ export default function OrderForm({
     const rows = state.rows.filter((r, i) => i === 0 || r.itemName.trim() || r.unitPrice.trim());
     if (rows.length !== state.rows.length) setState((s) => ({ ...s, rows })); // keeps error indexes aligned
     const parsed = orderSchema.safeParse({
-      items: rows.map(({ itemName, quantity, unit, unitPrice }) => ({ itemName, quantity, unit, unitPrice })),
+      items: rows.map(({ itemName, quantity, unitPrice }) => ({ itemName, quantity, unitPrice })),
       discount: state.discount,
       amountPaid: state.amountPaid,
       notes: state.notes,
@@ -105,7 +104,6 @@ export default function OrderForm({
         items: rows.map((r) => ({
           itemName: r.itemName.trim(),
           quantity: r.quantity.trim(),
-          unit: r.unit.trim() || null,
           unitPrice: r.unitPrice.trim(),
         })),
         discount: state.discount.trim() || '0',

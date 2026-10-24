@@ -72,7 +72,6 @@ export const customersApi = {
 export interface OrderItemPayload {
   itemName: string;
   quantity: string;
-  unit: string | null;
   unitPrice: string;
 }
 

@@ -79,7 +79,6 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
                 <td className="px-3 py-3">{it.itemName}</td>
                 <td className="px-3 py-3 text-right tabular-nums">
                   {formatQty(it.quantity)}
-                  {it.unit ? ` ${it.unit}` : ''}
                 </td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatINR(it.unitPricePaise)}</td>
                 <td className="py-3 pl-3 text-right tabular-nums">{formatINR(it.lineTotalPaise)}</td>

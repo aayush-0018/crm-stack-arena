@@ -7,11 +7,10 @@ export interface ItemRow {
   key: string;
   itemName: string;
   quantity: string;
-  unit: string;
   unitPrice: string;
 }
 
-export const newRow = (): ItemRow => ({ key: uuid(), itemName: '', quantity: '1', unit: '', unitPrice: '' });
+export const newRow = (): ItemRow => ({ key: uuid(), itemName: '', quantity: '1', unitPrice: '' });
 
 const input = (invalid?: boolean) =>
   `h-9 w-full rounded-lg border bg-white px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft focus:outline-none focus:ring-[3px] ${
@@ -49,11 +48,10 @@ export default function LineItemsEditor({
     <div>
       {errors.items && <p className="mb-2 text-sm text-[#b42318]">{errors.items}</p>}
 
-      <div className="hidden grid-cols-[2rem_minmax(0,1fr)_6rem_5rem_8rem_7rem_2.5rem] gap-2 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3 md:grid">
+      <div className="hidden grid-cols-[2rem_minmax(0,1fr)_7rem_8rem_7rem_2.5rem] gap-2 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3 md:grid">
         <span>#</span>
         <span>Item</span>
         <span>Qty</span>
-        <span>Unit</span>
         <span>Unit price (₹)</span>
         <span className="text-right">Amount</span>
         <span />
@@ -63,7 +61,7 @@ export default function LineItemsEditor({
         {rows.map((r, i) => (
           <li
             key={r.key}
-            className="grid grid-cols-2 gap-2 rounded-lg border border-line p-3 md:grid-cols-[2rem_minmax(0,1fr)_6rem_5rem_8rem_7rem_2.5rem] md:items-start md:border-0 md:p-0"
+            className="grid grid-cols-2 gap-2 rounded-lg border border-line p-3 md:grid-cols-[2rem_minmax(0,1fr)_7rem_8rem_7rem_2.5rem] md:items-start md:border-0 md:p-0"
           >
             <span className="hidden pt-3 text-sm text-ink-3 md:block">{i + 1}</span>
             <div className="col-span-2 md:col-span-1">
@@ -90,14 +88,6 @@ export default function LineItemsEditor({
               />
               {err(i, 'quantity') && <p className="mt-1 text-xs text-[#b42318]">{err(i, 'quantity')}</p>}
             </div>
-            <input
-              aria-label={`Item ${i + 1} unit`}
-              placeholder="pcs / kg"
-              className={input(!!err(i, 'unit'))}
-              value={r.unit}
-              onChange={(e) => update(i, { unit: e.target.value })}
-              onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
-            />
             <div>
               <input
                 aria-label={`Item ${i + 1} unit price`}

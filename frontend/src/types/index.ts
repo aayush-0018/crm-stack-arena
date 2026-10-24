@@ -112,7 +112,6 @@ export interface OrderItem {
   position: number;
   itemName: string;
   quantity: string;
-  unit: string | null;
   unitPricePaise: number;
   lineTotalPaise: number;
 }

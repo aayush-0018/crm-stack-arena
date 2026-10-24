@@ -41,42 +41,42 @@ const AREAS = [
   'Sector 14', 'Model Town', 'Rajendra Nagar', 'Old Market',
 ];
 
-// [name, unit, min price, max price (rupees), max qty, decimals allowed]
-const CATALOG: [string, string | null, number, number, number, boolean][] = [
-  ['Basmati Rice', 'kg', 90, 140, 10, true],
-  ['Sona Masoori Rice', 'kg', 55, 70, 25, true],
-  ['Wheat Atta', 'kg', 38, 52, 20, true],
-  ['Toor Dal', 'kg', 140, 180, 5, true],
-  ['Moong Dal', 'kg', 110, 140, 5, true],
-  ['Chana Dal', 'kg', 80, 105, 5, true],
-  ['Sugar', 'kg', 42, 48, 10, true],
-  ['Rock Salt', 'kg', 28, 40, 3, false],
-  ['Mustard Oil', 'L', 150, 185, 5, false],
-  ['Sunflower Oil', 'L', 130, 160, 5, false],
-  ['Desi Ghee', 'L', 520, 650, 2, false],
-  ['Tea Leaves 250g', 'pcs', 120, 160, 4, false],
-  ['Instant Coffee 100g', 'pcs', 280, 340, 2, false],
-  ['Milk 1L', 'pcs', 56, 68, 6, false],
-  ['Paneer 200g', 'pcs', 85, 100, 3, false],
-  ['Curd 400g', 'pcs', 40, 50, 4, false],
-  ['Butter 100g', 'pcs', 56, 60, 3, false],
-  ['Bread', 'pcs', 40, 55, 3, false],
-  ['Eggs (dozen)', 'pcs', 78, 96, 3, false],
-  ['Turmeric Powder 200g', 'pcs', 60, 80, 2, false],
-  ['Red Chilli Powder 200g', 'pcs', 70, 95, 2, false],
-  ['Garam Masala 100g', 'pcs', 65, 90, 2, false],
-  ['Jeera 100g', 'pcs', 45, 70, 2, false],
-  ['Biscuits Pack', 'pcs', 10, 40, 10, false],
-  ['Namkeen 400g', 'pcs', 90, 120, 4, false],
-  ['Maggi Noodles', 'pcs', 14, 15, 12, false],
-  ['Detergent Powder 1kg', 'pcs', 110, 140, 3, false],
-  ['Bath Soap', 'pcs', 35, 55, 8, false],
-  ['Toothpaste', 'pcs', 95, 130, 3, false],
-  ['Shampoo 180ml', 'pcs', 150, 210, 2, false],
-  ['Dishwash Bar', 'pcs', 10, 25, 6, false],
-  ['Onion', 'kg', 25, 50, 5, true],
-  ['Potato', 'kg', 20, 40, 8, true],
-  ['Tomato', 'kg', 20, 60, 4, true],
+// [name, min price, max price (rupees), max qty, decimals allowed]
+const CATALOG: [string, number, number, number, boolean][] = [
+  ['Basmati Rice', 90, 140, 10, true],
+  ['Sona Masoori Rice', 55, 70, 25, true],
+  ['Wheat Atta', 38, 52, 20, true],
+  ['Toor Dal', 140, 180, 5, true],
+  ['Moong Dal', 110, 140, 5, true],
+  ['Chana Dal', 80, 105, 5, true],
+  ['Sugar', 42, 48, 10, true],
+  ['Rock Salt', 28, 40, 3, false],
+  ['Mustard Oil', 150, 185, 5, false],
+  ['Sunflower Oil', 130, 160, 5, false],
+  ['Desi Ghee', 520, 650, 2, false],
+  ['Tea Leaves 250g', 120, 160, 4, false],
+  ['Instant Coffee 100g', 280, 340, 2, false],
+  ['Milk 1L', 56, 68, 6, false],
+  ['Paneer 200g', 85, 100, 3, false],
+  ['Curd 400g', 40, 50, 4, false],
+  ['Butter 100g', 56, 60, 3, false],
+  ['Bread', 40, 55, 3, false],
+  ['Eggs (dozen)', 78, 96, 3, false],
+  ['Turmeric Powder 200g', 60, 80, 2, false],
+  ['Red Chilli Powder 200g', 70, 95, 2, false],
+  ['Garam Masala 100g', 65, 90, 2, false],
+  ['Jeera 100g', 45, 70, 2, false],
+  ['Biscuits Pack', 10, 40, 10, false],
+  ['Namkeen 400g', 90, 120, 4, false],
+  ['Maggi Noodles', 14, 15, 12, false],
+  ['Detergent Powder 1kg', 110, 140, 3, false],
+  ['Bath Soap', 35, 55, 8, false],
+  ['Toothpaste', 95, 130, 3, false],
+  ['Shampoo 180ml', 150, 210, 2, false],
+  ['Dishwash Bar', 10, 25, 6, false],
+  ['Onion', 25, 50, 5, true],
+  ['Potato', 20, 40, 8, true],
+  ['Tomato', 20, 60, 4, true],
 ];
 
 const rupees = (n: number) => n.toFixed(2);
@@ -107,7 +107,7 @@ async function main() {
 
   for (let i = 0; i < CUSTOMERS; i++) {
     let phone: string;
-    do phone = `${pick(['6', '7', '8', '9'])}${String(int(0, 999_999_999)).padStart(9, '0')}`;
+    do phone = `${pick(['6', '8', '9'])}${String(int(0, 999_999_999)).padStart(9, '0')}`;
     while (usedPhones.has(phone));
     usedPhones.add(phone);
 
@@ -138,9 +138,9 @@ async function main() {
       const orderDate = isoDaysAgo(daysAgo);
 
       const items = Array.from({ length: int(1, 6) }, () => {
-        const [name, unit, min, max, maxQty, decimals] = pick(CATALOG);
+        const [name, min, max, maxQty, decimals] = pick(CATALOG);
         const qty = decimals ? (int(2, maxQty * 2) / 2).toString() : String(int(1, maxQty));
-        return { itemName: name, quantity: qty, unit, unitPrice: rupees(min + rand() * (max - min)) };
+        return { itemName: name, quantity: qty, unitPrice: rupees(min + rand() * (max - min)) };
       });
       // Merge duplicate picks so each item appears once.
       const merged = new Map<string, (typeof items)[number]>();

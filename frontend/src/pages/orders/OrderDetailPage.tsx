@@ -176,7 +176,7 @@ export default function OrderDetailPage() {
                     <td className="h-[46px] pl-4 pr-3 text-ink-3 sm:pl-6">{it.position}</td>
                     <td className="px-3 text-ink">{it.itemName}</td>
                     <td className="px-3 text-right tabular-nums">
-                      {formatQty(it.quantity)} <span className="text-ink-3">{it.unit ?? ''}</span>
+                      {formatQty(it.quantity)}
                     </td>
                     <td className="px-3 text-right tabular-nums">{formatINR(it.unitPricePaise)}</td>
                     <td className="pl-3 pr-4 text-right tabular-nums sm:pr-6">{formatINR(it.lineTotalPaise)}</td>

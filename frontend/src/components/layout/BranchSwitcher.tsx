@@ -24,7 +24,7 @@ const suggestCode = (name: string) =>
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 4);
 
-/** Hook shared by the sidebar switcher and Quick Actions. */
+/** Branch list + switching, used by the sidebar switcher. */
 export function useBranches() {
   const { shop, switchBranch } = useAuth();
   const navigate = useNavigate();

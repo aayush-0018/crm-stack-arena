@@ -13,7 +13,6 @@ const MAX_UNIT_PRICE_PAISE = 1_00_00_000_00; // Rs 1 crore per unit
 const lineItemInput = z.object({
   itemName: z.string({ required_error: 'Item name is required' }).trim().min(1, 'Item name is required').max(200),
   quantity: quantityInput.refine((m) => m <= 99_999_000, 'Quantity is too large'),
-  unit: optionalText(20),
   unitPrice: moneyInput.refine((p) => p <= MAX_UNIT_PRICE_PAISE, 'Price is too large'),
 });
 export type LineItemInput = z.infer<typeof lineItemInput>;

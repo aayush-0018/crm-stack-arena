@@ -40,7 +40,7 @@ export function buildInvoiceDoc(inv: Invoice): TDocumentDefinitions {
   const itemRows: TableCell[][] = inv.itemsSnapshot.map((it) => [
     { text: String(it.position), color: INK_3 },
     { text: it.itemName },
-    { text: `${fmtQty(it.quantity)}${it.unit ? ` ${it.unit}` : ''}`, alignment: 'right' },
+    { text: fmtQty(it.quantity), alignment: 'right' },
     { text: formatRupees(it.unitPricePaise), alignment: 'right' },
     { text: formatRupees(it.lineTotalPaise), alignment: 'right' },
   ]);
