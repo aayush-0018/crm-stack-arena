@@ -7,12 +7,14 @@ export function Modal({
   onClose,
   children,
   footer,
+  wide,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -28,7 +30,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-2xl border border-line bg-white shadow-pop"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-white shadow-pop ${wide ? 'max-w-lg' : 'max-w-md'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="px-5 pt-5 text-[16px] font-medium text-ink">{title}</h2>

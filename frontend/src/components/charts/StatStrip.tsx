@@ -1,16 +1,55 @@
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { usePrivacy } from '../../context/PrivacyContext';
 import { ReactNode } from 'react';
 
-/** Row of headline numbers at the top of a page. */
+/** Row of headline numbers at the top of a page, with hide (eye) and collapse controls. */
 export function StatStrip({ children, dim }: { children: ReactNode; dim?: boolean }) {
+  const { hideNumbers, toggleHideNumbers, collapsed, toggleCollapsed } = usePrivacy();
+  const iconBtn = 'flex h-7 w-7 items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink';
+
   return (
-    <div
-      className={`grid grid-cols-2 gap-x-6 gap-y-7 border-b border-line px-4 py-6 transition-opacity sm:grid-cols-3 sm:px-6 lg:grid-cols-5 lg:gap-x-10 ${
-        dim ? 'opacity-50' : ''
-      }`}
-    >
-      {children}
-    </div>
+    <section className="relative border-b border-line" aria-label="Summary">
+      <div className="no-print absolute right-2 top-2 z-10 flex items-center gap-0.5 sm:right-3">
+        <button
+          type="button"
+          onClick={toggleHideNumbers}
+          aria-pressed={hideNumbers}
+          aria-label={hideNumbers ? 'Show numbers' : 'Hide numbers'}
+          title={hideNumbers ? 'Show numbers' : 'Hide numbers'}
+          className={iconBtn}
+        >
+          {hideNumbers ? <EyeOff size={15} strokeWidth={1.75} /> : <Eye size={15} strokeWidth={1.75} />}
+        </button>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand summary' : 'Collapse summary'}
+          title={collapsed ? 'Expand summary' : 'Collapse summary'}
+          className={iconBtn}
+        >
+          <ChevronDown size={15} strokeWidth={1.75} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+        </button>
+      </div>
+
+      {collapsed ? (
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="flex h-11 w-full items-center px-4 text-left text-[13px] text-ink-3 hover:text-ink-2 sm:px-6"
+        >
+          Summary hidden
+        </button>
+      ) : (
+        <div
+          className={`grid grid-cols-2 gap-x-6 gap-y-7 px-4 py-6 transition-opacity sm:grid-cols-3 sm:px-6 lg:grid-cols-5 lg:gap-x-10 ${
+            dim ? 'opacity-50' : ''
+          }`}
+        >
+          {children}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -27,18 +66,33 @@ export function Stat({
   trend?: 'up' | 'down';
   visual?: ReactNode;
 }) {
+  const { hideNumbers } = usePrivacy();
   return (
     <div className="min-w-0">
-      <p className="flex items-center gap-1.5 truncate text-[14.5px] text-ink">
+      <p className="flex items-center gap-1.5 truncate pr-6 text-[14.5px] text-ink">
         {label}
-        {trend === 'up' && <ArrowUpRight size={14} strokeWidth={2} className="text-[#2e7d32]" aria-label="up" />}
-        {trend === 'down' && <ArrowDownRight size={14} strokeWidth={2} className="text-[#b42318]" aria-label="down" />}
+        {!hideNumbers && trend === 'up' && <ArrowUpRight size={14} strokeWidth={2} className="text-[#2e7d32]" aria-label="up" />}
+        {!hideNumbers && trend === 'down' && <ArrowDownRight size={14} strokeWidth={2} className="text-[#b42318]" aria-label="down" />}
       </p>
-      <p className="mt-3 flex items-start gap-1.5">
-        <span className="text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[30px]">{value}</span>
-        {suffix && <span className="mt-0.5 whitespace-nowrap text-[11.5px] text-ink-3">{suffix}</span>}
-      </p>
-      <div className="mt-5 h-8">{visual}</div>
+      {hideNumbers ? (
+        <>
+          {/* Same height as the real value, so the layout doesn't jump when toggled. */}
+          <p className="mt-3 text-[28px] leading-none tracking-[0.12em] text-ink-4 sm:text-[30px]" aria-label="Hidden">
+            ••••
+          </p>
+          <div className="mt-5 flex h-8 items-center">
+            <span className="h-px w-full max-w-[220px] bg-line" />
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 flex items-start gap-1.5">
+            <span className="text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[30px]">{value}</span>
+            {suffix && <span className="mt-0.5 whitespace-nowrap text-[11.5px] text-ink-3">{suffix}</span>}
+          </p>
+          <div className="mt-5 h-8">{visual}</div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
@@ -92,5 +93,27 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
 export async function getInvoice(shopId: number, id: number) {
   const invoice = await repo.findInvoice(pool, shopId, id);
   if (!invoice) throw notFound('Invoice');
-  return invoice;
+  return { ...invoice, shares: await repo.listShares(pool, id) };
+}
+
+/** 144 random bits, URL-safe. Unguessable, so the link itself is the permission. */
+const newShareToken = () => randomBytes(18).toString('base64url');
+
+export async function getShareToken(shopId: number, id: number) {
+  const token = await repo.ensureShareToken(pool, shopId, id, newShareToken());
+  if (!token) throw notFound('Invoice');
+  return token;
+}
+
+export async function recordShare(
+  shopId: number,
+  userId: number,
+  id: number,
+  channel: repo.ShareChannel,
+  recipient: string | null,
+) {
+  const invoice = await repo.findInvoice(pool, shopId, id);
+  if (!invoice) throw notFound('Invoice');
+  await repo.logShare(pool, { shopId, invoiceId: id, channel, recipient, userId });
+  return repo.listShares(pool, id);
 }

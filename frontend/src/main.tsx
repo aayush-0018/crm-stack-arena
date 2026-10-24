@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { PrivacyProvider } from './context/PrivacyContext';
 import { ToastProvider } from './context/ToastContext';
 import '@fontsource-variable/inter';
 import './index.css';
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <App />
+          <PrivacyProvider>
+            <App />
+          </PrivacyProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>

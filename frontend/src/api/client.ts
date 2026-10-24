@@ -53,6 +53,9 @@ type Query = Record<string, string | number | undefined | null>;
 // In production this is the deployed API's origin, set via VITE_API_URL at build time.
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 
+/** Origin that serves /api — the deployed API in production, this site in development. */
+export const apiOrigin = () => API_BASE || window.location.origin;
+
 function buildUrl(path: string, query?: Query) {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(query ?? {})) {

@@ -1,14 +1,16 @@
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, Send } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { invoicesApi } from '../../api/endpoints';
 import InvoiceView from '../../components/invoices/InvoiceView';
+import SendInvoiceModal from '../../components/invoices/SendInvoiceModal';
 import BackButton from '../../components/ui/BackButton';
 import { InvoiceBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
 import { Alert, EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
+import { formatDateTime } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 
 export default function InvoicePreviewPage() {
@@ -16,6 +18,7 @@ export default function InvoicePreviewPage() {
   const invoice = useAsync(() => invoicesApi.get(id), [id]);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
 
   if (invoice.loading && !invoice.data) return <LoadingState label="Loading invoice…" />;
   if (invoice.error || !invoice.data) {
@@ -63,11 +66,21 @@ export default function InvoicePreviewPage() {
             <ButtonLink to={`/orders/${inv.orderId}`} variant="ghost">
               Order {inv.orderSnapshot.orderNumber}
             </ButtonLink>
+            {inv.shares[0] && (
+              <span className="hidden text-[12.5px] text-ink-3 lg:inline">Sent {formatDateTime(inv.shares[0].createdAt)}</span>
+            )}
             <Button variant="secondary" onClick={() => window.print()}>
               <Printer size={15} /> Print
             </Button>
-            <Button onClick={downloadPdf} loading={pdfBusy}>
-              <Download size={15} /> Download PDF
+            <Button variant="secondary" onClick={downloadPdf} loading={pdfBusy}>
+              <Download size={15} /> PDF
+            </Button>
+            <Button
+              onClick={() => setSendOpen(true)}
+              disabled={inv.status !== 'issued'}
+              title={inv.status !== 'issued' ? `This invoice is ${inv.status}` : undefined}
+            >
+              <Send size={15} /> Send to customer
             </Button>
           </>
         }
@@ -98,6 +111,15 @@ export default function InvoicePreviewPage() {
       <div className="print-plain bg-[#fafaf8] px-3 py-6 sm:px-8 sm:py-10">
         <InvoiceView invoice={inv} />
       </div>
+
+      <SendInvoiceModal
+        invoiceId={inv.id}
+        open={sendOpen}
+        onClose={() => {
+          setSendOpen(false);
+          invoice.reload(); // refresh the "Sent …" note
+        }}
+      />
     </>
   );
 }

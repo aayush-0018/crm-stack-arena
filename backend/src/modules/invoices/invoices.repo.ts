@@ -26,6 +26,15 @@ export interface Invoice extends InvoiceSummary {
   discountPaise: number;
   amountPaidPaise: number;
   paymentStatus: PaymentStatus;
+  shareToken: string | null;
+}
+
+export type ShareChannel = 'whatsapp' | 'email' | 'share' | 'link' | 'download';
+
+export interface InvoiceShare {
+  channel: ShareChannel;
+  recipient: string | null;
+  createdAt: string;
 }
 
 const SUMMARY_COLS = `i.id, i.order_id AS "orderId", i.invoice_number AS "invoiceNumber", i.revision, i.status,
@@ -34,7 +43,8 @@ const SUMMARY_COLS = `i.id, i.order_id AS "orderId", i.invoice_number AS "invoic
 
 const FULL_COLS = `${SUMMARY_COLS}, i.shop_snapshot AS "shopSnapshot", i.customer_snapshot AS "customerSnapshot",
   i.order_snapshot AS "orderSnapshot", i.items_snapshot AS "itemsSnapshot", i.subtotal_paise AS "subtotalPaise",
-  i.discount_paise AS "discountPaise", i.amount_paid_paise AS "amountPaidPaise", i.payment_status AS "paymentStatus"`;
+  i.discount_paise AS "discountPaise", i.amount_paid_paise AS "amountPaidPaise", i.payment_status AS "paymentStatus",
+  i.share_token AS "shareToken"`;
 
 export async function latestInvoiceForOrder(db: Db, orderId: number): Promise<InvoiceSummary | null> {
   const { rows } = await db.query(
@@ -70,7 +80,7 @@ export async function voidIssuedInvoice(db: Db, orderId: number) {
 
 export async function insertInvoice(
   db: Db,
-  inv: Omit<Invoice, 'id' | 'status' | 'issuedAt'> & { shopId: number; createdBy: number },
+  inv: Omit<Invoice, 'id' | 'status' | 'issuedAt' | 'shareToken'> & { shopId: number; createdBy: number },
 ): Promise<number> {
   const { rows } = await db.query(
     `INSERT INTO invoices (shop_id, order_id, invoice_number, revision, order_version, invoice_date,
@@ -151,4 +161,39 @@ export async function invoicesSummary(db: Db, shopId: number) {
     ),
   ]);
   return { ...totals.rows[0], daily: daily.rows };
+}
+
+/** Returns the invoice's share token, creating one on first use. */
+export async function ensureShareToken(db: Db, shopId: number, id: number, fresh: string): Promise<string | null> {
+  const { rows } = await db.query(
+    `UPDATE invoices SET share_token = COALESCE(share_token, $3)
+     WHERE shop_id = $1 AND id = $2 RETURNING share_token AS "shareToken"`,
+    [shopId, id, fresh],
+  );
+  return rows[0]?.shareToken ?? null;
+}
+
+/** Public lookup: the token itself is the authorisation, so there is no shop scope. */
+export async function findInvoiceByShareToken(db: Db, token: string): Promise<Invoice | null> {
+  const { rows } = await db.query(`SELECT ${FULL_COLS} FROM invoices i WHERE i.share_token = $1`, [token]);
+  return rows[0] ?? null;
+}
+
+export async function logShare(
+  db: Db,
+  s: { shopId: number; invoiceId: number; channel: ShareChannel; recipient: string | null; userId: number },
+) {
+  await db.query(
+    `INSERT INTO invoice_shares (shop_id, invoice_id, channel, recipient, shared_by) VALUES ($1, $2, $3, $4, $5)`,
+    [s.shopId, s.invoiceId, s.channel, s.recipient, s.userId],
+  );
+}
+
+export async function listShares(db: Db, invoiceId: number): Promise<InvoiceShare[]> {
+  const { rows } = await db.query(
+    `SELECT channel, recipient, created_at AS "createdAt" FROM invoice_shares
+     WHERE invoice_id = $1 ORDER BY created_at DESC LIMIT 10`,
+    [invoiceId],
+  );
+  return rows;
 }

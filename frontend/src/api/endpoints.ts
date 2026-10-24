@@ -9,6 +9,7 @@ import type {
   Invoice,
   InvoiceListItem,
   InvoicesSummary,
+  InvoiceShare,
   InvoiceStatus,
   Order,
   OrderListItem,
@@ -16,6 +17,7 @@ import type {
   Paged,
   PaymentStatus,
   Session,
+  ShareChannel,
   Shop,
   User,
 } from '../types';
@@ -110,6 +112,9 @@ export const invoicesApi = {
     api.get<Paged<InvoiceListItem>>('/invoices', q),
   summary: () => api.get<InvoicesSummary>('/invoices/summary'),
   pdf: (id: number | string) => api.blob(`/invoices/${id}/pdf`),
+  shareLink: (id: number | string) => api.post<{ token: string }>(`/invoices/${id}/share-link`),
+  logShare: (id: number | string, channel: ShareChannel, recipient?: string | null) =>
+    api.post<InvoiceShare[]>(`/invoices/${id}/shares`, { channel, recipient: recipient ?? null }),
 };
 
 export const dashboardApi = {

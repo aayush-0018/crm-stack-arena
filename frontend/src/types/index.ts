@@ -164,6 +164,16 @@ export interface Invoice {
   totalPaise: number;
   amountPaidPaise: number;
   paymentStatus: PaymentStatus;
+  shareToken: string | null;
+  shares: InvoiceShare[];
+}
+
+export type ShareChannel = 'whatsapp' | 'email' | 'share' | 'link' | 'download';
+
+export interface InvoiceShare {
+  channel: ShareChannel;
+  recipient: string | null;
+  createdAt: string;
 }
 
 export interface DashboardSummary {

@@ -293,6 +293,38 @@ Work through the real flow, not just the home page.
 
 ---
 
+## Schema updates after the first deploy
+
+Render never runs migrations — it only builds and starts the API. When a new file lands in `backend/db/migrations/`, run it against Supabase from your Mac **before** pushing the code that depends on it:
+
+```bash
+cd backend
+DATABASE_URL="<session-pooler-string>" ALLOW_REMOTE_DB=true DATABASE_SSL=true npm run migrate
+```
+
+The runner skips files already applied, so it's safe to run any time.
+
+| Migration | Adds | Needed by |
+|---|---|---|
+| `001_init.sql` | All core tables | Everything |
+| `002_invoice_sharing.sql` | `invoices.share_token` column, `invoice_shares` table | "Send invoice" — without it, sending fails with a 500 |
+
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares` too.
+
+### Invoice links in production
+
+"Send invoice" gives each invoice a private link of the form:
+
+```
+https://crm-stack-arena.onrender.com/api/public/invoices/<random-token>/pdf
+```
+
+- The link opens that **one** invoice's PDF without a login. The 24-character random token is the permission; it can't be guessed and unlocks nothing else.
+- It's served by Render, so a customer opening it on a cold morning waits for the ~60s wake-up like everyone else.
+- Locally the link points at `localhost`, which only works on your own computer — the send dialog warns about this.
+
+---
+
 ## What this costs
 
 ₹0/month. No credit card is needed for any of the three.

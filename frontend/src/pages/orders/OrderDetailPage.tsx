@@ -1,10 +1,11 @@
-import { AtSign, Calendar, FileText, IndianRupee, MapPin, Pencil, Phone, Tag } from 'lucide-react';
+import { AtSign, Calendar, FileText, IndianRupee, MapPin, Pencil, Phone, Send, Tag } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { invoicesApi, ordersApi } from '../../api/endpoints';
 import { Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import MessageComposer from '../../components/customers/MessageComposer';
+import SendInvoiceModal from '../../components/invoices/SendInvoiceModal';
 import Avatar from '../../components/ui/Avatar';
 import BackButton from '../../components/ui/BackButton';
 import { InvoiceBadge, ORDER_STATUS_LABEL, PaymentBadge, StatusBadge } from '../../components/ui/Badge';
@@ -34,6 +35,7 @@ export default function OrderDetailPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [composing, setComposing] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   if (order.loading && !order.data) return <LoadingState />;
   if (order.error || !order.data) {
@@ -81,9 +83,14 @@ export default function OrderDetailPage() {
   };
 
   const invoiceAction = cancelled ? null : liveInvoice && !liveInvoice.outdated ? (
-    <ButtonLink to={`/invoices/${liveInvoice.id}`}>
-      <FileText size={15} /> View invoice
-    </ButtonLink>
+    <>
+      <ButtonLink to={`/invoices/${liveInvoice.id}`} variant="secondary">
+        <FileText size={15} /> View invoice
+      </ButtonLink>
+      <Button onClick={() => setSendOpen(true)}>
+        <Send size={15} /> Send invoice
+      </Button>
+    </>
   ) : liveInvoice?.outdated ? (
     <Button onClick={() => generate(true)} loading={invoiceBusy}>
       <FileText size={15} /> Reissue invoice
@@ -302,6 +309,10 @@ export default function OrderDetailPage() {
         onConfirm={() => changeStatus('cancelled')}
         message={liveInvoice ? `Invoice ${liveInvoice.invoiceNumber} will be marked void.` : 'The order will be marked cancelled. You can reopen it later.'}
       />
+
+      {liveInvoice && (
+        <SendInvoiceModal invoiceId={liveInvoice.id} outdated={liveInvoice.outdated} open={sendOpen} onClose={() => setSendOpen(false)} />
+      )}
 
       <PaymentModal
         open={paymentOpen}

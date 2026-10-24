@@ -8,7 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
-import { invoicesRouter } from './modules/invoices/invoices.routes';
+import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoices.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
 import { shopRouter } from './modules/shop/shop.routes';
 
@@ -28,6 +28,7 @@ app.get(
 );
 
 app.use('/api/auth', authRouter);
+app.use('/api/public', publicInvoicesRouter);
 
 app.use('/api', requireAuth);
 app.use('/api/shop', shopRouter);
