@@ -49,13 +49,17 @@ export const setUnauthorizedHandler = (fn: (() => void) | null) => {
 
 type Query = Record<string, string | number | undefined | null>;
 
+// Empty in development, where Vite proxies /api to the local backend.
+// In production this is the deployed API's origin, set via VITE_API_URL at build time.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+
 function buildUrl(path: string, query?: Query) {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
   }
   const s = qs.toString();
-  return `/api${path}${s ? `?${s}` : ''}`;
+  return `${API_BASE}/api${path}${s ? `?${s}` : ''}`;
 }
 
 async function send(method: string, path: string, opts: { body?: unknown; query?: Query } = {}) {

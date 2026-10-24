@@ -15,7 +15,8 @@ import { shopRouter } from './modules/shop/shop.routes';
 export const app = express();
 
 app.disable('x-powered-by');
-app.use(cors({ origin: env.CORS_ORIGIN }));
+// Comma-separated, so production and Vercel preview URLs can both be allowed.
+app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()) }));
 app.use(express.json({ limit: '100kb' }));
 
 app.get(
