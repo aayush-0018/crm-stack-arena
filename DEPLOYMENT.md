@@ -8,7 +8,15 @@ Moving the CRM from "runs only on this Mac" to a public URL, on free tiers.
 | Backend API (Express) | **Render** | Free web service |
 | Database (Postgres) | **Supabase** | Free |
 
+Repo: **`github.com/aayush-0018/crm-stack-arena`** (branch `main`) — both Render and Vercel deploy from it.
+
 The app currently refuses to run anywhere but localhost — that was deliberate. Phase 2 below makes that a setting instead of a hard rule, so local development keeps working exactly as it does today.
+
+### Why Supabase and not Render's own Postgres
+
+Render does offer a managed Postgres, and putting it beside the API would be simpler. But **Render's free database is deleted after 30 days.** Per their docs it expires 30 days after creation, then gives a 14-day grace period to move to a paid plan, after which the database and all its data are removed. You also get one free database per account.
+
+So Render Postgres means either losing everything in a month, or paying ~$6–7/month. Supabase free has no expiry — its only idle behaviour is pausing after a week, which a click resumes. That's the whole reason the database sits at a different provider.
 
 ---
 
@@ -27,21 +35,12 @@ The app currently refuses to run anywhere but localhost — that was deliberate.
 
 ## Prerequisites
 
-- [ ] **A GitHub repository.** There isn't one yet — `git init` has never been run here. Render and Vercel both deploy by watching a Git repo, so this is a hard blocker.
-- [ ] A GitHub account, a Render account, a Vercel account, a Supabase account. All four sign up free with GitHub.
-- [ ] `psql` on your Mac (already installed).
+- [x] **GitHub repository** — `aayush-0018/crm-stack-arena`, branch `main`, 123 files pushed.
+- [x] **`backend/.env` is not committed.** Verified: it's untracked, so your local JWT secret stays off GitHub. Keep it that way — every secret goes in the Render dashboard, never in the repo.
+- [ ] Render account, Vercel account, Supabase account. All three sign up free with GitHub, no card.
+- [x] `psql` on your Mac.
 
-```bash
-cd /Users/aayushgoswami/Documents/startup
-git init
-git add .
-git commit -m "Shop CRM: customers, orders, invoices, analytics"
-# create an empty repo on github.com, then:
-git remote add origin git@github.com:<you>/shop-crm.git
-git push -u origin main
-```
-
-**Check before pushing:** `backend/.env` holds your local JWT secret and must not be committed. It is already in `backend/.gitignore`. Confirm with `git status` that `.env` is not listed.
+Push any further changes before deploying — Render and Vercel build from what's on `main`, not from your working copy.
 
 ---
 
