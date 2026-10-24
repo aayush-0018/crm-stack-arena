@@ -11,9 +11,18 @@ export async function nextSeq(db: Db, shopId: number, kind: 'order' | 'invoice')
   return rows[0].seq;
 }
 
-export const formatOrderNumber = (seq: number) => `ORD-${String(seq).padStart(6, '0')}`;
-export const formatInvoiceNumber = (year: string, seq: number) =>
-  `INV-${year}-${String(seq).padStart(6, '0')}`;
+const withCode = (code?: string | null) => (code ? `${code}-` : '');
+
+export const formatOrderNumber = (seq: number, code?: string | null) =>
+  `ORD-${withCode(code)}${String(seq).padStart(6, '0')}`;
+export const formatInvoiceNumber = (year: string, seq: number, code?: string | null) =>
+  `INV-${withCode(code)}${year}-${String(seq).padStart(6, '0')}`;
+
+/** The branch's short code (e.g. "JPR"), printed in new order and invoice numbers. */
+export async function branchCode(db: Db, shopId: number): Promise<string | null> {
+  const { rows } = await db.query(`SELECT code FROM shops WHERE id = $1`, [shopId]);
+  return rows[0]?.code ?? null;
+}
 
 /** Today's date in India as 'YYYY-MM-DD'. */
 export async function todayIST(db: Db): Promise<string> {

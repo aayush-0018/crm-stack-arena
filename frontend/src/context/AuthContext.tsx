@@ -12,6 +12,7 @@ interface AuthValue {
   signIn: (session: Session) => void;
   logout: () => void;
   setShop: (shop: Shop) => void;
+  switchBranch: (shopId: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -55,9 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated');
   }, []);
 
+  // New token scoped to the other branch; every page re-fetches because the shop id changes.
+  const switchBranch = useCallback(async (shopId: number) => signIn(await authApi.switchBranch(shopId)), [signIn]);
+
   const value = useMemo(
-    () => ({ status, user, shop, signIn, logout, setShop }),
-    [status, user, shop, signIn, logout],
+    () => ({ status, user, shop, signIn, logout, setShop, switchBranch }),
+    [status, user, shop, signIn, logout, switchBranch],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

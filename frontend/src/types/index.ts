@@ -29,6 +29,15 @@ export interface Shop {
   state: string | null;
   pincode: string | null;
   gstin: string | null;
+  code: string | null;
+}
+
+export interface Branch {
+  id: number;
+  name: string;
+  code: string | null;
+  city: string | null;
+  role: 'owner' | 'staff';
 }
 
 export interface Session {

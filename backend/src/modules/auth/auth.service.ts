@@ -10,6 +10,17 @@ import { loginSchema, registerSchema } from './auth.schemas';
 const BCRYPT_COST = 12;
 const USER_COLS = `id, shop_id AS "shopId", name, email, role`;
 
+/** The user as seen inside one branch: role comes from that branch's membership. */
+async function userInBranch(userId: number, shopId: number) {
+  const { rows } = await pool.query(
+    `SELECT u.id, m.shop_id AS "shopId", u.name, u.email, m.role
+     FROM users u JOIN shop_members m ON m.user_id = u.id
+     WHERE u.id = $1 AND m.shop_id = $2`,
+    [userId, shopId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function register(input: z.infer<typeof registerSchema>) {
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
 
@@ -28,6 +39,7 @@ export async function register(input: z.infer<typeof registerSchema>) {
        VALUES ($1, $2, $3, $4, 'owner') RETURNING ${USER_COLS}`,
       [shopId, input.name, input.email, passwordHash],
     );
+    await c.query(`INSERT INTO shop_members (user_id, shop_id, role) VALUES ($1, $2, 'owner')`, [u.rows[0].id, shopId]);
     return u.rows[0];
   });
 
@@ -42,20 +54,33 @@ export async function login(input: z.infer<typeof loginSchema>) {
   const row = rows[0];
   const ok = row ? await bcrypt.compare(input.password, row.passwordHash) : false;
   if (!ok) throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-  const { passwordHash: _omit, ...user } = row;
+  // Open the branch used last; fall back to the first branch they belong to.
+  const branch = await pool.query(
+    `SELECT shop_id FROM shop_members WHERE user_id = $1 ORDER BY (shop_id = $2) DESC, created_at LIMIT 1`,
+    [row.id, row.shopId],
+  );
+  if (!branch.rows[0]) throw new AppError(403, 'NO_BRANCH', 'This account has no branch to open');
+  return session({ id: row.id, shopId: branch.rows[0].shop_id });
+}
+
+/** Re-issues the session for another branch the user belongs to. */
+export async function switchBranch(userId: number, shopId: number) {
+  const user = await userInBranch(userId, shopId);
+  if (!user) throw new AppError(404, 'NOT_FOUND', 'Branch not found');
+  await pool.query(`UPDATE users SET shop_id = $2, updated_at = now() WHERE id = $1`, [userId, shopId]);
   return session(user);
 }
 
 export async function me(userId: number, shopId: number) {
-  const { rows } = await pool.query(`SELECT ${USER_COLS} FROM users WHERE id = $1 AND shop_id = $2`, [
-    userId,
-    shopId,
-  ]);
-  if (!rows[0]) throw new AppError(401, 'UNAUTHENTICATED', 'Please log in');
-  return { user: rows[0], shop: await findShop(pool, shopId) };
+  // Checks membership, not users.shop_id, so two tabs on different branches both stay signed in.
+  const user = await userInBranch(userId, shopId);
+  if (!user) throw new AppError(401, 'UNAUTHENTICATED', 'Please log in');
+  return { user, shop: await findShop(pool, shopId) };
 }
 
-async function session(user: { id: number; shopId: number }) {
+async function session(u: { id: number; shopId: number }) {
+  const user = await userInBranch(u.id, u.shopId);
+  if (!user) throw new AppError(403, 'NO_BRANCH', 'This account has no access to that branch');
   return {
     token: signToken(user.id, user.shopId),
     user,

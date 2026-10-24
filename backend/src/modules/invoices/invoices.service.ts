@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
-import { formatInvoiceNumber, nextSeq, todayIST } from '../../lib/numbering';
+import { branchCode, formatInvoiceNumber, nextSeq, todayIST } from '../../lib/numbering';
 import { findCustomer } from '../customers/customers.repo';
 import { findItems, findOrder } from '../orders/orders.repo';
 import { findShop } from '../shop/shop.repo';
@@ -41,7 +41,7 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
       const invoiceDate = await todayIST(c);
       const invoiceNumber = latest
         ? latest.invoiceNumber
-        : formatInvoiceNumber(invoiceDate.slice(0, 4), await nextSeq(c, shopId, 'invoice'));
+        : formatInvoiceNumber(invoiceDate.slice(0, 4), await nextSeq(c, shopId, 'invoice'), await branchCode(c, shopId));
 
       // Sequential: a single transaction client runs one query at a time.
       const shop = await findShop(c, shopId);

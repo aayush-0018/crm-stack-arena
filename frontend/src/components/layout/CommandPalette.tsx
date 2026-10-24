@@ -1,10 +1,11 @@
-import { ArrowLeftRight, ChartLine, Contact, FileText, LayoutGrid, Plus, Search, Settings, UserPlus } from 'lucide-react';
+import { ArrowLeftRight, ChartLine, Store, Contact, FileText, LayoutGrid, Plus, Search, Settings, UserPlus } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersApi, ordersApi } from '../../api/endpoints';
 import { useDebounced } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
 import Avatar from '../ui/Avatar';
+import { useBranches } from './BranchSwitcher';
 
 interface Item {
   id: string;
@@ -23,6 +24,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const [results, setResults] = useState<Item[]>([]);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { branches, reload: reloadBranches, open: openBranch, currentId } = useBranches();
 
   const go = (path: string) => () => {
     navigate(path);
@@ -48,7 +50,9 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     if (!open) return;
     setQ('');
     setActive(0);
+    reloadBranches();
     setTimeout(() => inputRef.current?.focus());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -87,7 +91,24 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   }, [debounced, open]);
 
   const needle = q.trim().toLowerCase();
-  const items = [...actions.filter((a) => !needle || a.label.toLowerCase().includes(needle)), ...results];
+  const branchItems: Item[] = branches
+    .filter((b) => b.id !== currentId)
+    .map((b) => ({
+      id: `b-${b.id}`,
+      group: 'Switch branch',
+      label: b.name,
+      hint: b.code ?? b.city ?? undefined,
+      icon: <Store size={16} />,
+      run: () => {
+        onClose();
+        openBranch(b);
+      },
+    }));
+  const items = [
+    ...actions.filter((a) => !needle || a.label.toLowerCase().includes(needle)),
+    ...branchItems.filter((b) => !needle || `${b.label} ${b.hint ?? ''} branch`.toLowerCase().includes(needle)),
+    ...results,
+  ];
 
   useEffect(() => setActive(0), [q, results.length]);
 

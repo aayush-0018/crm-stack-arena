@@ -1,7 +1,7 @@
 import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
-import { formatOrderNumber, nextSeq } from '../../lib/numbering';
+import { branchCode, formatOrderNumber, nextSeq } from '../../lib/numbering';
 import { findCustomer } from '../customers/customers.repo';
 import { createCustomer } from '../customers/customers.service';
 import { latestInvoiceForOrder, voidIssuedInvoice } from '../invoices/invoices.repo';
@@ -62,7 +62,7 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
       const id = await repo.insertOrder(c, {
         shopId,
         customerId: customerId!,
-        orderNumber: formatOrderNumber(seq),
+        orderNumber: formatOrderNumber(seq, await branchCode(c, shopId)),
         totals,
         notes: input.notes,
         orderDate: input.orderDate,

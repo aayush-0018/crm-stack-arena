@@ -22,12 +22,13 @@ const toValues = (s: Shop | null): Values => ({
   state: s?.state ?? '',
   pincode: s?.pincode ?? '',
   gstin: s?.gstin ?? '',
+  code: s?.code ?? '',
 });
 
 export default function SettingsPage() {
   const { shop, setShop } = useAuth();
   const toast = useToast();
-  const welcome = (useLocation().state as { welcome?: boolean } | null)?.welcome;
+  const welcome = (useLocation().state as { welcome?: boolean | 'branch' } | null)?.welcome;
   const [values, setValues] = useState<Values>(toValues(shop));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function SettingsPage() {
         state: blankToNull(values.state),
         pincode: blankToNull(values.pincode),
         gstin: blankToNull(values.gstin),
+        code: blankToNull(values.code.toUpperCase()),
       });
       setShop(updated);
       toast('success', 'Shop details saved');
@@ -74,7 +76,11 @@ export default function SettingsPage() {
       <div className="max-w-3xl px-4 py-6 sm:px-6">
       {welcome && (
         <div className="mb-4">
-          <Alert tone="success">Your shop is ready. Add your address and phone so they appear on invoices.</Alert>
+          <Alert tone="success">
+            {welcome === 'branch'
+              ? 'Your new branch is ready. Add its address and phone so they appear on its invoices.'
+              : 'Your shop is ready. Add your address and phone so they appear on invoices.'}
+          </Alert>
         </div>
       )}
       <Card title="Shop details" actions={<span className="text-[12.5px] text-ink-3">Printed on new invoices</span>}>
@@ -82,6 +88,14 @@ export default function SettingsPage() {
           {formError && <Alert tone="error">{formError}</Alert>}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Shop name" required value={values.name} onChange={set('name')} error={errors.name} />
+            <TextField
+              label="Branch code"
+              value={values.code}
+              maxLength={6}
+              onChange={(e) => setValues({ ...values, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
+              error={errors.code}
+              hint={values.code ? `New invoices: INV-${values.code}-2026-000001` : 'Optional. Keeps invoice numbers unique across branches.'}
+            />
             <TextField label="Phone" inputMode="tel" value={values.phone} onChange={set('phone')} error={errors.phone} />
             <TextField label="Email" type="email" value={values.email} onChange={set('email')} error={errors.email} />
             <TextField label="GSTIN" value={values.gstin} onChange={set('gstin')} error={errors.gstin} hint="Optional, 15 characters" />

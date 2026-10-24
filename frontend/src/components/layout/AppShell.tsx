@@ -1,7 +1,6 @@
 import {
   ArrowLeftRight,
   ChartLine,
-  ChevronDown,
   Contact,
   FileText,
   LayoutGrid,
@@ -10,7 +9,6 @@ import {
   Plus,
   Settings,
   SlidersHorizontal,
-  Store,
   UserPlus,
   Zap,
 } from 'lucide-react';
@@ -20,6 +18,7 @@ import { dashboardApi, invoicesApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
+import BranchSwitcher from './BranchSwitcher';
 import CommandPalette from './CommandPalette';
 
 const ICON = { size: 17, strokeWidth: 1.6 };
@@ -66,7 +65,7 @@ export default function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, shop?.id]);
 
   useEffect(() => setMenuOpen(false), [pathname]);
 
@@ -90,30 +89,7 @@ export default function AppShell() {
 
   const sidebar = (
     <div className="flex h-full flex-col px-3 pb-3 pt-4">
-      <Popover
-        width={240}
-        trigger={({ toggle }) => (
-          <button type="button" onClick={toggle} className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left hover:bg-hover">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-ink text-white">
-              <Store size={16} strokeWidth={1.8} />
-            </span>
-            <span className="truncate text-[16px] font-semibold text-ink">{shop?.name ?? 'Shop'}</span>
-            <ChevronDown size={15} className="shrink-0 text-ink-2" />
-          </button>
-        )}
-      >
-        {(close) => (
-          <>
-            <div className="px-2 py-1.5">
-              <p className="text-[13.5px] font-medium">{shop?.name}</p>
-              <p className="text-[12px] text-ink-3">{[shop?.city, shop?.state].filter(Boolean).join(', ') || 'Shop'}</p>
-            </div>
-            <MenuItem icon={<Settings size={15} />} onClick={() => { close(); navigate('/settings'); }}>
-              Shop settings
-            </MenuItem>
-          </>
-        )}
-      </Popover>
+      <BranchSwitcher />
 
       <button
         type="button"
@@ -195,7 +171,8 @@ export default function AppShell() {
           </button>
         </header>
         <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-white md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
-          <Outlet />
+          {/* Keyed by branch: switching remounts every page, so nothing from the old branch lingers. */}
+          <Outlet key={shop?.id} />
         </main>
       </div>
 

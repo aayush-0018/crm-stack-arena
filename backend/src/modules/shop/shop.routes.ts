@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
-import { notFound } from '../../lib/errors';
+import { withTransaction } from '../../db/tx';
+import { AppError, notFound } from '../../lib/errors';
 import { auth } from '../../middleware/auth';
-import { findShop, SHOP_COLS } from './shop.repo';
-import { updateShopSchema } from './shop.schemas';
+import { codeTakenByOtherBranch, findShop, listBranches, membershipRole, SHOP_COLS } from './shop.repo';
+import { createBranchSchema, updateShopSchema } from './shop.schemas';
 
 export const shopRouter = Router();
 
@@ -21,13 +22,53 @@ shopRouter.put(
   '/',
   ah(async (req, res) => {
     const b = updateShopSchema.parse(req.body);
+    const { userId, shopId } = auth(req);
+    if (b.code && (await codeTakenByOtherBranch(pool, userId, b.code, shopId))) throw codeTaken();
     const { rows } = await pool.query(
       `UPDATE shops SET name = $2, phone = $3, email = $4, address_line1 = $5, address_line2 = $6,
-         city = $7, state = $8, pincode = $9, gstin = $10, updated_at = now()
+         city = $7, state = $8, pincode = $9, gstin = $10, code = $11, updated_at = now()
        WHERE id = $1 RETURNING ${SHOP_COLS}`,
-      [auth(req).shopId, b.name, b.phone, b.email, b.addressLine1, b.addressLine2, b.city, b.state, b.pincode, b.gstin],
+      [shopId, b.name, b.phone, b.email, b.addressLine1, b.addressLine2, b.city, b.state, b.pincode, b.gstin, b.code],
     );
     if (!rows[0]) throw notFound('Shop');
     res.json(rows[0]);
+  }),
+);
+
+const codeTaken = () =>
+  new AppError(409, 'CODE_TAKEN', 'Another of your branches already uses this code', {
+    code: 'Another of your branches already uses this code',
+  });
+
+/** Branches: every branch is a separate shop with its own data. */
+export const branchesRouter = Router();
+
+branchesRouter.get(
+  '/',
+  ah(async (req, res) => {
+    res.json(await listBranches(pool, auth(req).userId));
+  }),
+);
+
+branchesRouter.post(
+  '/',
+  ah(async (req, res) => {
+    const { userId, shopId } = auth(req);
+    if ((await membershipRole(pool, userId, shopId)) !== 'owner') {
+      throw new AppError(403, 'FORBIDDEN', 'Only an owner can add branches');
+    }
+    const b = createBranchSchema.parse(req.body);
+    if (b.code && (await codeTakenByOtherBranch(pool, userId, b.code))) throw codeTaken();
+
+    const branch = await withTransaction(async (c) => {
+      const { rows } = await c.query(
+        `INSERT INTO shops (name, code, city, phone) VALUES ($1, $2, $3, $4) RETURNING id, name, code, city`,
+        [b.name, b.code, b.city, b.phone],
+      );
+      await c.query(`INSERT INTO shop_counters (shop_id) VALUES ($1)`, [rows[0].id]);
+      await c.query(`INSERT INTO shop_members (user_id, shop_id, role) VALUES ($1, $2, 'owner')`, [userId, rows[0].id]);
+      return { ...rows[0], role: 'owner' as const };
+    });
+    res.status(201).json(branch);
   }),
 );

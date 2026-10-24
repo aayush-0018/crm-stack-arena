@@ -308,8 +308,17 @@ The runner skips files already applied, so it's safe to run any time.
 |---|---|---|
 | `001_init.sql` | All core tables | Everything |
 | `002_invoice_sharing.sql` | `invoices.share_token` column, `invoice_shares` table | "Send invoice" — without it, sending fails with a 500 |
+| `003_branches.sql` | `shop_members` table (backfilled from existing users), `shops.code` | Branches — **without it, nobody can log in** |
+| `004_last_branch_set_null.sql` | Deleting a branch no longer deletes users whose last-opened branch it was | Safety fix for 003 — run together |
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares` too.
+**Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
+
+```bash
+psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
+psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
+```
+
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares` and `shop_members` too.
 
 ### Invoice links in production
 

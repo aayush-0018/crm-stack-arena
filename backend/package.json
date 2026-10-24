@@ -8,6 +8,7 @@
     "start": "node dist/src/server.js",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
+    "set-password": "tsx scripts/set-password.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

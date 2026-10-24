@@ -1,5 +1,6 @@
 import type {
   Analytics,
+  Branch,
   AnalyticsDays,
   Customer,
   CustomerDetail,
@@ -28,6 +29,13 @@ export const authApi = {
   register: (body: { shopName: string; name: string; email: string; password: string }) =>
     api.post<Session>('/auth/register', body),
   me: () => api.get<{ user: User; shop: Shop }>('/auth/me'),
+  switchBranch: (shopId: number) => api.post<Session>('/auth/switch-branch', { shopId }),
+};
+
+export const branchesApi = {
+  list: () => api.get<Branch[]>('/branches'),
+  create: (body: { name: string; code: string | null; city: string | null; phone: string | null }) =>
+    api.post<Branch>('/branches', body),
 };
 
 export const shopApi = {

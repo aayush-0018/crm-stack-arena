@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { ah } from '../../lib/asyncHandler';
 import { auth, requireAuth } from '../../middleware/auth';
 import { loginSchema, registerSchema } from './auth.schemas';
@@ -26,5 +27,14 @@ authRouter.get(
   ah(async (req, res) => {
     const { userId, shopId } = auth(req);
     res.json(await service.me(userId, shopId));
+  }),
+);
+
+authRouter.post(
+  '/switch-branch',
+  requireAuth,
+  ah(async (req, res) => {
+    const { shopId } = z.object({ shopId: z.coerce.number().int().positive() }).parse(req.body);
+    res.json(await service.switchBranch(auth(req).userId, shopId));
   }),
 );
