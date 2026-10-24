@@ -1,0 +1,55 @@
+import { Db, pool } from '../../db/pool';
+import { withTransaction } from '../../db/tx';
+import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
+import * as repo from './customers.repo';
+import { CustomerInput } from './customers.schemas';
+
+function phoneExists(existingCustomerId: number) {
+  return new AppError(409, 'PHONE_EXISTS', 'A customer with this phone already exists', {
+    phone: 'A customer with this phone already exists',
+    existingCustomerId,
+  });
+}
+
+/** Creates a customer using the given connection (works inside an order transaction). */
+export async function createCustomer(db: Db, shopId: number, input: CustomerInput) {
+  const existing = await repo.findActiveByPhone(db, shopId, input.phone);
+  if (existing) throw phoneExists(existing);
+  try {
+    return await repo.insertCustomer(db, shopId, input);
+  } catch (err) {
+    if (isUniqueViolation(err, 'customers_shop_phone_uq')) {
+      throw phoneExists((await repo.findActiveByPhone(pool, shopId, input.phone)) ?? 0);
+    }
+    throw err;
+  }
+}
+
+export async function getCustomer(shopId: number, id: number) {
+  const customer = await repo.findCustomer(pool, shopId, id);
+  if (!customer) throw notFound('Customer');
+  return { ...customer, stats: await repo.customerStats(pool, shopId, id) };
+}
+
+export async function updateCustomer(shopId: number, id: number, input: CustomerInput) {
+  const existing = await repo.findActiveByPhone(pool, shopId, input.phone, id);
+  if (existing) throw phoneExists(existing);
+  const updated = await repo.updateCustomer(pool, shopId, id, input);
+  if (!updated) throw notFound('Customer');
+  return updated;
+}
+
+/** No orders -> hard delete. Has orders -> soft delete, keeping history and invoices. */
+export async function deleteCustomer(shopId: number, id: number) {
+  return withTransaction(async (c) => {
+    const customer = await repo.findCustomer(c, shopId, id);
+    if (!customer) throw notFound('Customer');
+    const orderCount = await repo.countOrders(c, shopId, id);
+    if (orderCount === 0) {
+      await repo.hardDeleteCustomer(c, shopId, id);
+      return { deleted: 'hard' as const, orderCount };
+    }
+    await repo.softDeleteCustomer(c, shopId, id);
+    return { deleted: 'soft' as const, orderCount };
+  });
+}

@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  body {
+    @apply bg-canvas font-sans text-[14px] text-ink;
+  }
+}
+
+/* Chart tokens: monochrome ink to match the UI; status hues for payment state */
+:root {
+  --chart-series-1: #171717;
+  --chart-grid: #ebebe8;
+  --chart-axis: #d4d4cf;
+  --chart-muted: #8f8f8a;
+  --status-good: #3f9142;
+  --status-warning: #d99a1e;
+  --status-critical: #d0503f;
+  --delta-up: #2e7d32;
+  --delta-down: #b42318;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html,
+  body,
+  .app-root,
+  .app-panel {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .app-panel {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-plain {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}
