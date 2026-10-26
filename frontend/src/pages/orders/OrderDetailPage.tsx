@@ -1,4 +1,4 @@
-import { AtSign, Calendar, FileText, IndianRupee, MapPin, Pencil, Phone, Send, Tag } from 'lucide-react';
+import { AtSign, Calendar, FileText, IndianRupee, MapPin, Pencil, Phone, Send, Tag, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -16,6 +16,7 @@ import InfoRows from '../../components/ui/InfoRows';
 import { ConfirmDialog, Modal } from '../../components/ui/Modal';
 import { Alert, EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate, formatDateTime, relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
@@ -36,6 +37,8 @@ export default function OrderDetailPage() {
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [composing, setComposing] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(false);
+  const isOwner = useAuth().user?.role === 'owner';
 
   if (order.loading && !order.data) return <LoadingState />;
   if (order.error || !order.data) {
@@ -108,6 +111,11 @@ export default function OrderDetailPage() {
         title={o.orderNumber}
         actions={
           <>
+            {isOwner && (
+              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDeleteOrder(true)} aria-label="Delete order">
+                <Trash2 size={15} />
+              </Button>
+            )}
             {!cancelled && (
               <ButtonLink to={`/orders/${o.id}/edit`} variant="secondary">
                 <Pencil size={14} /> Edit
@@ -299,6 +307,30 @@ export default function OrderDetailPage() {
         The order changed after invoice <strong className="text-ink">{reissuePrompt?.invoiceNumber}</strong> was issued. Reissuing marks the old
         invoice as superseded and creates a new revision with the current values.
       </Modal>
+
+      <ConfirmDialog
+        open={confirmDeleteOrder}
+        title={`Delete ${o.orderNumber}?`}
+        danger
+        confirmLabel="Delete order"
+        onClose={() => setConfirmDeleteOrder(false)}
+        onConfirm={async () => {
+          try {
+            const r = await ordersApi.remove(o.id);
+            toast('success', `${r.orderNumber} deleted${r.deletedInvoices ? ` with ${r.deletedInvoices} invoice${r.deletedInvoices > 1 ? 's' : ''}` : ''}`);
+            navigate('/orders', { replace: true });
+          } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Could not delete the order');
+            setConfirmDeleteOrder(false);
+          }
+        }}
+        message={
+          <>
+            The order, its items{inv ? <> and its invoice <strong className="text-ink">{inv.invoiceNumber}</strong> (every revision)</> : null} are deleted
+            permanently. Numbers are not reused. This can't be undone.
+          </>
+        }
+      />
 
       <ConfirmDialog
         open={pendingStatus === 'cancelled'}

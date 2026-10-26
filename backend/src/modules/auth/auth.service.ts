@@ -54,13 +54,17 @@ export async function login(input: z.infer<typeof loginSchema>) {
   const row = rows[0];
   const ok = row ? await bcrypt.compare(input.password, row.passwordHash) : false;
   if (!ok) throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-  // Open the branch used last; fall back to the first branch they belong to.
+  return openLastBranch(row.id, row.shopId);
+}
+
+/** Signs the user into the branch they used last, or their first branch if that's gone. */
+export async function openLastBranch(userId: number, lastShopId: number | null) {
   const branch = await pool.query(
-    `SELECT shop_id FROM shop_members WHERE user_id = $1 ORDER BY (shop_id = $2) DESC, created_at LIMIT 1`,
-    [row.id, row.shopId],
+    `SELECT shop_id FROM shop_members WHERE user_id = $1 ORDER BY (shop_id = $2) DESC NULLS LAST, created_at LIMIT 1`,
+    [userId, lastShopId],
   );
   if (!branch.rows[0]) throw new AppError(403, 'NO_BRANCH', 'This account has no branch to open');
-  return session({ id: row.id, shopId: branch.rows[0].shop_id });
+  return session({ id: userId, shopId: branch.rows[0].shop_id });
 }
 
 /** Re-issues the session for another branch the user belongs to. */

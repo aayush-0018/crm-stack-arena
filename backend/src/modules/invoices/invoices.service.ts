@@ -90,6 +90,16 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
   }
 }
 
+/** Deletes one invoice revision. The order stays, and can be invoiced again. */
+export async function deleteInvoice(shopId: number, id: number) {
+  const { rows } = await pool.query(
+    `DELETE FROM invoices WHERE shop_id = $1 AND id = $2 RETURNING order_id AS "orderId", invoice_number AS "invoiceNumber", revision`,
+    [shopId, id],
+  );
+  if (!rows[0]) throw notFound('Invoice');
+  return rows[0] as { orderId: number; invoiceNumber: string; revision: number };
+}
+
 export async function getInvoice(shopId: number, id: number) {
   const invoice = await repo.findInvoice(pool, shopId, id);
   if (!invoice) throw notFound('Invoice');

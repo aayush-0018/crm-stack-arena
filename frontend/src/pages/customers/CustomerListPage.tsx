@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { customersApi } from '../../api/endpoints';
 import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
+import BulkDelete from '../../components/data/BulkDelete';
 import DataTable, { Column } from '../../components/data/DataTable';
 import { CustomizeButton, FilterButton, FilterOptions, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
@@ -156,6 +157,17 @@ export default function CustomerListPage() {
               <Button size="sm" variant="secondary" onClick={() => exportCsv(selectedRows)}>
                 <Download size={14} /> Export
               </Button>
+              <BulkDelete
+                ids={[...selected]}
+                noun={['customer', 'customers']}
+                remove={(id) => customersApi.remove(id)}
+                onDone={() => {
+                  setSelected(new Set());
+                  list.reload();
+                  summary.reload();
+                }}
+                warning="Customers without orders are deleted. Customers with orders are archived instead, so their orders and invoices are kept. To remove a customer together with all their orders, delete them from their own page."
+              />
               <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())} className="text-ink-3 hover:text-ink">
                 <X size={16} />
               </button>

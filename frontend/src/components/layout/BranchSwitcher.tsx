@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Plus, Settings, Store } from 'lucide-react';
+import { Check, ChevronDown, Plus, Settings } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -10,6 +10,7 @@ import Button from '../ui/Button';
 import { TextField } from '../ui/Field';
 import { Modal } from '../ui/Modal';
 import Popover, { MenuItem, MenuLabel } from '../ui/Popover';
+import ShopLogo from '../ui/ShopLogo';
 import Spinner from '../ui/Spinner';
 import { Alert } from '../ui/States';
 
@@ -79,9 +80,7 @@ export default function BranchSwitcher() {
             aria-label={`Current branch: ${shop?.name ?? ''}. Switch branch`}
             className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left hover:bg-hover"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-ink text-white">
-              <Store size={16} strokeWidth={1.8} />
-            </span>
+            <ShopLogo logoKey={shop?.logoKey} name={shop?.name} size={32} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15.5px] font-semibold leading-tight text-ink">{shop?.name ?? 'Shop'}</span>
               {branches.length > 1 && (
@@ -116,9 +115,13 @@ export default function BranchSwitcher() {
                       }}
                       className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-hover ${current ? 'bg-hover/60' : ''}`}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-white text-[10.5px] font-semibold text-ink-2">
-                        {b.code ?? b.name.slice(0, 2).toUpperCase()}
-                      </span>
+                      {b.logoKey ? (
+                        <ShopLogo logoKey={b.logoKey} name={b.name} size={28} />
+                      ) : (
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-white text-[10.5px] font-semibold text-ink-2">
+                          {b.code ?? b.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13.5px] text-ink">{b.name}</span>
                         {b.city && <span className="block truncate text-[11.5px] text-ink-3">{b.city}</span>}

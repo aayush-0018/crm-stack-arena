@@ -1,9 +1,10 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { authApi } from '../api/endpoints';
+import { authApi, shopApi } from '../api/endpoints';
 import Button from '../components/ui/Button';
 import { TextField } from '../components/ui/Field';
+import LogoPicker from '../components/ui/LogoPicker';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
 import { zodErrors } from '../lib/zod';
@@ -13,7 +14,8 @@ import { AuthLayout } from './LoginPage';
 type Values = { shopName: string; name: string; email: string; password: string };
 
 export default function RegisterPage() {
-  const { status, signIn } = useAuth();
+  const { status, signIn, setShop } = useAuth();
+  const [logo, setLogo] = useState<string | null>(null);
   const navigate = useNavigate();
   const [values, setValues] = useState<Values>({ shopName: '', name: '', email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -33,6 +35,10 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       signIn(await authApi.register(r.data));
+      if (logo) {
+        // The account exists now; a logo hiccup shouldn't block sign-up (it can be added in Settings).
+        await shopApi.uploadLogo(logo).then(setShop).catch(() => undefined);
+      }
       navigate('/settings', { replace: true, state: { welcome: true } });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -49,6 +55,7 @@ export default function RegisterPage() {
       <form onSubmit={submit} noValidate className="space-y-4">
         {formError && <Alert tone="error">{formError}</Alert>}
         <TextField label="Shop name" required value={values.shopName} onChange={set('shopName')} error={errors.shopName} />
+        <LogoPicker preview={logo} onPick={setLogo} onRemove={() => setLogo(null)} />
         <TextField label="Your name" required value={values.name} onChange={set('name')} error={errors.name} />
         <TextField
           label="Email"

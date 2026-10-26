@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { idParam, paged } from '../../lib/validation';
+import { assertOwner } from '../../lib/guards';
 import { auth } from '../../middleware/auth';
 import { listOrders } from './orders.repo';
 import { createOrderSchema, listOrdersQuery, paymentSchema, statusSchema, updateOrderSchema } from './orders.schemas';
@@ -56,5 +57,15 @@ ordersRouter.patch(
   ah(async (req, res) => {
     const { id } = idParam.parse(req.params);
     res.json(await service.setPayment(auth(req).shopId, id, paymentSchema.parse(req.body).amountPaid));
+  }),
+);
+
+ordersRouter.delete(
+  '/:id',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'delete orders');
+    res.json(await service.deleteOrder(shopId, id));
   }),
 );

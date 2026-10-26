@@ -20,6 +20,7 @@ import { dashboardApi, invoicesApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
+import ShopLogo from '../ui/ShopLogo';
 import BranchSwitcher from './BranchSwitcher';
 
 const ICON = { size: 17, strokeWidth: 1.6 };
@@ -213,6 +214,7 @@ export default function AppShell() {
           >
             {menuOpen ? <X size={20} strokeWidth={1.6} /> : <Menu size={20} strokeWidth={1.6} />}
           </button>
+          <ShopLogo logoKey={shop?.logoKey} name={shop?.name} size={26} />
           <span className="flex-1 truncate text-[15px] font-semibold">{shop?.name}</span>
         </header>
         <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-white md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">

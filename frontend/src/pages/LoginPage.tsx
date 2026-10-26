@@ -77,6 +77,11 @@ export default function LoginPage() {
           onChange={(e) => setValues({ ...values, password: e.target.value })}
           error={errors.password}
         />
+        <div className="-mt-2 text-right">
+          <Link to="/forgot-password" className="text-[13px] text-ink-3 underline-offset-2 hover:text-ink hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <Button type="submit" className="w-full" loading={busy}>
           Log in
         </Button>

@@ -98,6 +98,18 @@ export async function updateOrder(shopId: number, id: number, input: UpdateOrder
   return getOrder(shopId, id);
 }
 
+/** Deletes an order with its items and every invoice revision for it. */
+export async function deleteOrder(shopId: number, id: number) {
+  return withTransaction(async (c) => {
+    const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
+    if (!order) throw notFound('Order');
+    // invoices -> orders is RESTRICT, so invoices go first (their share logs cascade).
+    const inv = await c.query(`DELETE FROM invoices WHERE shop_id = $1 AND order_id = $2`, [shopId, id]);
+    await c.query(`DELETE FROM orders WHERE shop_id = $1 AND id = $2`, [shopId, id]); // items cascade
+    return { orderNumber: order.orderNumber, deletedInvoices: inv.rowCount ?? 0 };
+  });
+}
+
 export async function setStatus(shopId: number, id: number, status: OrderStatus) {
   await withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });

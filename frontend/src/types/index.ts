@@ -30,6 +30,7 @@ export interface Shop {
   pincode: string | null;
   gstin: string | null;
   code: string | null;
+  logoKey: string | null;
 }
 
 export interface Branch {
@@ -37,6 +38,7 @@ export interface Branch {
   name: string;
   code: string | null;
   city: string | null;
+  logoKey: string | null;
   role: 'owner' | 'staff';
 }
 

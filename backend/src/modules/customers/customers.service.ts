@@ -39,12 +39,24 @@ export async function updateCustomer(shopId: number, id: number, input: Customer
   return updated;
 }
 
-/** No orders -> hard delete. Has orders -> soft delete, keeping history and invoices. */
-export async function deleteCustomer(shopId: number, id: number) {
+/**
+ * Default: no orders -> hard delete; has orders -> archive (soft delete), keeping history and invoices.
+ * purge: delete the customer together with all their orders and invoices, permanently.
+ */
+export async function deleteCustomer(shopId: number, id: number, purge = false) {
   return withTransaction(async (c) => {
     const customer = await repo.findCustomer(c, shopId, id);
     if (!customer) throw notFound('Customer');
     const orderCount = await repo.countOrders(c, shopId, id);
+    if (purge) {
+      await c.query(
+        `DELETE FROM invoices WHERE shop_id = $1 AND order_id IN (SELECT id FROM orders WHERE shop_id = $1 AND customer_id = $2)`,
+        [shopId, id],
+      );
+      await c.query(`DELETE FROM orders WHERE shop_id = $1 AND customer_id = $2`, [shopId, id]);
+      await repo.hardDeleteCustomer(c, shopId, id);
+      return { deleted: 'hard' as const, orderCount };
+    }
     if (orderCount === 0) {
       await repo.hardDeleteCustomer(c, shopId, id);
       return { deleted: 'hard' as const, orderCount };

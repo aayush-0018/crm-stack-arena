@@ -1,6 +1,6 @@
-import { Download, Printer, Send } from 'lucide-react';
+import { Download, Printer, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { invoicesApi } from '../../api/endpoints';
 import InvoiceView from '../../components/invoices/InvoiceView';
@@ -8,8 +8,11 @@ import SendInvoiceModal from '../../components/invoices/SendInvoiceModal';
 import BackButton from '../../components/ui/BackButton';
 import { InvoiceBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
+import { ConfirmDialog } from '../../components/ui/Modal';
 import { Alert, EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { formatDateTime } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 
@@ -19,6 +22,10 @@ export default function InvoicePreviewPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isOwner = useAuth().user?.role === 'owner';
+  const navigate = useNavigate();
+  const toast = useToast();
 
   if (invoice.loading && !invoice.data) return <LoadingState label="Loading invoice…" />;
   if (invoice.error || !invoice.data) {
@@ -63,6 +70,11 @@ export default function InvoicePreviewPage() {
         }
         actions={
           <>
+            {isOwner && (
+              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDelete(true)} aria-label="Delete invoice">
+                <Trash2 size={15} />
+              </Button>
+            )}
             <ButtonLink to={`/orders/${inv.orderId}`} variant="ghost">
               Order {inv.orderSnapshot.orderNumber}
             </ButtonLink>
@@ -111,6 +123,31 @@ export default function InvoicePreviewPage() {
       <div className="print-plain bg-[#fafaf8] px-3 py-6 sm:px-8 sm:py-10">
         <InvoiceView invoice={inv} />
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${inv.invoiceNumber}${inv.revision > 1 ? ` (Rev ${inv.revision})` : ''}?`}
+        danger
+        confirmLabel="Delete invoice"
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          try {
+            await invoicesApi.remove(inv.id);
+            toast('success', `${inv.invoiceNumber} deleted`);
+            navigate(`/orders/${inv.orderId}`, { replace: true });
+          } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Could not delete the invoice');
+            setConfirmDelete(false);
+          }
+        }}
+        message={
+          <>
+            Order {inv.orderSnapshot.orderNumber} stays and can be invoiced again. This invoice number isn't reused, and any link you sent
+            the customer stops working.{' '}
+            <span className="text-ink">If you're GST-registered, an issued invoice is normally cancelled with a credit note — check with your accountant.</span>
+          </>
+        }
+      />
 
       <SendInvoiceModal
         invoiceId={inv.id}

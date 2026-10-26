@@ -6,12 +6,13 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { PageTop } from '../components/ui/Tabs';
 import { TextField } from '../components/ui/Field';
+import LogoPicker from '../components/ui/LogoPicker';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Shop } from '../types';
 
-type Values = Record<Exclude<keyof Shop, 'id'>, string>;
+type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey'>, string>;
 const toValues = (s: Shop | null): Values => ({
   name: s?.name ?? '',
   phone: s?.phone ?? '',
@@ -26,7 +27,23 @@ const toValues = (s: Shop | null): Values => ({
 });
 
 export default function SettingsPage() {
-  const { shop, setShop } = useAuth();
+  const { shop, setShop, user } = useAuth();
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const isOwner = user?.role === 'owner';
+
+  const changeLogo = async (run: () => Promise<Shop>, done: string) => {
+    setLogoBusy(true);
+    setLogoError(null);
+    try {
+      setShop(await run());
+      toast('success', done);
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : 'Could not save the logo');
+    } finally {
+      setLogoBusy(false);
+    }
+  };
   const toast = useToast();
   const welcome = (useLocation().state as { welcome?: boolean | 'branch' } | null)?.welcome;
   const [values, setValues] = useState<Values>(toValues(shop));
@@ -85,6 +102,18 @@ export default function SettingsPage() {
       )}
       <Card title="Shop details" actions={<span className="text-[12.5px] text-ink-3">Printed on new invoices</span>}>
         <form onSubmit={submit} noValidate className="space-y-5">
+          {isOwner && (
+            <div className="border-b border-line pb-5">
+              <LogoPicker
+                savedKey={shop?.logoKey}
+                preview={null}
+                busy={logoBusy}
+                error={logoError}
+                onPick={(png) => changeLogo(() => shopApi.uploadLogo(png), 'Logo updated')}
+                onRemove={() => changeLogo(() => shopApi.removeLogo(), 'Logo removed')}
+              />
+            </div>
+          )}
           {formError && <Alert tone="error">{formError}</Alert>}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Shop name" required value={values.name} onChange={set('name')} error={errors.name} />

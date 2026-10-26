@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { withTransaction } from '../../db/tx';
+import { assertOwner } from '../../lib/guards';
+import { decodeLogo, saveLogo } from './logo';
+import { z } from 'zod';
 import { AppError, notFound } from '../../lib/errors';
 import { auth } from '../../middleware/auth';
 import { codeTakenByOtherBranch, findShop, listBranches, membershipRole, SHOP_COLS } from './shop.repo';
@@ -35,6 +38,28 @@ shopRouter.put(
   }),
 );
 
+shopRouter.put(
+  '/logo',
+  ah(async (req, res) => {
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'change the logo');
+    const { dataUrl } = z.object({ dataUrl: z.string() }).parse(req.body);
+    await saveLogo(shopId, decodeLogo(dataUrl));
+    res.json(await findShop(pool, shopId));
+  }),
+);
+
+shopRouter.delete(
+  '/logo',
+  ah(async (req, res) => {
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'remove the logo');
+    // Old logo rows stay: invoices issued with them keep showing them.
+    await pool.query(`UPDATE shops SET logo_key = NULL, updated_at = now() WHERE id = $1`, [shopId]);
+    res.json(await findShop(pool, shopId));
+  }),
+);
+
 const codeTaken = () =>
   new AppError(409, 'CODE_TAKEN', 'Another of your branches already uses this code', {
     code: 'Another of your branches already uses this code',
@@ -62,8 +87,11 @@ branchesRouter.post(
 
     const branch = await withTransaction(async (c) => {
       const { rows } = await c.query(
-        `INSERT INTO shops (name, code, city, phone) VALUES ($1, $2, $3, $4) RETURNING id, name, code, city`,
-        [b.name, b.code, b.city, b.phone],
+        // A new branch starts with the current branch's logo; it can be changed in its settings.
+        `INSERT INTO shops (name, code, city, phone, logo_key)
+         VALUES ($1, $2, $3, $4, (SELECT logo_key FROM shops WHERE id = $5))
+         RETURNING id, name, code, city, logo_key AS "logoKey"`,
+        [b.name, b.code, b.city, b.phone, shopId],
       );
       await c.query(`INSERT INTO shop_counters (shop_id) VALUES ($1)`, [rows[0].id]);
       await c.query(`INSERT INTO shop_members (user_id, shop_id, role) VALUES ($1, $2, 'owner')`, [userId, rows[0].id]);

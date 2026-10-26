@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { idParam, paged } from '../../lib/validation';
+import { assertOwner } from '../../lib/guards';
 import { auth } from '../../middleware/auth';
 import { listOrders } from '../orders/orders.repo';
 import { listOrdersQuery } from '../orders/orders.schemas';
@@ -55,7 +56,9 @@ customersRouter.delete(
   '/:id',
   ah(async (req, res) => {
     const { id } = idParam.parse(req.params);
-    res.json(await service.deleteCustomer(auth(req).shopId, id));
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'delete customers');
+    res.json(await service.deleteCustomer(shopId, id, req.query.purge === 'true'));
   }),
 );
 

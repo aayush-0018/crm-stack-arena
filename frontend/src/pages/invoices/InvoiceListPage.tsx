@@ -5,6 +5,7 @@ import { invoicesApi } from '../../api/endpoints';
 import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import DataTable, { Column } from '../../components/data/DataTable';
+import BulkDelete from '../../components/data/BulkDelete';
 import { CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
 import { InvoiceBadge } from '../../components/ui/Badge';
@@ -150,6 +151,17 @@ export default function InvoiceListPage() {
               <Button size="sm" variant="secondary" onClick={() => exportCsv(rows.filter((r) => selected.has(r.id)))}>
                 <Download size={14} /> Export
               </Button>
+              <BulkDelete
+                ids={[...selected]}
+                noun={['invoice', 'invoices']}
+                remove={(id) => invoicesApi.remove(id)}
+                onDone={() => {
+                  setSelected(new Set());
+                  list.reload();
+                  summary.reload();
+                }}
+                warning={<>The orders stay and can be invoiced again. Deleted invoice numbers aren't reused, and any links you sent customers stop working. <span className="text-ink">If you're GST-registered, an issued invoice is normally cancelled with a credit note — check with your accountant.</span></>}
+              />
               <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())} className="text-ink-3 hover:text-ink">
                 <X size={16} />
               </button>

@@ -30,6 +30,9 @@ export const authApi = {
     api.post<Session>('/auth/register', body),
   me: () => api.get<{ user: User; shop: Shop }>('/auth/me'),
   switchBranch: (shopId: number) => api.post<Session>('/auth/switch-branch', { shopId }),
+  forgotPassword: (email: string) => api.post<{ ok: true }>('/auth/forgot-password', { email }),
+  checkResetToken: (token: string) => api.get<{ valid: boolean; email?: string }>(`/auth/reset-password/${encodeURIComponent(token)}`),
+  resetPassword: (token: string, password: string) => api.post<Session>('/auth/reset-password', { token, password }),
 };
 
 export const branchesApi = {
@@ -40,7 +43,9 @@ export const branchesApi = {
 
 export const shopApi = {
   get: () => api.get<Shop>('/shop'),
-  update: (body: Omit<Shop, 'id'>) => api.put<Shop>('/shop', body),
+  update: (body: Omit<Shop, 'id' | 'logoKey'>) => api.put<Shop>('/shop', body),
+  uploadLogo: (dataUrl: string) => api.put<Shop>('/shop/logo', { dataUrl }),
+  removeLogo: () => api.delete<Shop>('/shop/logo'),
 };
 
 export interface CustomerPayload {
@@ -64,7 +69,8 @@ export const customersApi = {
   get: (id: number | string) => api.get<CustomerDetail>(`/customers/${id}`),
   create: (body: CustomerPayload) => api.post<Customer>('/customers', body),
   update: (id: number | string, body: CustomerPayload) => api.put<Customer>(`/customers/${id}`, body),
-  remove: (id: number | string) => api.delete<{ deleted: 'hard' | 'soft'; orderCount: number }>(`/customers/${id}`),
+  remove: (id: number | string, purge = false) =>
+    api.delete<{ deleted: 'hard' | 'soft'; orderCount: number }>(`/customers/${id}${purge ? '?purge=true' : ''}`),
   orders: (id: number | string, q: { page?: number; pageSize?: number }) =>
     api.get<Paged<OrderListItem>>(`/customers/${id}/orders`, q),
 };
@@ -109,6 +115,7 @@ export const ordersApi = {
   setStatus: (id: number | string, status: OrderStatus) => api.patch<Order>(`/orders/${id}/status`, { status }),
   setPayment: (id: number | string, amountPaid: string) =>
     api.patch<Order>(`/orders/${id}/payment`, { amountPaid }),
+  remove: (id: number | string) => api.delete<{ orderNumber: string; deletedInvoices: number }>(`/orders/${id}`),
 };
 
 export const invoicesApi = {
@@ -118,6 +125,7 @@ export const invoicesApi = {
   list: (q: { search?: string; status?: InvoiceStatus | ''; page?: number; pageSize?: number }) =>
     api.get<Paged<InvoiceListItem>>('/invoices', q),
   summary: () => api.get<InvoicesSummary>('/invoices/summary'),
+  remove: (id: number | string) => api.delete<{ orderId: number; invoiceNumber: string; revision: number }>(`/invoices/${id}`),
   pdf: (id: number | string) => api.blob(`/invoices/${id}/pdf`),
   shareLink: (id: number | string) => api.post<{ token: string }>(`/invoices/${id}/share-link`),
   logShare: (id: number | string, channel: ShareChannel, recipient?: string | null) =>

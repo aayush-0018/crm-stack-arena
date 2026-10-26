@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { dashboardApi, ordersApi } from '../../api/endpoints';
 import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
+import BulkDelete from '../../components/data/BulkDelete';
 import { CustomizeButton, FilterButton, FilterOptions, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import OrdersTable, { orderColumns } from '../../components/orders/OrdersTable';
 import { ORDER_STATUS_LABEL, PAYMENT_STATUS_LABEL } from '../../components/ui/Badge';
@@ -139,6 +140,18 @@ export default function OrderListPage() {
               <Button size="sm" variant="secondary" onClick={() => exportCsv(rows.filter((r) => selected.has(r.id)))}>
                 <Download size={14} /> Export
               </Button>
+              <BulkDelete
+                ids={[...selected]}
+                noun={['order', 'orders']}
+                remove={(id) => ordersApi.remove(id)}
+                onDone={() => {
+                  setSelected(new Set());
+                  list.reload();
+                  analytics.reload();
+                  counts.reload();
+                }}
+                warning="Each order is deleted permanently with its items and all its invoices. Order and invoice numbers are not reused. This can't be undone."
+              />
               <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())} className="text-ink-3 hover:text-ink">
                 <X size={16} />
               </button>

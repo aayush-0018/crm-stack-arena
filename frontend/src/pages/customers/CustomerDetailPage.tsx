@@ -15,6 +15,7 @@ import { ConfirmDialog } from '../../components/ui/Modal';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDateTime, relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
@@ -28,6 +29,8 @@ export default function CustomerDetailPage() {
   const toast = useToast();
   const [page, setPage] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [purge, setPurge] = useState(false);
+  const isOwner = useAuth().user?.role === 'owner';
 
   const customer = useAsync(() => customersApi.get(id), [id]);
   const orders = useAsync(() => customersApi.orders(id, { page, pageSize: PAGE_SIZE }), [id, page]);
@@ -46,8 +49,11 @@ export default function CustomerDetailPage() {
   const lastOrder = orders.data?.data[0]?.orderDate;
   const doDelete = async () => {
     try {
-      const r = await customersApi.remove(id);
-      toast('success', r.deleted === 'hard' ? `${c.name} deleted` : `${c.name} archived. Order history kept.`);
+      const r = await customersApi.remove(id, purge);
+      toast(
+        'success',
+        purge ? `${c.name} and their ${c.stats.orderCount} orders deleted` : r.deleted === 'hard' ? `${c.name} deleted` : `${c.name} archived. Order history kept.`,
+      );
       navigate('/customers', { replace: true });
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Could not delete customer');
@@ -62,9 +68,11 @@ export default function CustomerDetailPage() {
         title={c.name}
         actions={
           <>
-            <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDelete(true)} aria-label="Delete customer">
-              <Trash2 size={15} />
-            </Button>
+            {isOwner && (
+              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDelete(true)} aria-label="Delete customer">
+                <Trash2 size={15} />
+              </Button>
+            )}
             <ButtonLink to={`/customers/${c.id}/edit`} variant="secondary">
               <Pencil size={14} /> Edit
             </ButtonLink>
@@ -137,14 +145,23 @@ export default function CustomerDetailPage() {
         open={confirmDelete}
         title="Delete customer?"
         danger
-        confirmLabel={c.stats.orderCount ? 'Archive customer' : 'Delete'}
-        onClose={() => setConfirmDelete(false)}
+        confirmLabel={purge ? 'Delete everything' : c.stats.orderCount ? 'Archive customer' : 'Delete'}
+        onClose={() => {
+          setConfirmDelete(false);
+          setPurge(false);
+        }}
         onConfirm={doDelete}
         message={
           c.stats.orderCount ? (
             <>
-              <strong className="text-ink">{c.name}</strong> has {c.stats.orderCount} order{c.stats.orderCount > 1 ? 's' : ''}. The customer will be archived
-              and hidden from lists. Their orders and invoices are kept.
+              <strong className="text-ink">{c.name}</strong> has {c.stats.orderCount} order{c.stats.orderCount > 1 ? 's' : ''}. By default the customer
+              is archived and hidden from lists, and their orders and invoices are kept.
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#f2cdc8] bg-[#fdf3f2] px-3 py-2.5 text-[13.5px] text-[#93291a]">
+                <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[#b42318]" />
+                <span>
+                  Also delete their {c.stats.orderCount} order{c.stats.orderCount > 1 ? 's' : ''} and all their invoices permanently. This can't be undone.
+                </span>
+              </label>
             </>
           ) : (
             <>

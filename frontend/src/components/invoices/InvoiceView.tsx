@@ -2,6 +2,7 @@ import { formatDate } from '../../lib/date';
 import { formatINR, formatQty } from '../../lib/money';
 import type { Invoice } from '../../types';
 import { PAYMENT_STATUS_LABEL } from '../ui/Badge';
+import ShopLogo from '../ui/ShopLogo';
 
 /** Renders only from the invoice snapshot, never live order data. Mirrors the PDF layout. */
 export default function InvoiceView({ invoice }: { invoice: Invoice }) {
@@ -23,7 +24,10 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
       )}
 
       <header className="relative flex flex-col gap-6 sm:flex-row sm:justify-between">
-        <div>
+        <div className="flex gap-4">
+          {/* The logo saved with this invoice when it was issued */}
+          {s.logoKey && <ShopLogo logoKey={s.logoKey} name={s.name} size={56} />}
+          <div>
           <h2 className="text-[20px] font-semibold">{s.name}</h2>
           <div className="mt-1.5 space-y-0.5 text-[13px] leading-relaxed text-ink-2">
             {s.addressLine1 && <p>{s.addressLine1}</p>}
@@ -32,6 +36,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
             {s.phone && <p>Phone: {s.phone}</p>}
             {s.email && <p>{s.email}</p>}
             {s.gstin && <p>GSTIN: {s.gstin}</p>}
+          </div>
           </div>
         </div>
         <div className="sm:text-right">

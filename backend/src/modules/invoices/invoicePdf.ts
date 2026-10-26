@@ -1,5 +1,5 @@
 import PdfPrinter from 'pdfmake';
-import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Column, Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { formatRupees } from '../../lib/money';
 import { Invoice } from './invoices.repo';
 
@@ -31,7 +31,7 @@ const lines = (...parts: (string | null | undefined)[]) => parts.filter(Boolean)
 
 const label = (text: string): Content => ({ text: text.toUpperCase(), style: 'label' });
 
-export function buildInvoiceDoc(inv: Invoice): TDocumentDefinitions {
+export function buildInvoiceDoc(inv: Invoice, logo: string | null = null): TDocumentDefinitions {
   const s = inv.shopSnapshot;
   const c = inv.customerSnapshot;
   const balance = inv.totalPaise - inv.amountPaidPaise;
@@ -59,9 +59,15 @@ export function buildInvoiceDoc(inv: Invoice): TDocumentDefinitions {
   ];
   const totalIdx = inv.discountPaise > 0 ? 2 : 1; // row index of "Total"
 
+  // The logo saved on the invoice when it was issued, if any.
+  const logoColumn: Column[] = [];
+  // Wrapped in a stack: on an image, `width` means image points, not column width.
+  if (logo) logoColumn.push({ width: 'auto', stack: [{ image: logo, fit: [52, 52] }], margin: [0, 0, 12, 0] });
+
   const content: Content[] = [
     {
       columns: [
+        ...logoColumn,
         {
           width: '*',
           stack: [
@@ -190,10 +196,10 @@ export function buildInvoiceDoc(inv: Invoice): TDocumentDefinitions {
   };
 }
 
-export function renderInvoicePdf(inv: Invoice): Promise<Buffer> {
+export function renderInvoicePdf(inv: Invoice, logo: string | null = null): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      const doc = printer.createPdfKitDocument(buildInvoiceDoc(inv));
+      const doc = printer.createPdfKitDocument(buildInvoiceDoc(inv, logo));
       const chunks: Buffer[] = [];
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));

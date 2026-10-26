@@ -38,7 +38,7 @@ async function main() {
   const again = await askHidden('Repeat it: ');
   if (again !== password) throw new Error('Passwords did not match');
 
-  await pool.query(`UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, [
+  await pool.query(`UPDATE users SET password_hash = $2, password_changed_at = now(), updated_at = now() WHERE id = $1`, [
     rows[0].id,
     await bcrypt.hash(password, 12),
   ]);

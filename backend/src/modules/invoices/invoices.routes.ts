@@ -4,8 +4,10 @@ import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { AppError, notFound } from '../../lib/errors';
 import { idParam, paged, paginationQuery } from '../../lib/validation';
+import { assertOwner } from '../../lib/guards';
 import { auth } from '../../middleware/auth';
 import { findOrder } from '../orders/orders.repo';
+import { logoDataUrl } from '../shop/logo';
 import { renderInvoicePdf } from './invoicePdf';
 import { findInvoiceByShareToken, Invoice, invoicesSummary, listInvoices, listInvoicesForOrder } from './invoices.repo';
 import * as service from './invoices.service';
@@ -87,6 +89,16 @@ invoicesRouter.post(
   }),
 );
 
+invoicesRouter.delete(
+  '/invoices/:id',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'delete invoices');
+    res.json(await service.deleteInvoice(shopId, id));
+  }),
+);
+
 invoicesRouter.get(
   '/invoices/:id/pdf',
   ah(async (req, res) => {
@@ -98,7 +110,7 @@ invoicesRouter.get(
 async function sendPdf(res: Response, invoice: Invoice) {
   let pdf: Buffer;
   try {
-    pdf = await renderInvoicePdf(invoice);
+    pdf = await renderInvoicePdf(invoice, await logoDataUrl(invoice.shopSnapshot.logoKey));
   } catch (err) {
     console.error('Invoice PDF failed', err);
     throw new AppError(500, 'INVOICE_PDF_FAILED', 'Could not generate the invoice PDF. Please try again.');
