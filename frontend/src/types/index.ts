@@ -212,3 +212,25 @@ export interface Analytics {
   topCustomers: { id: number; name: string; orders: number; revenuePaise: number }[];
   topItems: { name: string; orders: number; revenuePaise: number }[];
 }
+
+export interface DailySummary {
+  date: string;
+  from: string;
+  to: string;
+  orders: number;
+  revenuePaise: number;
+  collectedPaise: number;
+  unpaidOrders: number;
+  cancelled: number;
+  prevOrders: number;
+  prevRevenuePaise: number;
+  itemLines: number;
+  unitsSold: number;
+  newCustomers: number;
+  invoicesIssued: number;
+  invoicesSent: number;
+  topItems: { name: string; units: number; revenuePaise: number }[];
+  topCustomer: { id: number; name: string; orders: number; spentPaise: number } | null;
+  busiestHour: { hour: number; orders: number } | null;
+  outstanding: { duePaise: number; dueOrders: number };
+}

@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  Bell,
   ChartLine,
   Contact,
   FileText,
@@ -21,7 +22,9 @@ import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
 import ShopLogo from '../ui/ShopLogo';
+import { useDailySummary } from '../../lib/dailySummary';
 import BranchSwitcher from './BranchSwitcher';
+import DailySummaryModal from './DailySummaryModal';
 
 const ICON = { size: 17, strokeWidth: 1.6 };
 
@@ -48,6 +51,42 @@ function NavItem({ to, icon, label, count, end, onClick }: { to: string; icon: R
   );
 }
 
+/** Opens the 10 pm daily summary; shows a badge until it's been read. */
+function NotificationsItem({ unread, onClick }: { unread: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-[34px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14.5px] text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+    >
+      <span className="flex w-5 justify-center">
+        <Bell {...ICON} />
+      </span>
+      <span className="flex-1 truncate">Notifications</span>
+      {unread && (
+        <span className="min-w-[22px] rounded-md border border-line bg-white px-1.5 text-center text-[11px] font-medium leading-[20px] text-ink-2">
+          1
+        </span>
+      )}
+    </button>
+  );
+}
+
+function BellButton({ unread, onClick }: { unread: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={unread ? 'Notifications: daily summary ready' : 'Notifications'}
+      title="Daily summary"
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 hover:bg-hover hover:text-ink"
+    >
+      <Bell size={18} strokeWidth={1.6} />
+      {unread && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#d0503f] ring-2 ring-canvas" />}
+    </button>
+  );
+}
+
 const SectionLabel = ({ children }: { children: string }) => <p className="px-2.5 pb-1.5 pt-6 text-[13px] text-ink-3">{children}</p>;
 
 export default function AppShell() {
@@ -63,6 +102,13 @@ export default function AppShell() {
     }
   }); // desktop sidebar, remembered
   const [counts, setCounts] = useState<{ open?: number; outdated?: number }>({});
+  const daily = useDailySummary(shop?.id);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const openSummary = () => {
+    setMenuOpen(false);
+    setSummaryOpen(true);
+    daily.markSeen();
+  };
 
   // Badge counts; refreshed on navigation.
   useEffect(() => {
@@ -126,6 +172,7 @@ export default function AppShell() {
       </div>
 
       <nav className="mt-5 flex-1 space-y-0.5 overflow-y-auto">
+        <NotificationsItem unread={daily.unread} onClick={openSummary} />
         <NavItem to="/orders/new" icon={<Plus {...ICON} />} label="New order" />
         <NavItem to="/customers/new" icon={<UserPlus {...ICON} />} label="Add customer" />
 
@@ -185,6 +232,7 @@ export default function AppShell() {
           >
             <PanelLeftOpen size={18} strokeWidth={1.6} />
           </button>
+          <BellButton unread={daily.unread} onClick={openSummary} />
         </div>
       )}
 
@@ -216,12 +264,22 @@ export default function AppShell() {
           </button>
           <ShopLogo logoKey={shop?.logoKey} name={shop?.name} size={26} />
           <span className="flex-1 truncate text-[15px] font-semibold">{shop?.name}</span>
+          <BellButton unread={daily.unread} onClick={openSummary} />
         </header>
         <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-white md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
           {/* Keyed by branch: switching remounts every page, so nothing from the old branch lingers. */}
           <Outlet key={shop?.id} />
         </main>
       </div>
+
+      <DailySummaryModal
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        summary={daily.summary}
+        loading={daily.loading}
+        error={daily.error}
+        onRetry={daily.retry}
+      />
 
     </div>
   );

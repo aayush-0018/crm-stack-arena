@@ -8,6 +8,7 @@ export function Modal({
   children,
   footer,
   wide,
+  size,
 }: {
   open: boolean;
   title: string;
@@ -15,7 +16,9 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  size?: 'md' | 'lg' | 'xl';
 }) {
+  const width = size === 'xl' ? 'max-w-3xl' : size === 'lg' || wide ? 'max-w-lg' : 'max-w-md';
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -30,7 +33,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-white shadow-pop ${wide ? 'max-w-lg' : 'max-w-md'}`}
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-white shadow-pop ${width}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="px-5 pt-5 text-[16px] font-medium text-ink">{title}</h2>
