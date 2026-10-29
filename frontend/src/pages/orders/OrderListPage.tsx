@@ -130,7 +130,7 @@ export default function OrderListPage() {
           <Stat
             label="Sales today"
             value={formatINRCompact(today?.revenuePaise ?? 0)}
-            visual={<Sparkline values={a.daily.map((d) => d.revenuePaise)} label="Daily revenue, last 30 days" />}
+            visual={<Sparkline values={a.daily.map((d) => d.revenuePaise)} label="Daily sales, last 30 days" />}
           />
           <Stat
             label="Open orders"

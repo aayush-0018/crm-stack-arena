@@ -89,7 +89,7 @@ export default function CustomerDetailPage() {
           value={formatINR(c.stats.orderCount ? Math.round(c.stats.totalSpentPaise / c.stats.orderCount) : 0).replace(/\.\d+$/, '')}
         />
         <Stat
-          label="Outstanding"
+          label="Payments pending"
           value={formatINRCompact(c.stats.outstandingPaise)}
           suffix={c.stats.totalSpentPaise ? `${Math.round((c.stats.outstandingPaise / c.stats.totalSpentPaise) * 100)}%` : undefined}
           visual={<TickGauge value={c.stats.totalSpentPaise ? c.stats.outstandingPaise / c.stats.totalSpentPaise : 0} label="Share of spend still due" />}

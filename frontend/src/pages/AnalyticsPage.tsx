@@ -51,32 +51,32 @@ export default function AnalyticsPage() {
       {top}
       <StatStrip page="analytics" dim={a.loading}>
         <Stat
-          label="Revenue"
+          label="Total sales"
           value={formatINRCompact(s.revenuePaise)}
           suffix={change(s.revenuePaise, s.prevRevenuePaise)}
           trend={s.revenuePaise >= s.prevRevenuePaise ? 'up' : 'down'}
-          visual={<Sparkline values={d.daily.map((x) => x.revenuePaise)} label="Daily revenue" />}
+          visual={<Sparkline values={d.daily.map((x) => x.revenuePaise)} label="Daily sales" />}
         />
         <Stat
-          label="Orders"
+          label="Total orders"
           value={String(s.orders)}
           suffix={change(s.orders, s.prevOrders)}
           trend={s.orders >= s.prevOrders ? 'up' : 'down'}
           visual={<Sparkline values={d.daily.map((x) => x.orders)} label="Daily orders" />}
         />
         <Stat
-          label="Avg order value"
+          label="Average bill value"
           value={formatINR(s.orders ? Math.round(s.revenuePaise / s.orders) : 0).replace(/\.\d+$/, '')}
           suffix={`${s.activeCustomers} buyers`}
         />
         <Stat
-          label="Collected"
+          label="Payments received"
           value={formatINRCompact(s.collectedPaise)}
           suffix={s.revenuePaise ? `${Math.round((s.collectedPaise / s.revenuePaise) * 100)}%` : undefined}
           visual={<TickGauge value={s.revenuePaise ? s.collectedPaise / s.revenuePaise : 0} reference={0.9} label="Share of revenue collected" />}
         />
         <Stat
-          label="Outstanding"
+          label="Payments pending"
           value={formatINRCompact(s.outstandingPaise)}
           suffix={s.revenuePaise ? `${Math.round((s.outstandingPaise / s.revenuePaise) * 100)}%` : undefined}
           visual={<TickGauge value={s.revenuePaise ? s.outstandingPaise / s.revenuePaise : 0} label="Share of revenue still due" />}
@@ -85,7 +85,7 @@ export default function AnalyticsPage() {
 
       <section className={`border-b border-line transition-opacity ${a.loading ? 'opacity-50' : ''}`}>
         <SectionHeader
-          title={metric === 'revenue' ? 'Daily revenue' : 'Daily orders'}
+          title={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
           className="border-b-0"
           actions={
             <div role="radiogroup" aria-label="Metric" className="flex rounded-lg border border-line p-0.5">
@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
                   onClick={() => setMetric(m)}
                   className={`h-7 rounded-md px-2.5 text-[13px] ${metric === m ? 'bg-ink text-white' : 'text-ink-2 hover:bg-hover'}`}
                 >
-                  {m === 'revenue' ? 'Revenue' : 'Orders'}
+                  {m === 'revenue' ? 'Sales' : 'Orders'}
                 </button>
               ))}
             </div>
@@ -107,7 +107,7 @@ export default function AnalyticsPage() {
         <div className="px-4 pb-4 sm:px-6">
           <TrendChart
             data={trend}
-            label={metric === 'revenue' ? 'Daily revenue' : 'Daily orders'}
+            label={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
             formatAxis={(v) => (metric === 'revenue' ? formatINRCompact(v) : String(v))}
             formatValue={(v) => (metric === 'revenue' ? formatINR(v) : `${v} order${v === 1 ? '' : 's'}`)}
           />
@@ -121,8 +121,8 @@ export default function AnalyticsPage() {
                   <tr className="border-b border-line">
                     <th className="px-3 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 text-right font-medium">Orders</th>
-                    <th className="px-3 py-2 text-right font-medium">Revenue</th>
-                    <th className="px-3 py-2 text-right font-medium">Collected</th>
+                    <th className="px-3 py-2 text-right font-medium">Sales</th>
+                    <th className="px-3 py-2 text-right font-medium">Received</th>
                   </tr>
                 </thead>
                 <tbody className="tabular-nums">
@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
 
       <div className={`grid transition-opacity lg:grid-cols-3 lg:divide-x lg:divide-line ${a.loading ? 'opacity-50' : ''}`}>
         <section className="border-b border-line lg:border-b-0">
-          <SectionHeader title="Payment status" />
+          <SectionHeader title="Payment collection status" />
           <div className="px-4 py-5 sm:px-6">
             <PaymentBreakdown rows={d.payment} />
             <p className="mb-2 mt-6 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">Order status</p>
@@ -158,11 +158,11 @@ export default function AnalyticsPage() {
           </div>
         </section>
         <section className="border-b border-line lg:border-b-0">
-          <SectionHeader title="Top customers" />
+          <SectionHeader title="Highest-spending customers" />
           <div className="px-4 py-5 sm:px-6">
             {d.topCustomers.length ? (
               <BarList
-                ariaLabel="Top customers by revenue"
+                ariaLabel="Highest-spending customers by sales"
                 rows={d.topCustomers.map((c) => ({
                   key: c.id,
                   label: (
@@ -181,11 +181,11 @@ export default function AnalyticsPage() {
           </div>
         </section>
         <section>
-          <SectionHeader title="Top items" />
+          <SectionHeader title="Best-selling items" />
           <div className="px-4 py-5 sm:px-6">
             {d.topItems.length ? (
               <BarList
-                ariaLabel="Top items by revenue"
+                ariaLabel="Best-selling items by sales"
                 rows={d.topItems.map((it) => ({
                   key: it.name,
                   label: it.name,

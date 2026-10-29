@@ -25,8 +25,8 @@ type StatusFilter = InvoiceStatus | 'needs_reissue';
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'issued', label: 'Issued' },
   { value: 'needs_reissue', label: 'Needs reissue' },
-  { value: 'superseded', label: 'Superseded' },
-  { value: 'void', label: 'Void' },
+  { value: 'superseded', label: 'Replaced' },
+  { value: 'void', label: 'Cancelled' },
 ];
 
 const COLUMNS: Column<InvoiceListItem>[] = [
@@ -53,8 +53,8 @@ const COLUMNS: Column<InvoiceListItem>[] = [
       </CustomerHoverCard>
     ),
   },
-  { key: 'date', header: 'Date', optional: true, hideBelow: 'sm', cell: (i) => <span className="text-ink-2">{formatDate(i.invoiceDate)}</span> },
-  { key: 'amount', header: 'Amount', align: 'right', cell: (i) => formatINR(i.totalPaise) },
+  { key: 'date', header: 'Invoice date', optional: true, hideBelow: 'sm', cell: (i) => <span className="text-ink-2">{formatDate(i.invoiceDate)}</span> },
+  { key: 'amount', header: 'Bill amount', align: 'right', cell: (i) => formatINR(i.totalPaise) },
   {
     key: 'due',
     header: 'Due now',
@@ -118,29 +118,29 @@ export default function InvoiceListPage() {
       { header: 'Invoice', value: (i) => i.invoiceNumber },
       { header: 'Revision', value: (i) => i.revision },
       { header: 'Order', value: (i) => i.orderNumber },
-      { header: 'Date', value: (i) => i.invoiceDate },
+      { header: 'Invoice date', value: (i) => i.invoiceDate },
       { header: 'Customer', value: (i) => i.customerName },
       { header: 'Phone', value: (i) => i.customerPhone },
-      { header: 'Amount (Rs)', value: (i) => rupees(i.totalPaise) },
-      { header: 'Status', value: (i) => (i.outdated ? 'needs reissue' : i.status) },
+      { header: 'Bill amount (Rs)', value: (i) => rupees(i.totalPaise) },
+      { header: 'Status', value: (i) => (i.outdated ? 'needs reissue' : i.status === 'superseded' ? 'replaced' : i.status === 'void' ? 'cancelled' : i.status) },
     ]);
 
   return (
     <>
       <PageTop
         tabs={[
-          { key: '', label: 'All invoices', count: s?.total },
+          { key: '', label: 'All bills', count: s?.total },
           { key: 'issued', label: 'Issued' },
           { key: 'needs_reissue', label: 'Needs reissue', count: s?.outdated || undefined },
-          { key: 'superseded', label: 'Superseded' },
-          { key: 'void', label: 'Void' },
+          { key: 'superseded', label: 'Replaced' },
+          { key: 'void', label: 'Cancelled' },
         ]}
         value={status}
         onChange={(k) => {
           setSelected(new Set());
           update({ status: k || undefined });
         }}
-        actions={<ButtonLink to="/orders?status=open">Invoice an order</ButtonLink>}
+        actions={<ButtonLink to="/orders?status=open">Create invoice</ButtonLink>}
       />
 
       {s && (
@@ -168,9 +168,9 @@ export default function InvoiceListPage() {
             visual={<TickGauge value={s.total ? s.outdated / s.total : 0} label="Issued invoices whose order changed afterwards" />}
           />
           <Stat
-            label="Superseded / void"
+            label="Replaced / cancelled"
             value={String(s.replaced)}
-            visual={<TickGauge value={s.total ? s.replaced / s.total : 0} label="Share of invoices replaced or voided" />}
+            visual={<TickGauge value={s.total ? s.replaced / s.total : 0} label="Share of invoices replaced or cancelled" />}
           />
         </StatStrip>
       )}

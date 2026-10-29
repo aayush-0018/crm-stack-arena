@@ -119,9 +119,9 @@ export default function DailySummaryModal({
             ) : (
               <>
                 <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
-                  <Tile label="Orders" value={hide(String(s.orders))} foot={hideNumbers ? undefined : `${s.prevOrders} the day before`} />
+                  <Tile label="Total orders" value={hide(String(s.orders))} foot={hideNumbers ? undefined : `${s.prevOrders} the day before`} />
                   <Tile
-                    label="Collected"
+                    label="Payments received"
                     value={hide(formatINRCompact(s.collectedPaise))}
                     foot={hideNumbers || !s.revenuePaise ? undefined : `${Math.round((s.collectedPaise / s.revenuePaise) * 100)}% of sales`}
                   />
@@ -144,7 +144,7 @@ export default function DailySummaryModal({
 
                 <section className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-xl border border-line p-4">
-                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">Top items</p>
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">Best-selling items</p>
                     {s.topItems.length ? (
                       <ol className="space-y-2">
                         {s.topItems.map((it, i) => (
@@ -179,7 +179,7 @@ export default function DailySummaryModal({
 
             <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fafaf8] px-4 py-3.5">
               <p className="text-[13.5px] text-ink-2">
-                Outstanding across the shop:{' '}
+                Payments pending across the shop:{' '}
                 <span className="text-ink">{hide(formatINR(s.outstanding.duePaise))}</span>{' '}
                 {!hideNumbers && <span className="text-ink-3">on {s.outstanding.dueOrders} orders</span>}
               </p>

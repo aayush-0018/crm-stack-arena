@@ -18,7 +18,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
       {invoice.status !== 'issued' && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="-rotate-12 text-7xl font-semibold uppercase tracking-widest text-ink/[0.05]">
-            {invoice.status === 'void' ? 'Void' : 'Superseded'}
+            {invoice.status === 'void' ? 'Cancelled' : 'Replaced'}
           </span>
         </div>
       )}

@@ -32,8 +32,8 @@ const PAYMENT: Record<PaymentStatus, [Tone, string]> = {
 };
 const INVOICE: Record<InvoiceStatus, [Tone, string]> = {
   issued: ['green', 'Issued'],
-  superseded: ['yellow', 'Superseded'],
-  void: ['gray', 'Void'],
+  superseded: ['yellow', 'Replaced'],
+  void: ['gray', 'Cancelled'],
 };
 const SEGMENT: Record<CustomerSegment, [Tone, string]> = {
   new: ['blue', 'New'],

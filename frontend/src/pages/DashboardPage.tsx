@@ -56,21 +56,21 @@ export default function DashboardPage() {
       ) : (
         <StatStrip page="dashboard">
           <Stat
-            label="Revenue · 30d"
+            label="Total sales · 30d"
             value={formatINRCompact(s.revenuePaise)}
             suffix={change(s.revenuePaise, s.prevRevenuePaise)}
             trend={s.revenuePaise >= s.prevRevenuePaise ? 'up' : 'down'}
-            visual={<Sparkline values={daily.map((d) => d.revenuePaise)} label="Daily revenue, last 30 days" />}
+            visual={<Sparkline values={daily.map((d) => d.revenuePaise)} label="Daily sales, last 30 days" />}
           />
           <Stat
-            label="Orders · 30d"
+            label="Total orders · 30d"
             value={String(s.orders)}
             suffix={change(s.orders, s.prevOrders)}
             trend={s.orders >= s.prevOrders ? 'up' : 'down'}
             visual={<Sparkline values={daily.map((d) => d.orders)} label="Daily orders, last 30 days" />}
           />
           <Stat
-            label="Avg order value"
+            label="Average bill value"
             value={formatINR(s.orders ? Math.round(s.revenuePaise / s.orders) : 0).replace(/\.\d+$/, '')}
             suffix="7d rolling"
             visual={<Sparkline values={aov} label="Average order value, 7-day rolling" />}

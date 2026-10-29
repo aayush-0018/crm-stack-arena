@@ -305,7 +305,7 @@ export default function OrderDetailPage() {
         }
       >
         The order changed after invoice <strong className="text-ink">{reissuePrompt?.invoiceNumber}</strong> was issued. Reissuing marks the old
-        invoice as superseded and creates a new revision with the current values.
+        invoice as replaced and creates a new revision with the current values.
       </Modal>
 
       <ConfirmDialog
@@ -339,7 +339,7 @@ export default function OrderDetailPage() {
         confirmLabel="Cancel order"
         onClose={() => setPendingStatus(null)}
         onConfirm={() => changeStatus('cancelled')}
-        message={liveInvoice ? `Invoice ${liveInvoice.invoiceNumber} will be marked void.` : 'The order will be marked cancelled. You can reopen it later.'}
+        message={liveInvoice ? `Invoice ${liveInvoice.invoiceNumber} will be marked cancelled.` : 'The order will be marked cancelled. You can reopen it later.'}
       />
 
       {liveInvoice && (

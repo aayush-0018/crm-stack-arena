@@ -177,7 +177,7 @@ export function buildInvoiceDoc(inv: Invoice, logo: string | null = null): TDocu
     watermark:
       inv.status === 'issued'
         ? undefined
-        : { text: inv.status === 'void' ? 'VOID' : 'SUPERSEDED', opacity: 0.08, bold: true },
+        : { text: inv.status === 'void' ? 'CANCELLED' : 'REPLACED', opacity: 0.08, bold: true },
     content,
     footer: (page, pages) => ({
       margin: [36, 16, 36, 0],
