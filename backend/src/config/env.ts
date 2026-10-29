@@ -24,7 +24,7 @@ const envSchema = z
     MAIL_PROVIDER: z.enum(['console', 'brevo', 'resend']).default('console'),
     MAIL_API_KEY: z.string().optional(),
     MAIL_FROM: z.string().email().optional(),
-    MAIL_FROM_NAME: z.string().default('Shop CRM'),
+    MAIL_FROM_NAME: z.string().default('CartWell'),
   })
   .refine((e) => e.ALLOW_REMOTE_DB === 'true' || isLocal(e.DATABASE_URL), {
     message: 'DATABASE_URL is not local. Set ALLOW_REMOTE_DB=true to use a hosted database.',

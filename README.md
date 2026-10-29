@@ -1,4 +1,4 @@
-# Shop CRM
+# CartWell
 
 Customers → Orders → Invoices for local shops. Everything runs locally.
 

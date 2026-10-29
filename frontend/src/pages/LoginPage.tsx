@@ -19,7 +19,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
             <Store size={19} strokeWidth={1.8} />
           </span>
           <div className="text-center">
-            <h1 className="text-[20px] font-semibold text-ink">Shop CRM</h1>
+            <h1 className="text-[20px] font-semibold text-ink">CartWell</h1>
             <p className="mt-0.5 text-[14px] text-ink-3">{title}</p>
           </div>
         </div>

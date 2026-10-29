@@ -116,6 +116,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
 
       <footer className="relative mt-12 flex justify-between border-t border-line pt-4 text-[12px] text-ink-3">
         <span>Thank you for your business!</span>
+        <span className="text-ink-4">Made with CartWell</span>
         <span>{invoice.invoiceNumber}</span>
       </footer>
     </article>

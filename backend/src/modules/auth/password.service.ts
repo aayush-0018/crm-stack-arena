@@ -99,7 +99,7 @@ export async function resetPassword(token: string, password: string) {
 
 function resetEmail(name: string, shopName: string | null, link: string) {
   const first = name.split(' ')[0];
-  const app = shopName ? `${shopName} on Shop CRM` : 'Shop CRM';
+  const app = shopName ? `${shopName} on CartWell` : 'CartWell';
   const text = [
     `Hi ${first},`,
     '',
@@ -125,7 +125,7 @@ function resetEmail(name: string, shopName: string | null, link: string) {
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
-  return { to: '', subject: `Reset your ${shopName ?? 'Shop CRM'} password`, html, text } as const;
+  return { to: '', subject: `Reset your ${shopName ?? 'CartWell'} password`, html, text } as const;
 }
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

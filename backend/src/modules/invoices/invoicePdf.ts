@@ -174,15 +174,17 @@ export function buildInvoiceDoc(inv: Invoice, logo: string | null = null): TDocu
     pageMargins: [36, 40, 36, 56],
     info: { title: inv.invoiceNumber },
     defaultStyle: { font: 'Helvetica', fontSize: 10, lineHeight: 1.3, color: INK },
+    // Replaced/cancelled status takes the watermark slot; issued invoices carry the CartWell mark.
     watermark:
       inv.status === 'issued'
-        ? undefined
+        ? { text: 'CartWell', opacity: 0.04, bold: true, fontSize: 96 }
         : { text: inv.status === 'void' ? 'CANCELLED' : 'REPLACED', opacity: 0.08, bold: true },
     content,
     footer: (page, pages) => ({
       margin: [36, 16, 36, 0],
       columns: [
         { text: 'Thank you for your business!', style: 'muted' },
+        { text: 'Made with CartWell', alignment: 'center', style: 'muted', color: INK_3 },
         { text: `Page ${page} of ${pages}`, alignment: 'right', style: 'muted' },
       ],
     }),

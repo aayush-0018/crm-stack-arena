@@ -1,4 +1,4 @@
-# Feature Ideas — Shop CRM
+# Feature Ideas — CartWell
 
 Ideas for what to build after the current version (customers → orders → invoices + dashboard analytics).
 Each idea notes what it builds on in the current code, a rough **effort** (S = a day or two, M = about a week, L = several weeks) and **impact** for a local shop owner in India.
