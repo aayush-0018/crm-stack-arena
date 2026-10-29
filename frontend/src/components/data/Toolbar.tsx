@@ -1,4 +1,4 @@
-import { ListFilter, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import Popover, { MenuLabel } from '../ui/Popover';
 
@@ -13,20 +13,13 @@ export function Toolbar({ children, right }: { children: ReactNode; right?: Reac
 
 const toolBtn = 'inline-flex h-8 items-center gap-1.5 rounded-md text-[14px] text-ink-2 hover:text-ink';
 
-export function FilterButton({ count, children }: { count: number; children: (close: () => void) => ReactNode }) {
+/** Shown next to search while any column filter is on; filters themselves live in the column headers. */
+export function ClearFilters({ count, onClear }: { count: number; onClear: () => void }) {
   return (
-    <Popover
-      width={260}
-      trigger={({ toggle, open }) => (
-        <button type="button" onClick={toggle} aria-expanded={open} className={`${toolBtn} ${count ? 'text-ink' : ''}`}>
-          <ListFilter size={16} strokeWidth={1.75} />
-          Filters
-          {count > 0 && <span className="rounded border border-line px-1.5 text-[11px] font-medium leading-[18px] text-ink">{count}</span>}
-        </button>
-      )}
-    >
-      {(close) => children(close)}
-    </Popover>
+    <button type="button" onClick={onClear} className={`${toolBtn} shrink-0 text-ink`}>
+      <X size={14} />
+      Clear {count > 1 ? `${count} filters` : 'filter'}
+    </button>
   );
 }
 
@@ -91,39 +84,6 @@ export function CustomizeButton({
         </>
       )}
     </Popover>
-  );
-}
-
-/** Chip-style option row used inside the Filters popover. */
-export function FilterOptions<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T | '';
-  onChange: (v: T | '') => void;
-}) {
-  return (
-    <div className="px-1 pb-2">
-      <MenuLabel>{label}</MenuLabel>
-      <div className="flex flex-wrap gap-1.5 px-1">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(value === o.value ? '' : o.value)}
-            className={`h-7 rounded-md border px-2.5 text-[13px] ${
-              value === o.value ? 'border-ink bg-ink text-white' : 'border-line text-ink-2 hover:bg-hover'
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 

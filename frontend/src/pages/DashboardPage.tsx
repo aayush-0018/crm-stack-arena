@@ -54,7 +54,7 @@ export default function DashboardPage() {
       ) : !s ? (
         <LoadingState />
       ) : (
-        <StatStrip>
+        <StatStrip page="dashboard">
           <Stat
             label="Revenue · 30d"
             value={formatINRCompact(s.revenuePaise)}

@@ -176,3 +176,17 @@ export async function updatePayment(
     [shopId, id, amountPaidPaise, paymentStatus],
   );
 }
+
+/**
+ * An open order that is fully paid AND has an issued invoice is finished: mark it Completed.
+ * Only ever moves Open -> Completed (a completed order can legitimately be unpaid, so this
+ * never moves anything back). No version bump, so the invoice is not flagged for reissue.
+ */
+export async function completeIfSettled(db: Db, shopId: number, id: number) {
+  await db.query(
+    `UPDATE orders o SET status = 'completed', updated_at = now()
+     WHERE o.shop_id = $1 AND o.id = $2 AND o.status = 'open' AND o.payment_status = 'paid'
+       AND EXISTS (SELECT 1 FROM invoices i WHERE i.order_id = o.id AND i.status = 'issued')`,
+    [shopId, id],
+  );
+}

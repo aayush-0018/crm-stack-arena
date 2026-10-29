@@ -4,7 +4,7 @@ import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
 import { branchCode, formatInvoiceNumber, nextSeq, todayIST } from '../../lib/numbering';
 import { findCustomer } from '../customers/customers.repo';
-import { findItems, findOrder } from '../orders/orders.repo';
+import { completeIfSettled, findItems, findOrder } from '../orders/orders.repo';
 import { findShop } from '../shop/shop.repo';
 import * as repo from './invoices.repo';
 
@@ -27,7 +27,10 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
 
       const latest = await repo.latestInvoiceForOrder(c, orderId);
       if (latest?.status === 'issued') {
-        if (latest.orderVersion === order.version) return { id: latest.id, created: false };
+        if (latest.orderVersion === order.version) {
+          await completeIfSettled(c, shopId, orderId);
+          return { id: latest.id, created: false };
+        }
         if (!reissue) {
           throw new AppError(409, 'INVOICE_OUTDATED', 'This order changed after its invoice was issued', {
             invoiceId: latest.id,
@@ -78,6 +81,7 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
         paymentStatus: order.paymentStatus,
         createdBy: userId,
       });
+      await completeIfSettled(c, shopId, orderId); // paid in full + invoiced = done
       return { id, created: true };
     });
   } catch (err) {

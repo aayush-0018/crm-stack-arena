@@ -1,7 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, Eye, EyeOff, Moon, X } from 'lucide-react';
 import { ReactNode, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { usePrivacy } from '../../context/PrivacyContext';
+import { usePageNumbers } from '../../context/PrivacyContext';
 import { formatINR, formatINRCompact } from '../../lib/money';
 import type { DailySummary } from '../../types';
 import Button from '../ui/Button';
@@ -33,7 +33,7 @@ export default function DailySummaryModal({
   error: string | null;
   onRetry: () => void;
 }) {
-  const { hideNumbers, toggleHideNumbers } = usePrivacy();
+  const { hideNumbers, toggleHideNumbers } = usePageNumbers('summary');
 
   useEffect(() => {
     if (!open) return;

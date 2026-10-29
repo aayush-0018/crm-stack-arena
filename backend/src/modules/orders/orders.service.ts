@@ -93,6 +93,7 @@ export async function updateOrder(shopId: number, id: number, input: UpdateOrder
     const totals = computeTotals(input.items, input.discount, input.amountPaid ?? order.amountPaidPaise);
     await repo.updateOrderTotals(c, shopId, id, totals, input.notes, input.orderDate);
     await repo.replaceItems(c, id, totals.lines);
+    await repo.completeIfSettled(c, shopId, id);
   });
   // Issued invoices are never modified here; getOrder reports invoice.outdated.
   return getOrder(shopId, id);
@@ -127,6 +128,7 @@ export async function setPayment(shopId: number, id: number, amountPaidPaise: nu
     if (order.status === 'cancelled') throw orderCancelled();
     assertPaidWithinTotal(amountPaidPaise, order.totalPaise);
     await repo.updatePayment(c, shopId, id, amountPaidPaise, derivePaymentStatus(amountPaidPaise, order.totalPaise));
+    await repo.completeIfSettled(c, shopId, id);
   });
   return getOrder(shopId, id);
 }

@@ -4,11 +4,12 @@ import { formatINR } from '../../lib/money';
 import type { OrderListItem } from '../../types';
 import CustomerHoverCard from '../customers/CustomerHoverCard';
 import DataTable, { Column, SortState } from '../data/DataTable';
+import type { ColumnFilter } from '../data/HeaderFilter';
 import Avatar from '../ui/Avatar';
 import { PaymentBadge, StatusBadge } from '../ui/Badge';
 
-export function orderColumns(showCustomer: boolean): Column<OrderListItem>[] {
-  return [
+export function orderColumns(showCustomer: boolean, filters: Record<string, ColumnFilter> = {}): Column<OrderListItem>[] {
+  const columns: Column<OrderListItem>[] = [
     {
       key: 'order',
       header: 'Order',
@@ -49,6 +50,7 @@ export function orderColumns(showCustomer: boolean): Column<OrderListItem>[] {
     },
     { key: 'total', header: 'Total', sortKey: 'total', align: 'right', cell: (o) => <span className="text-ink">{formatINR(o.totalPaise)}</span> },
   ];
+  return columns.map((c) => (filters[c.key] ? { ...c, filter: filters[c.key] } : c));
 }
 
 export default function OrdersTable({
@@ -60,6 +62,7 @@ export default function OrdersTable({
   selected,
   onSelectedChange,
   dim,
+  filters,
 }: {
   orders: OrderListItem[];
   showCustomer?: boolean;
@@ -69,13 +72,15 @@ export default function OrdersTable({
   selected?: Set<number | string>;
   onSelectedChange?: (s: Set<number | string>) => void;
   dim?: boolean;
+  /** Header filters, keyed by column key. */
+  filters?: Record<string, ColumnFilter>;
 }) {
   const navigate = useNavigate();
   return (
     <DataTable
       label="Orders"
       rows={orders}
-      columns={orderColumns(showCustomer)}
+      columns={orderColumns(showCustomer, filters)}
       rowKey={(o) => o.id}
       hidden={hidden}
       sort={sort}

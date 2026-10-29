@@ -131,7 +131,7 @@ export default function OrderDetailPage() {
         }
       />
 
-      <StatStrip>
+      <StatStrip page="order">
         <Stat label="Order total" value={formatINR(o.totalPaise)} />
         <Stat
           label="Paid"

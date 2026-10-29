@@ -2,19 +2,20 @@ import { createContext, ReactNode, useCallback, useContext, useState } from 'rea
 
 /**
  * "Hide numbers" for when customers can see the screen at the counter.
- * One setting for the whole app, remembered in this browser.
+ * Each page has its own setting (hiding on the Dashboard doesn't touch Orders or the
+ * daily summary), remembered per page in this browser.
  */
 interface PrivacyValue {
-  hideNumbers: boolean;
-  toggleHideNumbers: () => void;
-  collapsed: boolean;
-  toggleCollapsed: () => void;
+  isHidden: (page: string) => boolean;
+  toggleHidden: (page: string) => void;
+  isCollapsed: (page: string) => boolean;
+  toggleCollapsed: (page: string) => void;
 }
 
 const PrivacyContext = createContext<PrivacyValue>({
-  hideNumbers: false,
-  toggleHideNumbers: () => undefined,
-  collapsed: false,
+  isHidden: () => false,
+  toggleHidden: () => undefined,
+  isCollapsed: () => false,
   toggleCollapsed: () => undefined,
 });
 
@@ -33,30 +34,35 @@ const write = (key: string, on: boolean) => {
   }
 };
 
-export function PrivacyProvider({ children }: { children: ReactNode }) {
-  const [hideNumbers, setHide] = useState(() => read('crm.hideNumbers'));
-  const [collapsed, setCollapsed] = useState(() => read('crm.statsCollapsed'));
-
-  const toggleHideNumbers = useCallback(
-    () =>
-      setHide((v) => {
-        write('crm.hideNumbers', !v);
-        return !v;
+/** A per-page on/off map backed by localStorage keys `<prefix>.<page>`. */
+function usePageFlags(prefix: string) {
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
+  const get = useCallback((page: string) => flags[page] ?? read(`${prefix}.${page}`), [flags, prefix]);
+  const toggle = useCallback(
+    (page: string) =>
+      setFlags((f) => {
+        const next = !(f[page] ?? read(`${prefix}.${page}`));
+        write(`${prefix}.${page}`, next);
+        return { ...f, [page]: next };
       }),
-    [],
+    [prefix],
   );
-  const toggleCollapsed = useCallback(
-    () =>
-      setCollapsed((v) => {
-        write('crm.statsCollapsed', !v);
-        return !v;
-      }),
-    [],
-  );
-
-  return (
-    <PrivacyContext.Provider value={{ hideNumbers, toggleHideNumbers, collapsed, toggleCollapsed }}>{children}</PrivacyContext.Provider>
-  );
+  return [get, toggle] as const;
 }
 
-export const usePrivacy = () => useContext(PrivacyContext);
+export function PrivacyProvider({ children }: { children: ReactNode }) {
+  const [isHidden, toggleHidden] = usePageFlags('crm.hideNumbers');
+  const [isCollapsed, toggleCollapsed] = usePageFlags('crm.statsCollapsed');
+  return <PrivacyContext.Provider value={{ isHidden, toggleHidden, isCollapsed, toggleCollapsed }}>{children}</PrivacyContext.Provider>;
+}
+
+/** The hide / collapse state for one page. */
+export function usePageNumbers(page: string) {
+  const { isHidden, toggleHidden, isCollapsed, toggleCollapsed } = useContext(PrivacyContext);
+  return {
+    hideNumbers: isHidden(page),
+    toggleHideNumbers: () => toggleHidden(page),
+    collapsed: isCollapsed(page),
+    toggleCollapsed: () => toggleCollapsed(page),
+  };
+}

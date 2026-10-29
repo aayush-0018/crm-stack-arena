@@ -103,13 +103,23 @@ const TODAY = `(now() AT TIME ZONE 'Asia/Kolkata')::date`;
 export async function listInvoices(
   db: Db,
   shopId: number,
-  q: { search?: string; status?: InvoiceStatus; page: number; pageSize: number },
+  q: { search?: string; status?: InvoiceStatus | 'needs_reissue'; from?: string; to?: string; page: number; pageSize: number },
 ) {
   const params: unknown[] = [shopId];
   const where = ['i.shop_id = $1'];
-  if (q.status) {
+  if (q.status === 'needs_reissue') {
+    where.push(`i.status = 'issued' AND i.order_version <> o.version`);
+  } else if (q.status) {
     params.push(q.status);
     where.push(`i.status = $${params.length}`);
+  }
+  if (q.from) {
+    params.push(q.from);
+    where.push(`i.invoice_date >= $${params.length}`);
+  }
+  if (q.to) {
+    params.push(q.to);
+    where.push(`i.invoice_date <= $${params.length}`);
   }
   if (q.search) {
     params.push(`%${escapeLike(q.search)}%`);

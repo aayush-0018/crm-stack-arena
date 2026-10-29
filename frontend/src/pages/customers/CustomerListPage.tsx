@@ -6,7 +6,7 @@ import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/S
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import BulkDelete from '../../components/data/BulkDelete';
 import DataTable, { Column } from '../../components/data/DataTable';
-import { CustomizeButton, FilterButton, FilterOptions, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
+import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
 import { SEGMENT_LABEL, SegmentBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
@@ -21,7 +21,6 @@ import type { Customer, CustomerSegment } from '../../types';
 
 const PAGE_SIZE = 25;
 type SortKey = 'name' | 'created' | 'lastOrder' | 'spent' | 'orders';
-const SORT_LABEL: Record<SortKey, string> = { name: 'Name', created: 'Recently added', lastOrder: 'Last order', spent: 'Total spent', orders: 'Orders' };
 const DEFAULT_DIR: Record<SortKey, 'asc' | 'desc'> = { name: 'asc', created: 'desc', lastOrder: 'desc', spent: 'desc', orders: 'desc' };
 
 const COLUMNS: Column<Customer>[] = [
@@ -74,6 +73,23 @@ export default function CustomerListPage() {
     [segment, search, sort, dir, page],
   );
 
+  const columns = COLUMNS.map((c) =>
+    c.key === 'status'
+      ? {
+          ...c,
+          filter: {
+            kind: 'options' as const,
+            value: segment,
+            options: (Object.keys(SEGMENT_LABEL) as CustomerSegment[]).map((k) => ({ value: k, label: SEGMENT_LABEL[k] })),
+            onChange: (v: string) => {
+              setSelected(new Set());
+              update({ segment: v || undefined });
+            },
+          },
+        }
+      : c,
+  );
+
   const s = summary.data;
   const rows = list.data?.data ?? [];
   const selectedRows = rows.filter((r) => selected.has(r.id));
@@ -115,7 +131,7 @@ export default function CustomerListPage() {
       />
 
       {s && (
-        <StatStrip>
+        <StatStrip page="customers">
           <Stat
             label="Total customers"
             value={String(s.total)}
@@ -182,40 +198,8 @@ export default function CustomerListPage() {
           )
         }
       >
-        <FilterButton count={(segment ? 1 : 0) + (sort !== 'name' ? 1 : 0)}>
-          {(close) => (
-            <>
-              <FilterOptions
-                label="Status"
-                value={segment}
-                options={(Object.keys(SEGMENT_LABEL) as CustomerSegment[]).map((k) => ({ value: k, label: SEGMENT_LABEL[k] }))}
-                onChange={(v) => update({ segment: v || undefined })}
-              />
-              <FilterOptions
-                label="Sort by"
-                value={sort}
-                options={(Object.keys(SORT_LABEL) as SortKey[]).map((k) => ({ value: k, label: SORT_LABEL[k] }))}
-                onChange={(v) => {
-                  const k = (v || 'name') as SortKey;
-                  update({ sort: k === 'name' ? undefined : k, dir: undefined });
-                }}
-              />
-              <div className="border-t border-line px-1 pt-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    update({ segment: undefined, sort: undefined, dir: undefined });
-                    close();
-                  }}
-                  className="h-8 w-full rounded-md px-2 text-left text-[13.5px] text-ink-2 hover:bg-hover"
-                >
-                  Reset filters
-                </button>
-              </div>
-            </>
-          )}
-        </FilterButton>
         <SearchBox value={search} onChange={(v) => update({ search: v || undefined })} placeholder="Search name or phone" />
+        {segment && <ClearFilters count={1} onClear={() => update({ segment: undefined })} />}
       </Toolbar>
 
       {list.loading && !list.data ? (
@@ -224,7 +208,11 @@ export default function CustomerListPage() {
         <ErrorState error={list.error} onRetry={list.reload} />
       ) : !rows.length ? (
         search || segment ? (
-          <EmptyState title="No matching customers" description="Try a different search or filter." />
+          <EmptyState
+            title="No matching customers"
+            description="Try a different search or filter."
+            action={segment ? <Button variant="secondary" onClick={() => update({ segment: undefined })}>Clear filter</Button> : undefined}
+          />
         ) : (
           <EmptyState title="No customers yet" description="Add your first customer to start taking orders." action={<ButtonLink to="/customers/new">Add customer</ButtonLink>} />
         )
@@ -233,7 +221,7 @@ export default function CustomerListPage() {
           <DataTable
             label="Customers"
             rows={rows}
-            columns={COLUMNS}
+            columns={columns}
             rowKey={(c) => c.id}
             hidden={hidden}
             selected={selected}

@@ -4,12 +4,11 @@ import { useSearchParams } from 'react-router-dom';
 import { dashboardApi, ordersApi } from '../../api/endpoints';
 import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import BulkDelete from '../../components/data/BulkDelete';
-import { CustomizeButton, FilterButton, FilterOptions, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
+import type { ColumnFilter } from '../../components/data/HeaderFilter';
+import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import OrdersTable, { orderColumns } from '../../components/orders/OrdersTable';
 import { ORDER_STATUS_LABEL, PAYMENT_STATUS_LABEL } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
-import { controlClass } from '../../components/ui/Field';
-import { MenuLabel } from '../../components/ui/Popover';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
@@ -62,7 +61,29 @@ export default function OrderListPage() {
 
   const a = analytics.data;
   const rows = list.data?.data ?? [];
-  const filterCount = [paymentStatus, get('from'), get('to')].filter(Boolean).length;
+  const filterCount = [status, paymentStatus, get('from'), get('to')].filter(Boolean).length;
+  const clearFilters = () => {
+    setSelected(new Set());
+    update({ status: undefined, paymentStatus: undefined, from: undefined, to: undefined });
+  };
+  const filters: Record<string, ColumnFilter> = {
+    status: {
+      kind: 'options',
+      value: status,
+      options: (Object.keys(ORDER_STATUS_LABEL) as OrderStatus[]).map((k) => ({ value: k, label: ORDER_STATUS_LABEL[k] })),
+      onChange: (v) => {
+        setSelected(new Set());
+        update({ status: v || undefined });
+      },
+    },
+    payment: {
+      kind: 'options',
+      value: paymentStatus,
+      options: (Object.keys(PAYMENT_STATUS_LABEL) as PaymentStatus[]).map((k) => ({ value: k, label: PAYMENT_STATUS_LABEL[k] })),
+      onChange: (v) => update({ paymentStatus: v || undefined }),
+    },
+    date: { kind: 'date', from: get('from'), to: get('to'), onChange: (from, to) => update({ from: from || undefined, to: to || undefined }) },
+  };
   const orders30 = a?.summary.orders ?? 0;
   const pending = (a?.payment ?? []).filter((p) => p.status !== 'paid').reduce((t, p) => t + p.orders, 0);
   const cancelled30 = a?.status.find((x) => x.status === 'cancelled')?.orders ?? 0;
@@ -100,7 +121,7 @@ export default function OrderListPage() {
       />
 
       {a && (
-        <StatStrip>
+        <StatStrip page="orders">
           <Stat
             label="Orders today"
             value={String(today?.orders ?? 0)}
@@ -166,38 +187,8 @@ export default function OrderListPage() {
           )
         }
       >
-        <FilterButton count={filterCount}>
-          {(close) => (
-            <>
-              <FilterOptions
-                label="Payment"
-                value={paymentStatus}
-                options={(Object.keys(PAYMENT_STATUS_LABEL) as PaymentStatus[]).map((k) => ({ value: k, label: PAYMENT_STATUS_LABEL[k] }))}
-                onChange={(v) => update({ paymentStatus: v || undefined })}
-              />
-              <div className="px-1 pb-2">
-                <MenuLabel>Date range</MenuLabel>
-                <div className="grid grid-cols-2 gap-2 px-1">
-                  <input type="date" aria-label="From date" value={get('from')} onChange={(e) => update({ from: e.target.value || undefined })} className={controlClass(false, 'h-8 px-2 text-[13px]')} />
-                  <input type="date" aria-label="To date" value={get('to')} onChange={(e) => update({ to: e.target.value || undefined })} className={controlClass(false, 'h-8 px-2 text-[13px]')} />
-                </div>
-              </div>
-              <div className="border-t border-line px-1 pt-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    update({ paymentStatus: undefined, from: undefined, to: undefined });
-                    close();
-                  }}
-                  className="h-8 w-full rounded-md px-2 text-left text-[13.5px] text-ink-2 hover:bg-hover"
-                >
-                  Reset filters
-                </button>
-              </div>
-            </>
-          )}
-        </FilterButton>
         <SearchBox value={get('search')} onChange={(v) => update({ search: v || undefined })} placeholder="Search order no, customer or phone" />
+        {filterCount > 0 && <ClearFilters count={filterCount} onClear={clearFilters} />}
       </Toolbar>
 
       {list.loading && !list.data ? (
@@ -205,8 +196,12 @@ export default function OrderListPage() {
       ) : list.error ? (
         <ErrorState error={list.error} onRetry={list.reload} />
       ) : !rows.length ? (
-        filterCount || status || get('search') ? (
-          <EmptyState title="No orders match" description="Try a different search or filter." />
+        filterCount || get('search') ? (
+          <EmptyState
+            title="No orders match"
+            description="Try a different search or filter."
+            action={filterCount ? <Button variant="secondary" onClick={clearFilters}>Clear filters</Button> : undefined}
+          />
         ) : (
           <EmptyState title="No orders yet" action={<ButtonLink to="/orders/new">New order</ButtonLink>} />
         )
@@ -220,6 +215,7 @@ export default function OrderListPage() {
             selected={selected}
             onSelectedChange={setSelected}
             dim={list.loading}
+            filters={filters}
           />
           <Pagination page={page} pageSize={PAGE_SIZE} total={list.data!.total} onChange={(p) => update({ page: String(p) })} />
         </>

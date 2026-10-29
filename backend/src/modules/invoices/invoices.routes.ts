@@ -39,7 +39,9 @@ invoicesRouter.get(
 
 const listQuery = paginationQuery.extend({
   search: z.string().trim().max(100).optional(),
-  status: z.enum(['issued', 'superseded', 'void']).optional(),
+  status: z.enum(['issued', 'needs_reissue', 'superseded', 'void']).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 invoicesRouter.get(

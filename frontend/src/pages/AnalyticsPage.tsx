@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
   return (
     <>
       {top}
-      <StatStrip dim={a.loading}>
+      <StatStrip page="analytics" dim={a.loading}>
         <Stat
           label="Revenue"
           value={formatINRCompact(s.revenuePaise)}

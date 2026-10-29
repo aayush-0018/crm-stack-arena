@@ -81,7 +81,7 @@ export default function CustomerDetailPage() {
         }
       />
 
-      <StatStrip>
+      <StatStrip page="customer">
         <Stat label="Orders" value={String(c.stats.orderCount)} />
         <Stat label="Total spent" value={formatINRCompact(c.stats.totalSpentPaise)} />
         <Stat

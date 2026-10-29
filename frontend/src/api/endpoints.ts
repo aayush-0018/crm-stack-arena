@@ -123,7 +123,7 @@ export const invoicesApi = {
   generate: (orderId: number | string, reissue = false) =>
     api.post<Invoice>(`/orders/${orderId}/invoice`, {}, reissue ? { reissue: 'true' } : undefined),
   get: (id: number | string) => api.get<Invoice>(`/invoices/${id}`),
-  list: (q: { search?: string; status?: InvoiceStatus | ''; page?: number; pageSize?: number }) =>
+  list: (q: { search?: string; status?: InvoiceStatus | 'needs_reissue' | ''; from?: string; to?: string; page?: number; pageSize?: number }) =>
     api.get<Paged<InvoiceListItem>>('/invoices', q),
   summary: () => api.get<InvoicesSummary>('/invoices/summary'),
   remove: (id: number | string) => api.delete<{ orderId: number; invoiceNumber: string; revision: number }>(`/invoices/${id}`),

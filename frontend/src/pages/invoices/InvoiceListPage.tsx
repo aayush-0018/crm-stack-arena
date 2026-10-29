@@ -6,7 +6,8 @@ import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/S
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import DataTable, { Column } from '../../components/data/DataTable';
 import BulkDelete from '../../components/data/BulkDelete';
-import { CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
+import type { ColumnFilter } from '../../components/data/HeaderFilter';
+import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
 import { InvoiceBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
@@ -20,6 +21,13 @@ import { formatINR, formatINRCompact } from '../../lib/money';
 import type { InvoiceListItem, InvoiceStatus } from '../../types';
 
 const PAGE_SIZE = 25;
+type StatusFilter = InvoiceStatus | 'needs_reissue';
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'issued', label: 'Issued' },
+  { value: 'needs_reissue', label: 'Needs reissue' },
+  { value: 'superseded', label: 'Superseded' },
+  { value: 'void', label: 'Void' },
+];
 
 const COLUMNS: Column<InvoiceListItem>[] = [
   {
@@ -61,7 +69,9 @@ const COLUMNS: Column<InvoiceListItem>[] = [
 export default function InvoiceListPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const status = (params.get('status') ?? '') as InvoiceStatus | '';
+  const status = (params.get('status') ?? '') as StatusFilter | '';
+  const from = params.get('from') ?? '';
+  const to = params.get('to') ?? '';
   const search = params.get('search') ?? '';
   const page = Number(params.get('page')) || 1;
   const [selected, setSelected] = useState<Set<number | string>>(new Set());
@@ -78,7 +88,28 @@ export default function InvoiceListPage() {
   };
 
   const summary = useAsync(() => invoicesApi.summary(), []);
-  const list = useAsync(() => invoicesApi.list({ status, search: search || undefined, page, pageSize: PAGE_SIZE }), [status, search, page]);
+  const list = useAsync(
+    () => invoicesApi.list({ status, search: search || undefined, from: from || undefined, to: to || undefined, page, pageSize: PAGE_SIZE }),
+    [status, search, from, to, page],
+  );
+  const filterCount = [status, from, to].filter(Boolean).length;
+  const clearFilters = () => {
+    setSelected(new Set());
+    update({ status: undefined, from: undefined, to: undefined });
+  };
+  const filters: Record<string, ColumnFilter> = {
+    status: {
+      kind: 'options',
+      value: status,
+      options: STATUS_OPTIONS,
+      onChange: (v) => {
+        setSelected(new Set());
+        update({ status: v || undefined });
+      },
+    },
+    date: { kind: 'date', from, to, onChange: (f, t) => update({ from: f || undefined, to: t || undefined }) },
+  };
+  const columns = COLUMNS.map((c) => (filters[c.key] ? { ...c, filter: filters[c.key] } : c));
   const s = summary.data;
   const rows = list.data?.data ?? [];
 
@@ -100,6 +131,7 @@ export default function InvoiceListPage() {
         tabs={[
           { key: '', label: 'All invoices', count: s?.total },
           { key: 'issued', label: 'Issued' },
+          { key: 'needs_reissue', label: 'Needs reissue', count: s?.outdated || undefined },
           { key: 'superseded', label: 'Superseded' },
           { key: 'void', label: 'Void' },
         ]}
@@ -112,7 +144,7 @@ export default function InvoiceListPage() {
       />
 
       {s && (
-        <StatStrip>
+        <StatStrip page="invoices">
           <Stat
             label="Invoiced · 30d"
             value={formatINRCompact(s.invoiced30Paise)}
@@ -177,6 +209,7 @@ export default function InvoiceListPage() {
         }
       >
         <SearchBox value={search} onChange={(v) => update({ search: v || undefined })} placeholder="Search invoice, order, customer or phone" />
+        {filterCount > 0 && <ClearFilters count={filterCount} onClear={clearFilters} />}
       </Toolbar>
 
       {list.loading && !list.data ? (
@@ -184,13 +217,17 @@ export default function InvoiceListPage() {
       ) : list.error ? (
         <ErrorState error={list.error} onRetry={list.reload} />
       ) : !rows.length ? (
-        <EmptyState title={search || status ? 'No invoices match' : 'No invoices yet'} description={search || status ? 'Try a different search or filter.' : 'Generate an invoice from any order.'} />
+        <EmptyState
+          title={search || filterCount ? 'No invoices match' : 'No invoices yet'}
+          description={search || filterCount ? 'Try a different search or filter.' : 'Generate an invoice from any order.'}
+          action={filterCount ? <Button variant="secondary" onClick={clearFilters}>Clear filters</Button> : undefined}
+        />
       ) : (
         <>
           <DataTable
             label="Invoices"
             rows={rows}
-            columns={COLUMNS}
+            columns={columns}
             rowKey={(i) => i.id}
             hidden={hidden}
             selected={selected}

@@ -1,10 +1,14 @@
 import { ArrowDownRight, ArrowUpRight, ChevronDown, Eye, EyeOff } from 'lucide-react';
-import { usePrivacy } from '../../context/PrivacyContext';
-import { ReactNode } from 'react';
+import { createContext, ReactNode, useContext } from 'react';
+import { usePageNumbers } from '../../context/PrivacyContext';
+
+/** Whether the strip a Stat sits in currently hides its numbers. */
+const StripHidden = createContext(false);
 
 /** Row of headline numbers at the top of a page, with hide (eye) and collapse controls. */
-export function StatStrip({ children, dim }: { children: ReactNode; dim?: boolean }) {
-  const { hideNumbers, toggleHideNumbers, collapsed, toggleCollapsed } = usePrivacy();
+export function StatStrip({ page, children, dim }: { page: string; children: ReactNode; dim?: boolean }) {
+  // Each page remembers its own hide / collapse state.
+  const { hideNumbers, toggleHideNumbers, collapsed, toggleCollapsed } = usePageNumbers(page);
   const iconBtn = 'flex h-7 w-7 items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink';
 
   return (
@@ -46,7 +50,7 @@ export function StatStrip({ children, dim }: { children: ReactNode; dim?: boolea
             dim ? 'opacity-50' : ''
           }`}
         >
-          {children}
+          <StripHidden.Provider value={hideNumbers}>{children}</StripHidden.Provider>
         </div>
       )}
     </section>
@@ -66,7 +70,7 @@ export function Stat({
   trend?: 'up' | 'down';
   visual?: ReactNode;
 }) {
-  const { hideNumbers } = usePrivacy();
+  const hideNumbers = useContext(StripHidden);
   return (
     <div className="min-w-0">
       <p className="flex items-center gap-1.5 truncate pr-6 text-[14.5px] text-ink">

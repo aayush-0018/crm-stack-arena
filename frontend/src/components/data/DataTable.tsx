@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { ReactNode } from 'react';
 import Checkbox from '../ui/Checkbox';
+import HeaderFilter, { ColumnFilter, isFilterActive } from './HeaderFilter';
 
 export interface Column<T> {
   key: string;
@@ -11,6 +12,8 @@ export interface Column<T> {
   hideBelow?: 'sm' | 'md' | 'lg';
   /** Can be toggled off from Customize. */
   optional?: boolean;
+  /** Filter control shown in this column's header. */
+  filter?: ColumnFilter;
   className?: string;
 }
 
@@ -77,6 +80,7 @@ export default function DataTable<T>({
             )}
             {cols.map((c, i) => {
               const active = !!sort && !!c.sortKey && sort.key === c.sortKey;
+              const filtered = !!c.filter && isFilterActive(c.filter);
               const pad = `${i === 0 && !selectable ? 'pl-4 sm:pl-6' : 'pl-3'} ${i === cols.length - 1 ? 'pr-4 sm:pr-6' : 'pr-3'}`;
               return (
                 <th
@@ -85,8 +89,9 @@ export default function DataTable<T>({
                   aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                   className={`h-11 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.06em] ${
                     c.align === 'right' ? 'text-right' : 'text-left'
-                  } ${active ? 'text-ink' : 'text-ink-3'} ${pad} ${c.hideBelow ? HIDE[c.hideBelow] : ''}`}
+                  } ${active || filtered ? 'text-ink' : 'text-ink-3'} ${pad} ${c.hideBelow ? HIDE[c.hideBelow] : ''}`}
                 >
+                  <span className={`inline-flex items-center gap-1 ${c.align === 'right' ? 'flex-row-reverse' : ''}`}>
                   {c.sortKey && onSort ? (
                     <button
                       type="button"
@@ -103,6 +108,8 @@ export default function DataTable<T>({
                   ) : (
                     c.header
                   )}
+                  {c.filter && <HeaderFilter filter={c.filter} label={c.header} />}
+                  </span>
                 </th>
               );
             })}
