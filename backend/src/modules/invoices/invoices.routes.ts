@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { AppError, notFound } from '../../lib/errors';
-import { idParam, paged, paginationQuery } from '../../lib/validation';
+import { dateInput, idParam, paged, paginationQuery } from '../../lib/validation';
 import { assertOwner } from '../../lib/guards';
 import { auth } from '../../middleware/auth';
 import { findOrder } from '../orders/orders.repo';
@@ -40,8 +40,8 @@ invoicesRouter.get(
 const listQuery = paginationQuery.extend({
   search: z.string().trim().max(100).optional(),
   status: z.enum(['issued', 'needs_reissue', 'superseded', 'void']).optional(),
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  from: dateInput.optional(),
+  to: dateInput.optional(),
 });
 
 invoicesRouter.get(

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { moneyInput, quantityInput } from '../../lib/money';
-import { optionalText, paginationQuery } from '../../lib/validation';
+import { dateInput, optionalText, paginationQuery } from '../../lib/validation';
 import { customerInput } from '../customers/customers.schemas';
 import { paymentMethodInput } from '../payments/payments.schemas';
 
@@ -20,13 +20,11 @@ const lineItemInput = z.object({
 });
 export type LineItemInput = z.infer<typeof lineItemInput>;
 
-const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
-
 const orderBody = {
   items: z.array(lineItemInput).min(1, 'Add at least one item').max(200, 'Too many items (max 200)'),
   discount: moneyInput.default(0),
   notes: optionalText(1000),
-  orderDate: dateString.optional(),
+  orderDate: dateInput.optional(),
 };
 
 export const createOrderSchema = z
@@ -65,8 +63,8 @@ export const listOrdersQuery = paginationQuery.extend({
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   /** Money still owed: not cancelled, and paid less than the total. */
   due: z.enum(['true', 'false']).optional(),
-  from: dateString.optional(),
-  to: dateString.optional(),
+  from: dateInput.optional(),
+  to: dateInput.optional(),
   sort: z.enum(['date', 'total', 'number']).default('date'),
   dir: z.enum(['asc', 'desc']).default('desc'),
 });

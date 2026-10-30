@@ -48,6 +48,10 @@ export function computeTotals(
     lineTotalPaise: lineTotalPaise(it.quantity, it.unitPrice),
   }));
   const subtotalPaise = lines.reduce((s, l) => s + l.lineTotalPaise, 0);
+  // Sums of whole paise stay exact only up to 2^53; beyond that, refuse rather than round.
+  if (!Number.isSafeInteger(subtotalPaise)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'This order total is too large', { items: 'This order total is too large' });
+  }
 
   if (discountPaise > subtotalPaise) {
     throw new AppError(400, 'VALIDATION_ERROR', 'Discount cannot be more than the subtotal', {

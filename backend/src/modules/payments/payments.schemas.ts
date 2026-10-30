@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { moneyInput } from '../../lib/money';
-import { optionalText } from '../../lib/validation';
+import { dateInput, optionalText } from '../../lib/validation';
 
 /** Methods a person can pick. 'unrecorded' exists only for history imported from before the ledger. */
 export const PAYMENT_METHODS = ['cash', 'upi', 'card', 'bank', 'other'] as const;
@@ -15,7 +15,7 @@ export const paymentEntrySchema = z.object({
   kind: z.enum(['payment', 'refund']).default('payment'),
   amount: moneyInput.refine((p) => p > 0, 'Amount must be more than 0'),
   method: paymentMethodInput,
-  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
+  paidOn: dateInput.optional(),
   reference: optionalText(100),
   note: optionalText(300),
   idempotencyKey: z.string().uuid().optional(),

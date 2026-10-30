@@ -20,6 +20,16 @@ export const optionalEmail = z
   .nullish()
   .transform((v) => (v ? v : null));
 
+/** 'YYYY-MM-DD' that is a real calendar date (rejects 2026-02-31, month 13, …). */
+export const dateInput = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+  .refine((v) => {
+    const [y, m, d] = v.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d));
+    return y >= 1900 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+  }, 'Not a valid date');
+
 export const escapeLike = (s: string) => s.replace(/[\\%_]/g, '\\$&');
 
 export const paged = <T>(data: T[], total: number, page: number, pageSize: number) => ({

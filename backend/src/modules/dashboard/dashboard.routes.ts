@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { auth } from '../../middleware/auth';
+import { dateInput } from '../../lib/validation';
 
 export const dashboardRouter = Router();
 
@@ -27,7 +28,8 @@ const analyticsQuery = z.object({
   days: z.coerce.number().pipe(z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(180)])).default(30),
 });
 
-// Window = the last `days` calendar days in IST, including today. Cancelled orders excluded from money.
+// Window = the last `days` calendar days in IST, ending today (a future-dated order counts from
+// its date, as in the daily series). Cancelled orders excluded from money.
 dashboardRouter.get(
   '/analytics',
   ah(async (req, res) => {
@@ -63,30 +65,30 @@ dashboardRouter.get(
            count(*) FILTER (WHERE order_date <= ${today} - $2::int)::int AS "prevOrders",
            count(DISTINCT customer_id) FILTER (WHERE order_date > ${today} - $2::int)::int AS "activeCustomers",
            (SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END) FILTER (WHERE p.paid_on > ${today} - $2::int), 0)
-              FROM payments p WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.paid_on > ${today} - 2 * $2::int)::bigint AS "receivedPaise",
+              FROM payments p WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.paid_on > ${today} - 2 * $2::int AND p.paid_on <= ${today})::bigint AS "receivedPaise",
            (SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END) FILTER (WHERE p.paid_on <= ${today} - $2::int), 0)
               FROM payments p WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.paid_on > ${today} - 2 * $2::int)::bigint AS "prevReceivedPaise"
          FROM orders
-         WHERE shop_id = $1 AND status <> 'cancelled' AND order_date > ${today} - 2 * $2::int`,
+         WHERE shop_id = $1 AND status <> 'cancelled' AND order_date > ${today} - 2 * $2::int AND order_date <= ${today}`,
         params,
       ),
       pool.query(
         `SELECT payment_status AS status, count(*)::int AS orders,
            COALESCE(sum(total_paise - amount_paid_paise), 0)::bigint AS "duePaise"
          FROM orders
-         WHERE shop_id = $1 AND status <> 'cancelled' AND order_date > ${today} - $2::int
+         WHERE shop_id = $1 AND status <> 'cancelled' AND order_date > ${today} - $2::int AND order_date <= ${today}
          GROUP BY payment_status`,
         params,
       ),
       pool.query(
         `SELECT status, count(*)::int AS orders FROM orders
-         WHERE shop_id = $1 AND order_date > ${today} - $2::int GROUP BY status`,
+         WHERE shop_id = $1 AND order_date > ${today} - $2::int AND order_date <= ${today} GROUP BY status`,
         params,
       ),
       pool.query(
         `SELECT c.id, c.name, count(o.id)::int AS orders, sum(o.total_paise)::bigint AS "revenuePaise"
          FROM orders o JOIN customers c ON c.id = o.customer_id
-         WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int
+         WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int AND o.order_date <= ${today}
          GROUP BY c.id, c.name ORDER BY "revenuePaise" DESC, c.id LIMIT 5`,
         params,
       ),
@@ -94,7 +96,7 @@ dashboardRouter.get(
         `SELECT oi.item_name AS name, sum(oi.line_total_paise)::bigint AS "revenuePaise",
            count(DISTINCT oi.order_id)::int AS orders
          FROM order_items oi JOIN orders o ON o.id = oi.order_id
-         WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int
+         WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int AND o.order_date <= ${today}
          GROUP BY oi.item_name ORDER BY "revenuePaise" DESC, oi.item_name LIMIT 5`,
         params,
       ),
@@ -112,7 +114,7 @@ dashboardRouter.get(
   }),
 );
 
-const summaryQuery = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD') });
+const summaryQuery = z.object({ date: dateInput });
 
 /**
  * Daily summary for the 24 hours ending at 10 pm IST on `date` (10 pm the day before -> 10 pm),

@@ -79,6 +79,7 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
       await repo.replaceItems(c, id, totals.lines);
       await syncOrderStock(c, shopId, id, userId);
       if (totals.amountPaidPaise > 0) {
+        const today = await todayIST(c);
         await addEntry(c, {
           shopId,
           orderId: id,
@@ -86,7 +87,8 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
           kind: 'payment',
           amountPaise: totals.amountPaidPaise,
           method: input.paymentMethod ?? 'unrecorded',
-          paidOn: input.orderDate ?? (await todayIST(c)),
+          // Back-dated order: paid on its date. Future-dated: the money is received today.
+          paidOn: input.orderDate && input.orderDate < today ? input.orderDate : today,
           note: 'Paid when the order was created',
         });
       }
