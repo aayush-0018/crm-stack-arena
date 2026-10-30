@@ -9,6 +9,8 @@ import { auth } from '../../middleware/auth';
 import * as repo from './products.repo';
 import { createProductSchema, listProductsQuery, productInput, stockEntrySchema } from './products.schemas';
 import { recordStockEntry } from './stock.service';
+import { parseImportBody } from '../../lib/importRows';
+import { importProducts } from './products.import';
 
 export const productsRouter = Router();
 
@@ -58,6 +60,16 @@ productsRouter.post(
       return pid;
     }).catch(friendlyConflict);
     res.status(201).json(await detail(shopId, id));
+  }),
+);
+
+/** CSV import (rows already parsed by the browser). dryRun = preview only; nothing is saved. */
+productsRouter.post(
+  '/import',
+  ah(async (req, res) => {
+    const { userId, shopId } = auth(req);
+    const { rows, dryRun } = parseImportBody(req.body);
+    res.json(await importProducts(shopId, userId, rows, dryRun));
   }),
 );
 

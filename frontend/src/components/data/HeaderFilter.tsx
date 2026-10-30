@@ -78,7 +78,7 @@ export default function HeaderFilter({ filter, label }: { filter: ColumnFilter; 
           setOpen((o) => !o);
         }}
         className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-          active ? 'bg-ink text-white hover:bg-black' : 'text-ink-4 hover:bg-hover hover:text-ink'
+          active ? 'bg-ink text-on-ink hover:bg-ink-strong' : 'text-ink-4 hover:bg-hover hover:text-ink'
         }`}
       >
         <ListFilter size={12} strokeWidth={2.25} />
@@ -91,7 +91,7 @@ export default function HeaderFilter({ filter, label }: { filter: ColumnFilter; 
           aria-label={`Filter by ${label}`}
           onClick={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: pos.top, left: pos.left, width }}
-          className="z-50 rounded-xl border border-line bg-white p-1.5 text-left text-[13.5px] font-normal normal-case tracking-normal text-ink shadow-pop"
+          className="z-50 rounded-xl border border-line bg-surface p-1.5 text-left text-[13.5px] font-normal normal-case tracking-normal text-ink shadow-pop"
         >
           <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">{label}</p>
 

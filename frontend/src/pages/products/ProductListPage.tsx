@@ -1,18 +1,34 @@
+import { Upload } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { productsApi } from '../../api/endpoints';
 import DataTable, { Column } from '../../components/data/DataTable';
+import ImportCsvModal from '../../components/data/ImportCsvModal';
 import { SearchBox, Toolbar } from '../../components/data/Toolbar';
 import { formatStock, StockBadge } from '../../components/products/ProductParts';
 import { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
+import { ImportColumn } from '../../lib/csv';
 import { useAsync } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
 import type { Product } from '../../types';
 
 const PAGE_SIZE = 25;
 type Status = 'active' | 'low' | 'archived';
+const IMPORT_COLUMNS: ImportColumn[] = [
+  { key: 'id', header: 'ID', aliases: ['product id'] },
+  { key: 'name', header: 'Name', required: true },
+  { key: 'sku', header: 'SKU', aliases: ['code', 'barcode'] },
+  { key: 'category', header: 'Category' },
+  { key: 'unit', header: 'Unit' },
+  { key: 'price', header: 'Price', aliases: ['selling price', 'sale price', 'price (rs)'], required: true },
+  { key: 'cost', header: 'Cost', aliases: ['cost price', 'cost (rs)'] },
+  { key: 'trackStock', header: 'Track stock' },
+  { key: 'lowStockAt', header: 'Low stock at', aliases: ['low stock level', 'warning level', 'reorder level'] },
+  { key: 'openingStock', header: 'Opening stock', aliases: ['stock', 'quantity'] },
+];
 
 const COLUMNS: Column<Product>[] = [
   {
@@ -32,7 +48,7 @@ const COLUMNS: Column<Product>[] = [
     align: 'right',
     cell: (p) =>
       p.trackStock ? (
-        <span className={`tabular-nums ${p.stockMilli < 0 ? 'text-[#b42318]' : 'text-ink'}`}>{formatStock(p.stockMilli, p.unit)}</span>
+        <span className={`tabular-nums ${p.stockMilli < 0 ? 'text-danger' : 'text-ink'}`}>{formatStock(p.stockMilli, p.unit)}</span>
       ) : (
         <span className="text-ink-3">—</span>
       ),
@@ -58,6 +74,7 @@ export default function ProductListPage() {
 
   const list = useAsync(() => productsApi.list({ status, search: search || undefined, page, pageSize: PAGE_SIZE }), [status, search, page]);
   const lowCount = useAsync(() => productsApi.lowStockCount(), []);
+  const [importing, setImporting] = useState(false);
   const rows = list.data?.data ?? [];
 
   return (
@@ -72,7 +89,13 @@ export default function ProductListPage() {
         onChange={(k) => update({ status: k === 'active' ? undefined : k })}
         actions={<ButtonLink to="/products/new">Add product</ButtonLink>}
       />
-      <Toolbar>
+      <Toolbar
+        right={
+          <button type="button" onClick={() => setImporting(true)} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink sm:inline-flex">
+            <Upload size={16} strokeWidth={1.75} /> Import
+          </button>
+        }
+      >
         <SearchBox value={search} onChange={(v) => update({ search: v || undefined })} placeholder="Search name, SKU or category" />
       </Toolbar>
 
@@ -100,6 +123,27 @@ export default function ProductListPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={list.data!.total} onChange={(p) => update({ page: String(p) })} />
         </>
       )}
+      <ImportCsvModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        title="Import products"
+        noun={['product', 'products']}
+        columns={IMPORT_COLUMNS}
+        example={{ id: '', name: 'Basmati rice', sku: 'RICE-5', category: 'Grocery', unit: 'kg', price: '95', cost: '80', trackStock: 'yes', lowStockAt: '10', openingStock: '50' }}
+        templateName="products-template.csv"
+        help={
+          <>
+            Columns: Name and Price (required), SKU, Category, Unit (pcs, kg, g, l, ml, m, box, pack, dozen, pair, set), Cost, Track stock (yes/no), Low
+            stock at, Opening stock and ID. A row with a product's ID updates that product, but never its stock; leave ID blank to add a new one. The
+            ID is the number at the end of the product's page address.
+          </>
+        }
+        run={productsApi.importRows}
+        onDone={() => {
+          list.reload();
+          lowCount.reload();
+        }}
+      />
     </>
   );
 }

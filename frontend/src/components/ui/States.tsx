@@ -38,10 +38,10 @@ export function ErrorState({ error, onRetry }: { error: Error | string; onRetry?
 
 export function Alert({ tone = 'info', children }: { tone?: 'info' | 'warning' | 'error' | 'success'; children: ReactNode }) {
   const styles = {
-    info: 'border-[#d6e2f5] bg-[#f3f7fd] text-[#28508f]',
-    warning: 'border-[#f1dcb5] bg-[#fdf7ec] text-[#7a4c09]',
-    error: 'border-[#f2cdc8] bg-[#fdf3f2] text-[#93291a]',
-    success: 'border-[#d3e8cd] bg-[#f3f9f1] text-[#2a6a2d]',
+    info: 'border-info-line bg-info-bg text-info-strong',
+    warning: 'border-warn-line bg-warn-bg text-warn-strong',
+    error: 'border-danger-line bg-danger-bg text-danger-strong',
+    success: 'border-success-line bg-success-bg text-success-strong',
   };
   return <div className={`rounded-lg border px-3.5 py-2.5 text-[13.5px] ${styles[tone]}`}>{children}</div>;
 }

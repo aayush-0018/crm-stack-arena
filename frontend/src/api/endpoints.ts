@@ -1,4 +1,5 @@
 import type {
+  ImportResult,
   Analytics,
   Branch,
   AnalyticsDays,
@@ -74,6 +75,8 @@ export const customersApi = {
   summary: () => api.get<CustomersSummary>('/customers/summary'),
   get: (id: number | string) => api.get<CustomerDetail>(`/customers/${id}`),
   create: (body: CustomerPayload) => api.post<Customer>('/customers', body),
+  /** CSV import; dryRun = preview only. */
+  importRows: (rows: Record<string, string>[], dryRun: boolean) => api.post<ImportResult>('/customers/import', { rows, dryRun }),
   update: (id: number | string, body: CustomerPayload) => api.put<Customer>(`/customers/${id}`, body),
   remove: (id: number | string, purge = false) =>
     api.delete<{ deleted: 'hard' | 'soft'; orderCount: number }>(`/customers/${id}${purge ? '?purge=true' : ''}`),
@@ -182,6 +185,8 @@ export const productsApi = {
   lowStockCount: () => api.get<{ count: number }>('/products/low-stock-count'),
   get: (id: number | string) => api.get<ProductDetail>(`/products/${id}`),
   create: (body: ProductPayload & { openingStock: string | null }) => api.post<ProductDetail>('/products', body),
+  /** CSV import; dryRun = preview only. */
+  importRows: (rows: Record<string, string>[], dryRun: boolean) => api.post<ImportResult>('/products/import', { rows, dryRun }),
   update: (id: number | string, body: ProductPayload) => api.put<ProductDetail>(`/products/${id}`, body),
   setActive: (id: number | string, active: boolean) => api.patch<ProductDetail>(`/products/${id}/active`, { active }),
   addStock: (

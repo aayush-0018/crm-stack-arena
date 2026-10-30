@@ -1,12 +1,12 @@
 import type { CustomerSegment, InvoiceStatus, OrderStatus, PaymentStatus } from '../../types';
 
 const TONES = {
-  green: 'bg-[#e6f2e1] text-[#2e7031]',
-  blue: 'bg-[#e7eefa] text-[#2f5ea8]',
-  gray: 'bg-[#efefec] text-[#6b6b66]',
-  yellow: 'bg-[#f7efd2] text-[#80650c]',
-  amber: 'bg-[#fcecd8] text-[#9a5a0a]',
-  red: 'bg-[#fbe5e2] text-[#a8321f]',
+  green: 'bg-success-bg-2 text-success-text',
+  blue: 'bg-info-bg-2 text-info-text',
+  gray: 'bg-hover text-neutral-text',
+  yellow: 'bg-yellow-bg text-yellow-text',
+  amber: 'bg-warn-bg-2 text-warn-text',
+  red: 'bg-danger-bg-2 text-danger-text',
 };
 export type Tone = keyof typeof TONES;
 

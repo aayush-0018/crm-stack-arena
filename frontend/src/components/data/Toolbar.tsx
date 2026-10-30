@@ -77,7 +77,7 @@ export function CustomizeButton({
           <MenuLabel>Columns</MenuLabel>
           {columns.map((c) => (
             <label key={c.key} className="flex h-8 cursor-pointer items-center gap-2.5 rounded-md px-2 text-[13.5px] hover:bg-hover">
-              <input type="checkbox" className="h-3.5 w-3.5 accent-[#171717]" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} />
+              <input type="checkbox" className="h-3.5 w-3.5 accent-ink" checked={!hidden.has(c.key)} onChange={() => onToggle(c.key)} />
               {c.header}
             </label>
           ))}

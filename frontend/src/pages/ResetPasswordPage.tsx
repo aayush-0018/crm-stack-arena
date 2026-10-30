@@ -4,7 +4,7 @@ import { ApiError } from '../api/client';
 import { authApi } from '../api/endpoints';
 import { ButtonLink } from '../components/ui/Button';
 import Button from '../components/ui/Button';
-import { TextField } from '../components/ui/Field';
+import { PasswordField } from '../components/ui/Field';
 import { Alert, LoadingState } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -75,9 +75,8 @@ export default function ResetPasswordPage() {
       <form onSubmit={submit} noValidate className="space-y-4">
         {check.email && <p className="text-[13.5px] text-ink-3">For {check.email}</p>}
         {formError && <Alert tone="error">{formError}</Alert>}
-        <TextField
+        <PasswordField
           label="New password"
-          type="password"
           autoComplete="new-password"
           autoFocus
           value={password}
@@ -85,7 +84,7 @@ export default function ResetPasswordPage() {
           error={errors.password}
           hint="At least 8 characters"
         />
-        <TextField label="Repeat new password" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} error={errors.again} />
+        <PasswordField label="Repeat new password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} error={errors.again} />
         <Button type="submit" className="w-full" loading={busy}>
           Change password and log in
         </Button>

@@ -95,7 +95,7 @@ export default function CustomerHoverCard({
           className="fixed z-50 w-[380px] max-w-[calc(100vw-24px)] cursor-default whitespace-normal"
           style={{ top: pos.top, left: Math.max(12, pos.left), transform: pos.above ? 'translateY(-100%)' : undefined }}
         >
-          <div className="rounded-2xl border border-line bg-white shadow-pop">
+          <div className="rounded-2xl border border-line bg-surface shadow-pop">
             {!data ? (
               <p className="px-4 py-6 text-[13px] text-ink-3">Loading…</p>
             ) : (

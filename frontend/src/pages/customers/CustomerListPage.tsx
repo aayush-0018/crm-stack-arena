@@ -1,4 +1,4 @@
-import { Download, X } from 'lucide-react';
+import { Download, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { customersApi } from '../../api/endpoints';
@@ -6,6 +6,7 @@ import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/S
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import BulkDelete from '../../components/data/BulkDelete';
 import DataTable, { Column } from '../../components/data/DataTable';
+import ImportCsvModal from '../../components/data/ImportCsvModal';
 import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
 import { SEGMENT_LABEL, SegmentBadge } from '../../components/ui/Badge';
@@ -14,13 +15,21 @@ import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
 import { useToast } from '../../context/ToastContext';
-import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
+import { downloadCsv, fetchAllPages, ImportColumn, rupees } from '../../lib/csv';
 import { relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
 import type { Customer, CustomerSegment } from '../../types';
 
 const PAGE_SIZE = 25;
+const IMPORT_COLUMNS: ImportColumn[] = [
+  { key: 'id', header: 'ID', aliases: ['customer id'] },
+  { key: 'name', header: 'Name', required: true },
+  { key: 'phone', header: 'Phone', aliases: ['mobile', 'phone number', 'mobile number'], required: true },
+  { key: 'email', header: 'Email' },
+  { key: 'address', header: 'Address' },
+  { key: 'notes', header: 'Notes' },
+];
 type SortKey = 'name' | 'created' | 'lastOrder' | 'spent' | 'orders';
 const DEFAULT_DIR: Record<SortKey, 'asc' | 'desc'> = { name: 'asc', created: 'desc', lastOrder: 'desc', spent: 'desc', orders: 'desc' };
 
@@ -73,6 +82,7 @@ export default function CustomerListPage() {
   const list = useAsync(() => fetchPage(page, PAGE_SIZE), [segment, search, sort, dir, page]);
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const columns = COLUMNS.map((c) =>
     c.key === 'status'
@@ -102,6 +112,7 @@ export default function CustomerListPage() {
 
   const exportCsv = (data: Customer[]) =>
     downloadCsv(`customers-${new Date().toISOString().slice(0, 10)}.csv`, data, [
+      { header: 'ID', value: (c) => c.id },
       { header: 'Name', value: (c) => c.name },
       { header: 'Phone', value: (c) => c.phone },
       { header: 'Email', value: (c) => c.email },
@@ -203,7 +214,10 @@ export default function CustomerListPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={exportAll} disabled={!rows.length || exporting}className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
+              <button type="button" onClick={() => setImporting(true)} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink sm:inline-flex">
+                <Upload size={16} strokeWidth={1.75} /> Import
+              </button>
+              <button type="button" onClick={exportAll} disabled={!rows.length || exporting} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
                 <Download size={16} strokeWidth={1.75} /> Export
               </button>
               <CustomizeButton columns={COLUMNS.filter((c) => c.optional)} hidden={hidden} onToggle={toggle} />
@@ -247,6 +261,26 @@ export default function CustomerListPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={list.data!.total} onChange={(p) => update({ page: String(p) })} />
         </>
       )}
+      <ImportCsvModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        title="Import customers"
+        noun={['customer', 'customers']}
+        columns={IMPORT_COLUMNS}
+        example={{ id: '', name: 'Asha Sharma', phone: '9876543210', email: 'asha@example.com', address: '12 MI Road, Jaipur', notes: '' }}
+        templateName="customers-template.csv"
+        help={
+          <>
+            Columns: Name and Phone (required), Email, Address, Notes and ID. A row with a customer's ID updates that customer; leave ID blank to add a
+            new one. Export your customers to get their IDs.
+          </>
+        }
+        run={customersApi.importRows}
+        onDone={() => {
+          list.reload();
+          summary.reload();
+        }}
+      />
     </>
   );
 }

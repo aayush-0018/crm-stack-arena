@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
     return (
       <AuthLayout title="Check your email">
         <div className="space-y-4 text-center">
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f2e1] text-[#2e7031]">
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-success-bg-2 text-success-text">
             <MailCheck size={20} />
           </span>
           <p className="text-[14px] text-ink-2">

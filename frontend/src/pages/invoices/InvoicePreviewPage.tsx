@@ -71,7 +71,7 @@ export default function InvoicePreviewPage() {
         actions={
           <>
             {isOwner && (
-              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDelete(true)} aria-label="Delete invoice">
+              <Button variant="ghost" className="text-danger hover:text-danger" onClick={() => setConfirmDelete(true)} aria-label="Delete invoice">
                 <Trash2 size={15} />
               </Button>
             )}
@@ -120,7 +120,7 @@ export default function InvoicePreviewPage() {
         </div>
       )}
 
-      <div className="print-plain bg-[#fafaf8] px-3 py-6 sm:px-8 sm:py-10">
+      <div className="print-plain bg-wash px-3 py-6 sm:px-8 sm:py-10">
         <InvoiceView invoice={inv} />
       </div>
 

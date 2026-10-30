@@ -19,9 +19,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const styles: Record<ToastType, string> = {
-    success: 'bg-ink',
-    error: 'bg-[#b42318]',
-    info: 'bg-ink',
+    success: 'bg-ink text-on-ink',
+    error: 'bg-danger-solid text-white',
+    info: 'bg-ink text-on-ink',
   };
 
   return (
@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className={`pointer-events-auto w-full max-w-sm rounded-xl px-4 py-3 text-[13.5px] text-white shadow-pop ${styles[t.type]}`}
+            className={`pointer-events-auto w-full max-w-sm rounded-xl px-4 py-3 text-[13.5px] shadow-pop ${styles[t.type]}`}
           >
             {t.message}
           </div>

@@ -75,8 +75,8 @@ export function Stat({
     <div className="min-w-0">
       <p className="flex items-center gap-1.5 truncate pr-6 text-[14.5px] text-ink">
         {label}
-        {!hideNumbers && trend === 'up' && <ArrowUpRight size={14} strokeWidth={2} className="text-[#2e7d32]" aria-label="up" />}
-        {!hideNumbers && trend === 'down' && <ArrowDownRight size={14} strokeWidth={2} className="text-[#b42318]" aria-label="down" />}
+        {!hideNumbers && trend === 'up' && <ArrowUpRight size={14} strokeWidth={2} className="text-success" aria-label="up" />}
+        {!hideNumbers && trend === 'down' && <ArrowDownRight size={14} strokeWidth={2} className="text-danger" aria-label="down" />}
       </p>
       {hideNumbers ? (
         <>

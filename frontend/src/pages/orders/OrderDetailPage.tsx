@@ -115,7 +115,7 @@ export default function OrderDetailPage() {
         actions={
           <>
             {isOwner && (
-              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDeleteOrder(true)} aria-label="Delete order">
+              <Button variant="ghost" className="text-danger hover:text-danger" onClick={() => setConfirmDeleteOrder(true)} aria-label="Delete order">
                 <Trash2 size={15} />
               </Button>
             )}
@@ -369,7 +369,7 @@ export default function OrderDetailPage() {
             {o.amountPaidPaise > 0 && (
               <div className="space-y-3 rounded-lg border border-line px-3 py-3">
                 <label className="flex cursor-pointer items-start gap-2.5 text-[13.5px] text-ink">
-                  <input type="checkbox" checked={refundOnCancel} onChange={(e) => setRefundOnCancel(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[#171717]" />
+                  <input type="checkbox" checked={refundOnCancel} onChange={(e) => setRefundOnCancel(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-ink" />
                   <span>
                     Refund the {formatINR(o.amountPaidPaise)} paid to the customer
                     <span className="block text-[12.5px] text-ink-3">Untick if you’re keeping the money (for example as credit).</span>

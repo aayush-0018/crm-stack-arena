@@ -13,7 +13,7 @@ export default function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-line bg-white ${className}`}>
+    <section className={`rounded-xl border border-line bg-surface ${className}`}>
       {(title || actions) && (
         <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-2">
           {title && <h2 className="text-[15px] font-medium text-ink">{title}</h2>}

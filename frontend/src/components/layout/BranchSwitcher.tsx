@@ -118,7 +118,7 @@ export default function BranchSwitcher() {
                       {b.logoKey ? (
                         <ShopLogo logoKey={b.logoKey} name={b.name} size={28} />
                       ) : (
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-white text-[10.5px] font-semibold text-ink-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-[10.5px] font-semibold text-ink-2">
                           {b.code ?? b.name.slice(0, 2).toUpperCase()}
                         </span>
                       )}
@@ -268,7 +268,7 @@ function AddBranchModal({
         </div>
         <TextField label="Phone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />
         <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] text-ink-2">
-          <input type="checkbox" checked={openNow} onChange={(e) => setOpenNow(e.target.checked)} className="h-3.5 w-3.5 accent-[#171717]" />
+          <input type="checkbox" checked={openNow} onChange={(e) => setOpenNow(e.target.checked)} className="h-3.5 w-3.5 accent-ink" />
           Switch to this branch now
         </label>
         <div className="flex justify-end gap-2 border-t border-line pt-4">

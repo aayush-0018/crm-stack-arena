@@ -20,7 +20,7 @@ export default function ShopLogo({ logoKey, name, size = 32 }: { logoKey: string
     );
   }
   return (
-    <span style={{ width: size, height: size }} className="flex shrink-0 items-center justify-center rounded-[9px] bg-ink text-white" aria-hidden="true">
+    <span style={{ width: size, height: size }} className="flex shrink-0 items-center justify-center rounded-[9px] bg-ink text-on-ink" aria-hidden="true">
       <Store size={Math.round(size / 2)} strokeWidth={1.8} />
     </span>
   );

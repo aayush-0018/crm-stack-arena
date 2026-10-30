@@ -123,7 +123,7 @@ export default function DataTable<T>({
               <tr
                 key={k}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`group ${onRowClick ? 'cursor-pointer' : ''} ${isSel ? 'bg-[#f7f7f5]' : 'hover:bg-[#fafaf8]'}`}
+                className={`group ${onRowClick ? 'cursor-pointer' : ''} ${isSel ? 'bg-wash-2' : 'hover:bg-wash'}`}
               >
                 {selectable && (
                   <td className="w-12 pl-4 sm:pl-6">

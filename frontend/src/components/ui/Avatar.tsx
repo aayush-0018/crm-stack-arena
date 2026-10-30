@@ -11,7 +11,7 @@ export default function Avatar({ name, size = 28 }: { name: string; size?: numbe
     <span
       aria-hidden="true"
       style={{ width: size, height: size, fontSize: size * 0.36 }}
-      className="inline-flex shrink-0 items-center justify-center rounded-full border border-line bg-[#f6f6f4] font-semibold tracking-wide text-ink-2"
+      className="inline-flex shrink-0 items-center justify-center rounded-full border border-line bg-wash-3 font-semibold tracking-wide text-ink-2"
     >
       {initials(name)}
     </span>

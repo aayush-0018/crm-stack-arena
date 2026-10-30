@@ -41,7 +41,7 @@ export default function MessageComposer({
   };
 
   return (
-    <div className="rounded-xl border border-line bg-white shadow-soft">
+    <div className="rounded-xl border border-line bg-surface shadow-soft">
       <div className="relative">
         <textarea
           autoFocus={autoFocus}
@@ -66,7 +66,7 @@ export default function MessageComposer({
             key={t.label}
             type="button"
             onClick={() => setText(t.text)}
-            className="h-7 rounded-md border border-line bg-white px-2.5 text-[13px] text-ink hover:bg-hover"
+            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[13px] text-ink hover:bg-hover"
           >
             {t.label}
           </button>

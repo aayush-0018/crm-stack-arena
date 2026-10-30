@@ -127,6 +127,7 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 |---|---|
 | Customer name | Required, up to 120 characters |
 | Shop / branch phone | Optional. 6–15 digits; may contain `+`, spaces, brackets and dashes (landline, mobile or toll-free) |
+| CSV import (customers, products) | Up to 1,000 rows. Every row passes the same rules as the Add form. A row with the ID of one of your records **updates** it; a row without an ID **creates** one. Unknown or other shops' IDs, and phone / product name / SKU clashes (also within the file), reject that row only. Product updates never change stock. A preview checks everything and saves nothing (test: import) |
 | Mobile | Indian mobile, 10 digits starting 6–9 (`+91`/`0`/spaces stripped). *International numbers pending your decision* |
 | Email | Optional, valid format |
 | Dates (order, payment, filters, summary) | A real calendar date (31 Feb is refused), YYYY-MM-DD. Payment dates not in the future |

@@ -1,8 +1,9 @@
-import { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes, useId } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes, useId, useState } from 'react';
 
 export const controlClass = (invalid?: boolean, extra = '') =>
-  `block w-full rounded-lg border bg-white px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft transition focus:outline-none focus:ring-[3px] ${
-    invalid ? 'border-[#e5a59e] focus:ring-[#b42318]/10' : 'border-line focus:border-ink-4 focus:ring-ink/5'
+  `block w-full rounded-lg border bg-surface px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft transition focus:outline-none focus:ring-[3px] ${
+    invalid ? 'border-danger-line-2 focus:ring-danger/10' : 'border-line focus:border-ink-4 focus:ring-ink/5'
   } ${extra}`;
 
 interface WrapProps {
@@ -24,7 +25,7 @@ function Wrap({ id, label, error, hint, required, className = '', children }: Wr
       )}
       {children}
       {error ? (
-        <p id={`${id}-err`} className="mt-1.5 text-[12px] text-[#b42318]">
+        <p id={`${id}-err`} className="mt-1.5 text-[12px] text-danger">
           {error}
         </p>
       ) : (
@@ -45,6 +46,35 @@ export function TextField({ label, error, hint, required, className, ...rest }: 
         className={controlClass(!!error, 'h-9')}
         {...rest}
       />
+    </Wrap>
+  );
+}
+
+/** A password box with an eye button that shows or hides what was typed. */
+export function PasswordField({ label, error, hint, required, className, ...rest }: WrapProps & Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const id = useId();
+  const [visible, setVisible] = useState(false);
+  return (
+    <Wrap id={id} label={label} error={error} hint={hint} required={required} className={className}>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-err` : undefined}
+          className={controlClass(!!error, 'h-9 pr-10')}
+          {...rest}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-ink-3 hover:text-ink"
+        >
+          {visible ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
+        </button>
+      </div>
     </Wrap>
   );
 }

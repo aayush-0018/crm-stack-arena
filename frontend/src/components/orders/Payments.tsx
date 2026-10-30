@@ -39,7 +39,7 @@ export function MethodPicker({ value, onChange, label = 'Paid by' }: { value: Pa
             role="radio"
             aria-checked={value === m}
             onClick={() => onChange(m)}
-            className={`h-8 rounded-md border px-3 text-[13px] ${value === m ? 'border-ink bg-ink text-white' : 'border-line text-ink-2 hover:bg-hover'}`}
+            className={`h-8 rounded-md border px-3 text-[13px] ${value === m ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink-2 hover:bg-hover'}`}
           >
             {PAYMENT_METHOD_LABEL[m]}
           </button>
@@ -145,7 +145,7 @@ export function PaymentEntryModal({
           <span className="text-ink">{formatINR(order.amountPaidPaise)}</span> · due{' '}
           <span className="text-ink">{formatINR(orderDue(order))}</span>
         </p>
-        {formError && <p role="alert" className="rounded-lg bg-[#fdf3f2] px-3 py-2 text-[13.5px] text-[#93291a]">{formError}</p>}
+        {formError && <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-[13.5px] text-danger-strong">{formError}</p>}
         <TextField
           label={refund ? 'Amount refunded (₹)' : 'Amount received (₹)'}
           inputMode="decimal"
@@ -202,7 +202,7 @@ export function PaymentsSection({ order, canRemove, onChanged }: { order: Order;
                     </p>
                   )}
                 </div>
-                <span className={`pt-0.5 text-[14px] tabular-nums ${voided ? 'text-ink-3 line-through' : refund ? 'text-[#b42318]' : 'text-ink'}`}>
+                <span className={`pt-0.5 text-[14px] tabular-nums ${voided ? 'text-ink-3 line-through' : refund ? 'text-danger' : 'text-ink'}`}>
                   {refund ? '− ' : ''}
                   {formatINR(p.amountPaise)}
                 </span>
@@ -215,7 +215,7 @@ export function PaymentsSection({ order, canRemove, onChanged }: { order: Order;
                       setError(null);
                     }}
                     aria-label={`Remove ${refund ? 'refund' : 'payment'} of ${formatINR(p.amountPaise)} on ${formatDate(p.paidOn)}`}
-                    className="rounded-md p-1 text-ink-3 hover:bg-hover hover:text-[#b42318]"
+                    className="rounded-md p-1 text-ink-3 hover:bg-hover hover:text-danger"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -264,7 +264,7 @@ export function PaymentsSection({ order, canRemove, onChanged }: { order: Order;
             <p>
               Use this for an entry made by mistake. It stays in the history, crossed out, and stops counting towards the amount paid.
             </p>
-            {error && <p role="alert" className="text-[#93291a]">{error}</p>}
+            {error && <p role="alert" className="text-danger-strong">{error}</p>}
             <TextField label="Reason (optional)" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
           </div>
         }

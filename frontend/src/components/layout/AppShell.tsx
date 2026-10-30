@@ -7,12 +7,15 @@ import {
   LayoutGrid,
   LogOut,
   Menu,
+  Monitor,
+  Moon,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Settings,
   SlidersHorizontal,
+  Sun,
   UserPlus,
   X,
 } from 'lucide-react';
@@ -24,6 +27,7 @@ import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
 import ShopLogo from '../ui/ShopLogo';
 import { useDailySummary } from '../../lib/dailySummary';
+import { getThemePref, setThemePref, ThemePref } from '../../lib/theme';
 import BranchSwitcher from './BranchSwitcher';
 import DailySummaryModal from './DailySummaryModal';
 
@@ -44,7 +48,7 @@ function NavItem({ to, icon, label, count, end, onClick }: { to: string; icon: R
       <span className="flex w-5 justify-center">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
       {!!count && (
-        <span className="min-w-[22px] rounded-md border border-line bg-white px-1.5 text-center text-[11px] font-medium leading-[20px] text-ink-2">
+        <span className="min-w-[22px] rounded-md border border-line bg-surface px-1.5 text-center text-[11px] font-medium leading-[20px] text-ink-2">
           {count}
         </span>
       )}
@@ -53,6 +57,27 @@ function NavItem({ to, icon, label, count, end, onClick }: { to: string; icon: R
 }
 
 /** Opens the 10 pm daily summary; shows a badge until it's been read. */
+const THEME_NEXT: Record<ThemePref, ThemePref> = { light: 'dark', dark: 'system', system: 'light' };
+const THEME_LABEL: Record<ThemePref, string> = { light: 'Light', dark: 'Dark', system: 'Same as device' };
+
+/** Cycles light → dark → same as device; the menu stays open so the change is visible. */
+function ThemeMenuItem() {
+  const [pref, setPref] = useState<ThemePref>(getThemePref);
+  const Icon = pref === 'dark' ? Moon : pref === 'system' ? Monitor : Sun;
+  return (
+    <MenuItem
+      icon={<Icon size={15} />}
+      onClick={() => {
+        const next = THEME_NEXT[pref];
+        setThemePref(next);
+        setPref(next);
+      }}
+    >
+      Theme: {THEME_LABEL[pref]}
+    </MenuItem>
+  );
+}
+
 function NotificationsItem({ unread, onClick }: { unread: boolean; onClick: () => void }) {
   return (
     <button
@@ -65,7 +90,7 @@ function NotificationsItem({ unread, onClick }: { unread: boolean; onClick: () =
       </span>
       <span className="flex-1 truncate">Notifications</span>
       {unread && (
-        <span className="min-w-[22px] rounded-md border border-line bg-white px-1.5 text-center text-[11px] font-medium leading-[20px] text-ink-2">
+        <span className="min-w-[22px] rounded-md border border-line bg-surface px-1.5 text-center text-[11px] font-medium leading-[20px] text-ink-2">
           1
         </span>
       )}
@@ -83,7 +108,7 @@ function BellButton({ unread, onClick }: { unread: boolean; onClick: () => void 
       className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 hover:bg-hover hover:text-ink"
     >
       <Bell size={18} strokeWidth={1.6} />
-      {unread && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#d0503f] ring-2 ring-canvas" />}
+      {unread && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-critical ring-2 ring-canvas" />}
     </button>
   );
 }
@@ -208,6 +233,7 @@ export default function AppShell() {
               <MenuItem icon={<Settings size={15} />} onClick={() => { close(); navigate('/settings'); }}>
                 Settings
               </MenuItem>
+              <ThemeMenuItem />
               <MenuItem icon={<LogOut size={15} />} onClick={signOut}>
                 Log out
               </MenuItem>
@@ -244,7 +270,7 @@ export default function AppShell() {
       {/* Mobile drawer: hamburger opens it; the X, a tap outside, or picking a page closes it */}
       {menuOpen && (
         <div className="no-print fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)}>
-          <div className="absolute inset-0 bg-ink/20" />
+          <div className="absolute inset-0 bg-overlay/20" />
           <aside
             role="dialog"
             aria-modal="true"
@@ -271,7 +297,7 @@ export default function AppShell() {
           <span className="flex-1 truncate text-[15px] font-semibold">{shop?.name}</span>
           <BellButton unread={daily.unread} onClick={openSummary} />
         </header>
-        <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-white md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
+        <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-surface md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
           {/* Keyed by branch: switching remounts every page, so nothing from the old branch lingers. */}
           <Outlet key={shop?.id} />
         </main>

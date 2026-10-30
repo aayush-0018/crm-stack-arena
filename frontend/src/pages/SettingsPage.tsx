@@ -160,7 +160,7 @@ export default function SettingsPage() {
         <label className="flex cursor-pointer items-start gap-3 text-[14px]">
           <input
             type="checkbox"
-            className="mt-1 h-4 w-4 accent-[#171717]"
+            className="mt-1 h-4 w-4 accent-ink"
             checked={!!shop?.allowNegativeStock}
             disabled={stockBusy || !isOwner}
             onChange={(e) => setNegativeStock(e.target.checked)}

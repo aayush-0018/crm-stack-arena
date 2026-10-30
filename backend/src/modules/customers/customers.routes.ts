@@ -7,6 +7,8 @@ import { auth } from '../../middleware/auth';
 import { listOrders } from '../orders/orders.repo';
 import { listOrdersQuery } from '../orders/orders.schemas';
 import { customersSummary, listCustomers } from './customers.repo';
+import { parseImportBody } from '../../lib/importRows';
+import { importCustomers } from './customers.import';
 import { customerInput, listCustomersQuery } from './customers.schemas';
 import * as service from './customers.service';
 
@@ -33,6 +35,15 @@ customersRouter.post(
   ah(async (req, res) => {
     const input = customerInput.parse(req.body);
     res.status(201).json(await service.createCustomer(pool, auth(req).shopId, input));
+  }),
+);
+
+/** CSV import (rows already parsed by the browser). dryRun = preview only; nothing is saved. */
+customersRouter.post(
+  '/import',
+  ah(async (req, res) => {
+    const { rows, dryRun } = parseImportBody(req.body);
+    res.json(await importCustomers(auth(req).shopId, rows, dryRun));
   }),
 );
 

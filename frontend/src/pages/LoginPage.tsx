@@ -4,7 +4,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { authApi } from '../api/endpoints';
 import Button from '../components/ui/Button';
-import { TextField } from '../components/ui/Field';
+import { PasswordField, TextField } from '../components/ui/Field';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
 import { zodErrors } from '../lib/zod';
@@ -15,7 +15,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <div className="w-full max-w-[380px]">
         <div className="mb-6 flex flex-col items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-ink text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-ink text-on-ink">
             <Store size={19} strokeWidth={1.8} />
           </span>
           <div className="text-center">
@@ -23,7 +23,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
             <p className="mt-0.5 text-[14px] text-ink-3">{title}</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-line bg-white p-6 shadow-soft">{children}</div>
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft">{children}</div>
       </div>
     </div>
   );
@@ -69,9 +69,8 @@ export default function LoginPage() {
           onChange={(e) => setValues({ ...values, email: e.target.value })}
           error={errors.email}
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           autoComplete="current-password"
           value={values.password}
           onChange={(e) => setValues({ ...values, password: e.target.value })}

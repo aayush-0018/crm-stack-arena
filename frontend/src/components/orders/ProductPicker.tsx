@@ -107,7 +107,7 @@ export default function ProductPicker({
         onKeyDown={onKeyDown}
       />
       {open && (
-        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-white p-1 shadow-pop">
+        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-pop">
           {options.map((p, i) => (
             <li
               key={p.id}
@@ -124,7 +124,7 @@ export default function ProductPicker({
               <span className="min-w-0">
                 <span className="block truncate text-ink">{p.name}</span>
                 {p.trackStock && (
-                  <span className={`block text-[12px] ${p.stockMilli <= 0 ? 'text-[#b42318]' : p.low ? 'text-[#9a5a0a]' : 'text-ink-3'}`}>
+                  <span className={`block text-[12px] ${p.stockMilli <= 0 ? 'text-danger' : p.low ? 'text-warn-text' : 'text-ink-3'}`}>
                     {p.stockMilli <= 0 ? 'Out of stock' : `${formatStock(p.stockMilli, p.unit)} in stock`}
                   </span>
                 )}

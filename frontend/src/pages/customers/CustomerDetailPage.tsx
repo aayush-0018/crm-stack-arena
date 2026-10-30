@@ -69,7 +69,7 @@ export default function CustomerDetailPage() {
         actions={
           <>
             {isOwner && (
-              <Button variant="ghost" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setConfirmDelete(true)} aria-label="Delete customer">
+              <Button variant="ghost" className="text-danger hover:text-danger" onClick={() => setConfirmDelete(true)} aria-label="Delete customer">
                 <Trash2 size={15} />
               </Button>
             )}
@@ -156,8 +156,8 @@ export default function CustomerDetailPage() {
             <>
               <strong className="text-ink">{c.name}</strong> has {c.stats.allOrderCount} order{c.stats.allOrderCount > 1 ? 's' : ''}. By default the customer
               is archived and hidden from lists, and their orders and invoices are kept.
-              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#f2cdc8] bg-[#fdf3f2] px-3 py-2.5 text-[13.5px] text-[#93291a]">
-                <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[#b42318]" />
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-danger-line bg-danger-bg px-3 py-2.5 text-[13.5px] text-danger-strong">
+                <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-danger" />
                 <span>
                   Also delete their {c.stats.allOrderCount} order{c.stats.allOrderCount > 1 ? 's' : ''} and all their invoices permanently. This can't be undone.
                 </span>

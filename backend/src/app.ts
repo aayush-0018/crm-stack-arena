@@ -24,7 +24,12 @@ app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()) }));
 // Logos are uploaded as base64 PNG (up to 400 KB -> ~540 KB of JSON); everything else stays small.
 const smallJson = express.json({ limit: '100kb' });
 const logoJson = express.json({ limit: '600kb' });
-app.use((req, res, next) => (req.path === '/api/shop/logo' ? logoJson : smallJson)(req, res, next));
+// CSV imports send up to 1,000 rows at once.
+const importJson = express.json({ limit: '1mb' });
+const IMPORT_PATHS = new Set(['/api/customers/import', '/api/products/import']);
+app.use((req, res, next) =>
+  (req.path === '/api/shop/logo' ? logoJson : IMPORT_PATHS.has(req.path) ? importJson : smallJson)(req, res, next),
+);
 
 app.get(
   '/api/health',

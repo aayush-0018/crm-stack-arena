@@ -23,7 +23,7 @@ export default function Checkbox({
         onChange(!checked);
       }}
       className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 ${
-        on ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink-4'
+        on ? 'border-ink bg-ink text-on-ink' : 'border-line-strong bg-surface hover:border-ink-4'
       }`}
     >
       {indeterminate ? <Minus size={12} strokeWidth={3} /> : checked ? <Check size={12} strokeWidth={3} /> : null}

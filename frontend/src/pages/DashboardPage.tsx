@@ -122,7 +122,7 @@ export default function DashboardPage() {
                     tabIndex={0}
                     onClick={() => navigate(`/customers/${cu.id}`)}
                     onKeyDown={(e) => e.key === 'Enter' && navigate(`/customers/${cu.id}`)}
-                    className="flex h-[52px] w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-[#fafaf8] sm:px-6"
+                    className="flex h-[52px] w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-wash sm:px-6"
                   >
                     <Avatar name={cu.name} />
                     <span className="min-w-0 flex-1">
@@ -148,7 +148,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/orders/${o.id}`)}
-                    className="flex h-[52px] w-full items-center gap-3 px-4 text-left hover:bg-[#fafaf8] sm:px-6"
+                    className="flex h-[52px] w-full items-center gap-3 px-4 text-left hover:bg-wash sm:px-6"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] text-ink">

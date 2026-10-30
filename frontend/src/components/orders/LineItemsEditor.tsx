@@ -19,8 +19,8 @@ export interface ItemRow {
 export const newRow = (): ItemRow => ({ key: uuid(), itemName: '', quantity: '1', unitPrice: '' });
 
 const input = (invalid?: boolean) =>
-  `h-9 w-full rounded-lg border bg-white px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft focus:outline-none focus:ring-[3px] ${
-    invalid ? 'border-[#e5a59e] focus:ring-[#b42318]/10' : 'border-line focus:border-ink-4 focus:ring-ink/5'
+  `h-9 w-full rounded-lg border bg-surface px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft focus:outline-none focus:ring-[3px] ${
+    invalid ? 'border-danger-line-2 focus:ring-danger/10' : 'border-line focus:border-ink-4 focus:ring-ink/5'
   }`;
 
 export default function LineItemsEditor({
@@ -52,7 +52,7 @@ export default function LineItemsEditor({
 
   return (
     <div>
-      {errors.items && <p className="mb-2 text-sm text-[#b42318]">{errors.items}</p>}
+      {errors.items && <p className="mb-2 text-sm text-danger">{errors.items}</p>}
 
       <div className="hidden grid-cols-[2rem_minmax(0,1fr)_7rem_8rem_7rem_2.5rem] gap-2 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3 md:grid">
         <span>#</span>
@@ -86,7 +86,7 @@ export default function LineItemsEditor({
                   })
                 }
               />
-              {err(i, 'itemName') && <p className="mt-1 text-xs text-[#b42318]">{err(i, 'itemName')}</p>}
+              {err(i, 'itemName') && <p className="mt-1 text-xs text-danger">{err(i, 'itemName')}</p>}
               {r.productId ? <StockHint row={r} /> : null}
             </div>
             <div>
@@ -99,7 +99,7 @@ export default function LineItemsEditor({
                 onChange={(e) => update(i, { quantity: e.target.value })}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
               />
-              {err(i, 'quantity') && <p className="mt-1 text-xs text-[#b42318]">{err(i, 'quantity')}</p>}
+              {err(i, 'quantity') && <p className="mt-1 text-xs text-danger">{err(i, 'quantity')}</p>}
             </div>
             <div>
               <input
@@ -111,7 +111,7 @@ export default function LineItemsEditor({
                 onChange={(e) => update(i, { unitPrice: e.target.value })}
                 onKeyDown={addOnEnter(i)}
               />
-              {err(i, 'unitPrice') && <p className="mt-1 text-xs text-[#b42318]">{err(i, 'unitPrice')}</p>}
+              {err(i, 'unitPrice') && <p className="mt-1 text-xs text-danger">{err(i, 'unitPrice')}</p>}
             </div>
             <p className="self-center text-right text-sm font-medium tabular-nums md:pt-3">
               {formatINR(lineTotalPaise(r.quantity, r.unitPrice))}
@@ -120,7 +120,7 @@ export default function LineItemsEditor({
               type="button"
               onClick={() => remove(i)}
               aria-label={`Remove item ${i + 1}`}
-              className="justify-self-end rounded-lg p-2 text-ink-4 hover:bg-[#fdf3f2] hover:text-[#b42318]"
+              className="justify-self-end rounded-lg p-2 text-ink-4 hover:bg-danger-bg hover:text-danger"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -144,7 +144,7 @@ function StockHint({ row }: { row: ItemRow }) {
   const wanted = Math.round(Number(row.quantity) * 1000);
   const short = Number.isFinite(wanted) && wanted > row.stock.milli;
   return (
-    <p className={`mt-1 text-[12px] ${short ? 'text-[#b42318]' : 'text-ink-3'}`}>
+    <p className={`mt-1 text-[12px] ${short ? 'text-danger' : 'text-ink-3'}`}>
       From products · {formatStock(row.stock.milli, row.stock.unit)} in stock{short ? ' — not enough for this quantity' : ''}
     </p>
   );

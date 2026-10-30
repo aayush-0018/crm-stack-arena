@@ -44,7 +44,7 @@ export default function BulkDelete({
 
   return (
     <>
-      <Button size="sm" variant="secondary" className="text-[#b42318] hover:text-[#b42318]" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" className="text-danger hover:text-danger" onClick={() => setOpen(true)}>
         <Trash2 size={14} /> Delete
       </Button>
       <ConfirmDialog

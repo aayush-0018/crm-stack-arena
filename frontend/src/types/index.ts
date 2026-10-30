@@ -307,3 +307,21 @@ export interface StockMovement {
 export interface ProductDetail extends Product {
   movements: StockMovement[];
 }
+
+export interface ImportRowResult {
+  /** Position in the rows sent, counted like a sheet: the first data row is 2. */
+  row: number;
+  action: 'create' | 'update' | 'error';
+  id?: number;
+  name?: string;
+  errors?: Record<string, string>;
+  note?: string;
+}
+
+export interface ImportResult {
+  dryRun: boolean;
+  created: number;
+  updated: number;
+  failed: number;
+  rows: ImportRowResult[];
+}

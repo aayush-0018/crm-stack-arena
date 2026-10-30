@@ -48,16 +48,16 @@ export default function DailySummaryModal({
   const hide = (v: string) => (hideNumbers ? '••••' : v);
 
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-ink/25 p-0 sm:items-center sm:p-6" onClick={onClose}>
+    <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-overlay/25 p-0 sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Daily summary"
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-line bg-white shadow-pop sm:rounded-2xl"
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-line bg-surface shadow-pop sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-white px-5 py-4 sm:px-7">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#171717] text-white">
+        <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-surface px-5 py-4 sm:px-7">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-on-ink">
             <Moon size={17} strokeWidth={1.8} />
           </span>
           <div className="min-w-0 flex-1">
@@ -113,7 +113,7 @@ export default function DailySummaryModal({
             </section>
 
             {s.orders === 0 && s.cancelled === 0 ? (
-              <p className="rounded-xl border border-line bg-[#fafaf8] px-4 py-5 text-[14px] text-ink-2">
+              <p className="rounded-xl border border-line bg-wash px-4 py-5 text-[14px] text-ink-2">
                 No orders were entered in this window. Quiet day — or the shop was closed.
               </p>
             ) : (
@@ -163,7 +163,7 @@ export default function DailySummaryModal({
                   <div className="rounded-xl border border-line p-4">
                     <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">Best customer</p>
                     {s.topCustomer ? (
-                      <Link to={`/customers/${s.topCustomer.id}`} onClick={onClose} className="block rounded-lg hover:bg-[#fafaf8]">
+                      <Link to={`/customers/${s.topCustomer.id}`} onClick={onClose} className="block rounded-lg hover:bg-wash">
                         <p className="text-[15px] text-ink">{s.topCustomer.name}</p>
                         <p className="text-[13px] text-ink-3">
                           {hide(formatINR(s.topCustomer.spentPaise))} · {hide(String(s.topCustomer.orders))} order{s.topCustomer.orders === 1 ? '' : 's'}
@@ -177,7 +177,7 @@ export default function DailySummaryModal({
               </>
             )}
 
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fafaf8] px-4 py-3.5">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-wash px-4 py-3.5">
               <p className="text-[13.5px] text-ink-2">
                 Payments pending across the shop:{' '}
                 <span className="text-ink">{hide(formatINR(s.outstanding.duePaise))}</span>{' '}
@@ -212,7 +212,7 @@ function Delta({ now, before }: { now: number; before: number }) {
 
 function Tile({ label, value, foot }: { label: string; value: string; foot?: ReactNode }) {
   return (
-    <div className="bg-white px-4 py-3.5">
+    <div className="bg-surface px-4 py-3.5">
       <p className="text-[13px] text-ink-2">{label}</p>
       <p className="mt-1.5 text-[24px] leading-none tracking-[-0.02em] text-ink">{value}</p>
       {foot && <p className="mt-1.5 text-[12px] text-ink-3">{foot}</p>}

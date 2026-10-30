@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { authApi, shopApi } from '../api/endpoints';
 import Button from '../components/ui/Button';
-import { TextField } from '../components/ui/Field';
+import { PasswordField, TextField } from '../components/ui/Field';
 import LogoPicker from '../components/ui/LogoPicker';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
@@ -66,9 +66,8 @@ export default function RegisterPage() {
           onChange={set('email')}
           error={errors.email}
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           required
           autoComplete="new-password"
           value={values.password}

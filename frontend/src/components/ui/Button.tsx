@@ -8,9 +8,9 @@ type Size = 'sm' | 'md';
 const base =
   'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50';
 const variants: Record<Variant, string> = {
-  primary: 'bg-ink text-white hover:bg-black',
-  secondary: 'border border-line bg-white text-ink shadow-soft hover:bg-hover',
-  danger: 'bg-[#b42318] text-white hover:bg-[#9a1f15]',
+  primary: 'bg-ink text-on-ink hover:bg-ink-strong',
+  secondary: 'border border-line bg-surface text-ink shadow-soft hover:bg-hover',
+  danger: 'bg-danger-solid text-white hover:bg-danger-solid-hover',
   ghost: 'text-ink-2 hover:bg-hover hover:text-ink',
 };
 const sizes: Record<Size, string> = {

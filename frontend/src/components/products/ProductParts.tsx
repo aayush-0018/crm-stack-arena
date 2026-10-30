@@ -133,7 +133,7 @@ export function ProductForm({
 
       <div className="space-y-4 rounded-xl border border-line p-4">
         <label className="flex cursor-pointer items-start gap-3 text-[14px]">
-          <input type="checkbox" className="mt-1 h-4 w-4 accent-[#171717]" checked={v.trackStock} onChange={(e) => setV({ ...v, trackStock: e.target.checked })} />
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-ink" checked={v.trackStock} onChange={(e) => setV({ ...v, trackStock: e.target.checked })} />
           <span>
             <span className="text-ink">Track stock</span>
             <span className="mt-0.5 block text-[13px] text-ink-3">Orders take stock automatically; cancelling or deleting an order puts it back.</span>
@@ -245,7 +245,7 @@ export function StockEntryModal({ open, product, onClose, onSaved }: { open: boo
                 setKind(k);
                 setError(null);
               }}
-              className={`h-8 rounded-md border px-3 text-[13px] ${kind === k ? 'border-ink bg-ink text-white' : 'border-line text-ink-2 hover:bg-hover'}`}
+              className={`h-8 rounded-md border px-3 text-[13px] ${kind === k ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink-2 hover:bg-hover'}`}
             >
               {KIND_TEXT[k].tab}
             </button>

@@ -14,7 +14,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   const label = 'text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3';
 
   return (
-    <article className="print-plain relative mx-auto max-w-[820px] overflow-hidden rounded-xl border border-line bg-white px-6 py-8 text-[14px] text-ink shadow-soft sm:px-12 sm:py-12">
+    <article className="theme-light print-plain relative mx-auto max-w-[820px] overflow-hidden rounded-xl border border-line bg-surface px-6 py-8 text-[14px] text-ink shadow-soft sm:px-12 sm:py-12">
       {invoice.status !== 'issued' && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="-rotate-12 text-7xl font-semibold uppercase tracking-widest text-ink/[0.05]">

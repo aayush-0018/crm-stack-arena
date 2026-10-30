@@ -37,7 +37,7 @@ export default function Popover({
       {open && (
         <div
           style={{ width }}
-          className={`absolute z-40 rounded-xl border border-line bg-white p-1.5 shadow-pop ${align === 'end' ? 'right-0' : 'left-0'} ${
+          className={`absolute z-40 rounded-xl border border-line bg-surface p-1.5 shadow-pop ${align === 'end' ? 'right-0' : 'left-0'} ${
             placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-1.5'
           }`}
         >
@@ -66,7 +66,7 @@ export function MenuItem({
       type="button"
       onClick={onClick}
       className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px] hover:bg-hover ${
-        danger ? 'text-[#b42318]' : 'text-ink'
+        danger ? 'text-danger' : 'text-ink'
       } ${active ? 'font-medium' : ''}`}
     >
       {icon && <span className="flex w-4 justify-center text-ink-2">{icon}</span>}

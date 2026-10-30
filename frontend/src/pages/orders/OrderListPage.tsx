@@ -192,7 +192,7 @@ export default function OrderListPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={exportAll} disabled={!rows.length || exporting}className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
+              <button type="button" onClick={exportAll} disabled={!rows.length || exporting} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
                 <Download size={16} strokeWidth={1.75} /> Export
               </button>
               <CustomizeButton columns={orderColumns(true).filter((c) => c.optional)} hidden={hidden} onToggle={toggle} />

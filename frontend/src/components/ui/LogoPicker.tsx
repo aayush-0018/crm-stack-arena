@@ -65,7 +65,7 @@ export default function LogoPicker({
         />
       </div>
       {localError || error ? (
-        <p className="mt-1.5 text-[12px] text-[#b42318]">{localError || error}</p>
+        <p className="mt-1.5 text-[12px] text-danger">{localError || error}</p>
       ) : (
         <p className="mt-1.5 text-[12px] text-ink-3">Shown in the menu, on invoices and on PDFs. PNG, JPG, WebP or SVG — resized automatically.</p>
       )}

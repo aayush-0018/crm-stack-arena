@@ -28,12 +28,12 @@ export function Modal({
 
   if (!open) return null;
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-ink/20 p-4 sm:items-center" onClick={onClose}>
+    <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-overlay/20 p-4 sm:items-center" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-white shadow-pop ${width}`}
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-line bg-surface shadow-pop ${width}`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="px-5 pt-5 text-[16px] font-medium text-ink">{title}</h2>

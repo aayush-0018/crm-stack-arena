@@ -437,3 +437,52 @@ See `CRM_TEST_RESULTS.md`.
    - Login and password reset are untouched.
 6. **Unresolved:** share-link expiry and a full CSP.
 7. **Safe to deploy:** yes, once `npm test` passes somewhere with a database, or the live checks above pass.
+
+---
+
+## Round 4: CA-21, CA-22 and dark mode, 31 Oct 2026 (approved)
+
+| Item | Change | Main files |
+|---|---|---|
+| CA-21 Show password | An eye button inside every password box (login, register, reset ×2). It shows or hides the text; it has a label for screen readers and works with the keyboard. Login and reset logic is unchanged | `components/ui/Field.tsx` (`PasswordField`), `pages/{Login,Register,ResetPassword}Page.tsx` |
+| CA-22 CSV import | See below | below |
+| Dark mode | "Theme: Light / Dark / Same as device" in the account menu, remembered per device, **default Light**. Every colour is now a token in `index.css`: light values are the exact previous colours, and each has a dark value. The invoice stays on paper colours, and printing always uses light. A script in `index.html` applies the saved theme before first paint | `index.css`, `tailwind.config.js`, `lib/theme.ts`, `index.html`, `main.tsx`, `AppShell.tsx`, plus colour names in 40 components (no layout changes) |
+
+### CA-22: CSV import
+
+- **Where:** Import buttons on the Customers and Products lists, next to Export.
+- **Flow:** choose a file → the server checks every row and returns a preview (**nothing saved**) → Import.
+- **Your rule:** a row with the **ID** of one of your records updates it; a row without an ID creates a new one.
+  - Customer exports now include an ID column, so a file can be exported, edited and imported back.
+- **Row rules:**
+  - Same validation as the Add forms.
+  - Phones and product names or SKUs stay unique, including within one file. A clash names the existing record's ID.
+  - Unknown IDs and other shops' IDs are rejected.
+  - Updating a product never changes its stock; a note appears if opening stock was given. New products get their opening stock as an "opening" stock entry.
+- **How it saves:** rejected rows are listed and skipped. All the other rows save together in one transaction, with a savepoint per row.
+  - The preview runs the same work and rolls it back, so it matches the real import exactly.
+- **Limits:** up to 1,000 rows. The server body limit is 1 MB for the two import routes only.
+- **Files:**
+  - Backend: `lib/importRows.ts`, `modules/{customers/customers.import,products/products.import}.ts`, the routes in `customers.routes.ts` and `products.routes.ts`, and `app.ts`.
+  - Frontend: `components/data/ImportCsvModal.tsx`, `lib/csv.ts` (`parseCsv`, `readImportRows`), `pages/{customers/CustomerListPage,products/ProductListPage}.tsx`, `api/endpoints.ts` and `types/index.ts`.
+- **Also fixed:** a missing space in the export buttons from round 3 (`exporting}className`). It worked, but was untidy.
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `backend: npm run typecheck`, `npm run build` | Pass |
+| `frontend: npm run build` (tsc and vite) | Pass |
+| Import row rules run directly (IDs, phones, units, yes/no, prices) | As specified |
+| CSV reader on tricky input (BOM, CRLF, quoted commas and line breaks, blank lines, the app's own export layout) | Correct |
+| Every theme colour class used in the code exists in the built CSS | 59 of 59 |
+| Screenshots of the register page in light and dark (headless Chrome, built app) | Light matches the existing design; dark is readable; the eye button shows |
+| `backend: npm test`, including the new `import.test.ts` (6 tests) | **Not run**: no local PostgreSQL |
+
+**Database:** no migrations.
+
+**Check live after deploy:**
+1. Import a customers CSV (template, then an exported file with an edited row). Check the preview, then the import.
+2. Import products with opening stock, then re-import one with its ID.
+3. Toggle the theme on each page, open a dialog, open an invoice in dark mode, and print.
+4. Use the eye button on login.

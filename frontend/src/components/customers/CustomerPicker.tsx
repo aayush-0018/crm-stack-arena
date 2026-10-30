@@ -66,7 +66,7 @@ export default function CustomerPicker({
 
   if (value.mode === 'walkin') {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-[#fafaf8] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-wash px-4 py-3">
         <div>
           <p className="font-medium">Walk-in sale</p>
           <p className="text-sm text-ink-2">No customer saved. Usually paid in full at the counter — there’s no one to collect a balance from later.</p>
@@ -81,7 +81,7 @@ export default function CustomerPicker({
   if (value.customer) {
     const c = value.customer;
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-[#fafaf8] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-wash px-4 py-3">
         <div>
           <p className="font-medium">{c.name}</p>
           <p className="text-sm text-ink-2">
@@ -112,7 +112,7 @@ export default function CustomerPicker({
             <Spinner className="h-5 w-5" />
           </div>
         ) : searchError ? (
-          <p className="p-4 text-sm text-[#b42318]">{searchError}</p>
+          <p className="p-4 text-sm text-danger">{searchError}</p>
         ) : results.length === 0 ? (
           <p className="p-4 text-sm text-ink-3">No customers found.</p>
         ) : (
@@ -122,7 +122,7 @@ export default function CustomerPicker({
                 <button
                   type="button"
                   onClick={() => onChange({ mode: 'existing', customer: c })}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[#fafaf8]"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-wash"
                 >
                   <span className="font-medium">{c.name}</span>
                   <span className="text-sm text-ink-3">{c.phone}</span>

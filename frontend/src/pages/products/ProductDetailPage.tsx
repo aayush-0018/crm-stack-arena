@@ -124,7 +124,7 @@ export default function ProductDetailPage() {
                     ) : null}
                     {m.createdByName && <span className="block text-[12.5px] text-ink-3">by {m.createdByName}</span>}
                   </td>
-                  <td className={`px-3 py-2.5 text-right align-top tabular-nums ${m.qtyMilli < 0 ? 'text-[#b42318]' : 'text-[#2e7031]'}`}>
+                  <td className={`px-3 py-2.5 text-right align-top tabular-nums ${m.qtyMilli < 0 ? 'text-danger' : 'text-success-text'}`}>
                     {m.qtyMilli > 0 ? '+' : '−'}
                     {formatStock(Math.abs(m.qtyMilli), p.unit)}
                   </td>

@@ -97,7 +97,7 @@ export default function AnalyticsPage() {
                   role="radio"
                   aria-checked={metric === m}
                   onClick={() => setMetric(m)}
-                  className={`h-7 rounded-md px-2.5 text-[13px] ${metric === m ? 'bg-ink text-white' : 'text-ink-2 hover:bg-hover'}`}
+                  className={`h-7 rounded-md px-2.5 text-[13px] ${metric === m ? 'bg-ink text-on-ink' : 'text-ink-2 hover:bg-hover'}`}
                 >
                   {m === 'revenue' ? 'Sales' : 'Orders'}
                 </button>
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
           {showTable && (
             <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
               <table className="w-full text-[13.5px]">
-                <thead className="sticky top-0 bg-white text-left text-[11px] uppercase tracking-[0.06em] text-ink-3">
+                <thead className="sticky top-0 bg-surface text-left text-[11px] uppercase tracking-[0.06em] text-ink-3">
                   <tr className="border-b border-line">
                     <th className="px-3 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 text-right font-medium">Orders</th>

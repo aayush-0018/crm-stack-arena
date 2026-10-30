@@ -129,7 +129,7 @@ export default function TrendChart({
           {point && active !== null && (
             <g pointerEvents="none">
               <line x1={tipLeft} x2={tipLeft} y1={M.top} y2={geo.baseline} stroke="var(--chart-axis)" strokeWidth={1} shapeRendering="crispEdges" />
-              <circle cx={tipLeft} cy={geo.y(point.value)} r={5} fill="var(--chart-series-1)" stroke="#fff" strokeWidth={2} />
+              <circle cx={tipLeft} cy={geo.y(point.value)} r={5} fill="var(--chart-series-1)" stroke="rgb(var(--c-surface))" strokeWidth={2} />
             </g>
           )}
         </svg>
@@ -137,7 +137,7 @@ export default function TrendChart({
 
       {point && active !== null && (
         <div
-          className="pointer-events-none absolute top-2 z-10 rounded-lg border border-line bg-white px-3 py-2 text-[12px] shadow-pop"
+          className="pointer-events-none absolute top-2 z-10 rounded-lg border border-line bg-surface px-3 py-2 text-[12px] shadow-pop"
           style={tipOnLeft ? { right: width - tipLeft + 12 } : { left: tipLeft + 12 }}
           role="status"
         >

@@ -12,8 +12,59 @@
   }
 }
 
-/* Chart tokens: monochrome ink to match the UI; status hues for payment state */
-:root {
+/*
+ * Colour tokens. Tailwind colours read these (see tailwind.config.js), so the whole app switches theme by
+ * toggling the "dark" class on <html> (lib/theme.ts). Values are RGB channels so opacity modifiers work.
+ * .theme-light keeps something on light colours in dark mode: the invoice, which stands for the printed bill.
+ */
+:root,
+.dark .theme-light {
+  color-scheme: light;
+  --c-canvas: 244 244 242;
+  --c-surface: 255 255 255;
+  --c-line: 235 235 232;
+  --c-line-strong: 220 220 215;
+  --c-hover: 239 239 236;
+  --c-selected: 231 231 227;
+  --c-ink: 23 23 23;
+  --c-ink-2: 95 95 91;
+  --c-ink-3: 143 143 138;
+  --c-ink-4: 184 184 178;
+  --c-ink-strong: 0 0 0;
+  --c-on-ink: 255 255 255;
+  --c-overlay: 23 23 23;
+  --c-wash: 250 250 248;
+  --c-wash-2: 247 247 245;
+  --c-wash-3: 246 246 244;
+  --c-danger: 180 35 24;
+  --c-danger-strong: 147 41 26;
+  --c-danger-text: 168 50 31;
+  --c-danger-bg: 253 243 242;
+  --c-danger-bg-2: 251 229 226;
+  --c-danger-line: 242 205 200;
+  --c-danger-line-2: 229 165 158;
+  --c-danger-solid: 180 35 24;
+  --c-danger-solid-hover: 154 31 21;
+  --c-critical: 208 80 63;
+  --c-success: 46 125 50;
+  --c-success-text: 46 112 49;
+  --c-success-strong: 42 106 45;
+  --c-success-bg: 243 249 241;
+  --c-success-bg-2: 230 242 225;
+  --c-success-line: 211 232 205;
+  --c-warn-text: 154 90 10;
+  --c-warn-strong: 122 76 9;
+  --c-warn-bg: 253 247 236;
+  --c-warn-bg-2: 252 236 216;
+  --c-warn-line: 241 220 181;
+  --c-yellow-text: 128 101 12;
+  --c-yellow-bg: 247 239 210;
+  --c-info-text: 47 94 168;
+  --c-info-strong: 40 80 143;
+  --c-info-bg: 243 247 253;
+  --c-info-bg-2: 231 238 250;
+  --c-info-line: 214 226 245;
+  --c-neutral-text: 107 107 102;
   --chart-series-1: #171717;
   --chart-grid: #ebebe8;
   --chart-axis: #d4d4cf;
@@ -23,6 +74,68 @@
   --status-critical: #d0503f;
   --delta-up: #2e7d32;
   --delta-down: #b42318;
+}
+
+.dark {
+  color-scheme: dark;
+  --c-canvas: 15 15 14;
+  --c-surface: 26 26 25;
+  --c-line: 43 43 41;
+  --c-line-strong: 58 58 55;
+  --c-hover: 38 38 36;
+  --c-selected: 48 48 45;
+  --c-ink: 237 237 234;
+  --c-ink-2: 180 180 174;
+  --c-ink-3: 140 140 134;
+  --c-ink-4: 92 92 88;
+  --c-ink-strong: 255 255 255;
+  --c-on-ink: 23 23 23;
+  --c-overlay: 0 0 0;
+  --c-wash: 30 30 28;
+  --c-wash-2: 33 33 32;
+  --c-wash-3: 35 35 33;
+  --c-danger: 240 122 108;
+  --c-danger-strong: 244 160 148;
+  --c-danger-text: 240 138 124;
+  --c-danger-bg: 43 23 20;
+  --c-danger-bg-2: 59 29 25;
+  --c-danger-line: 92 43 37;
+  --c-danger-line-2: 140 64 53;
+  --c-danger-solid: 193 58 43;
+  --c-danger-solid-hover: 210 74 58;
+  --c-critical: 224 96 80;
+  --c-success: 116 194 120;
+  --c-success-text: 127 197 131;
+  --c-success-strong: 148 211 151;
+  --c-success-bg: 23 35 24;
+  --c-success-bg-2: 29 47 31;
+  --c-success-line: 46 74 48;
+  --c-warn-text: 227 166 80;
+  --c-warn-strong: 235 184 107;
+  --c-warn-bg: 36 28 15;
+  --c-warn-bg-2: 51 37 15;
+  --c-warn-line: 79 59 25;
+  --c-yellow-text: 220 194 97;
+  --c-yellow-bg: 46 41 17;
+  --c-info-text: 134 171 234;
+  --c-info-strong: 162 191 242;
+  --c-info-bg: 20 28 42;
+  --c-info-bg-2: 27 38 56;
+  --c-info-line: 44 61 92;
+  --c-neutral-text: 169 169 163;
+  --chart-series-1: #ededea;
+  --chart-grid: #2b2b29;
+  --chart-axis: #3a3a37;
+  --chart-muted: #8c8c86;
+  --status-good: #5fb563;
+  --status-warning: #e0a83a;
+  --status-critical: #e06050;
+  --delta-up: #74c278;
+  --delta-down: #f07a6c;
+}
+
+.theme-light {
+  color: rgb(var(--c-ink));
 }
 
 /* Respect the device's "reduce motion" setting. The loading spinner keeps turning: it shows work is in progress. */
