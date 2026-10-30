@@ -17,6 +17,8 @@ import type {
   OrderListItem,
   OrderStatus,
   Paged,
+  PaymentKind,
+  PaymentMethod,
   PaymentStatus,
   Session,
   ShareChannel,
@@ -85,7 +87,10 @@ export interface OrderItemPayload {
 export interface OrderPayload {
   items: OrderItemPayload[];
   discount: string;
-  amountPaid: string;
+  /** Create only. Edits leave payments to the ledger (POST /orders/:id/payments). */
+  amountPaid?: string;
+  /** Create only: how the amount paid was paid. */
+  paymentMethod?: PaymentMethod;
   notes: string | null;
   orderDate?: string;
 }
@@ -110,14 +115,26 @@ export interface OrderListQuery {
   pageSize?: number;
 }
 
+export interface PaymentEntryPayload {
+  kind: PaymentKind;
+  amount: string;
+  method: PaymentMethod;
+  paidOn: string;
+  reference: string | null;
+  note: string | null;
+  idempotencyKey: string;
+}
+
 export const ordersApi = {
   list: (q: OrderListQuery) => api.get<Paged<OrderListItem>>('/orders', { ...q }),
   get: (id: number | string) => api.get<Order>(`/orders/${id}`),
   create: (body: OrderCreatePayload) => api.post<Order>('/orders', body),
   update: (id: number | string, body: OrderPayload) => api.put<Order>(`/orders/${id}`, body),
-  setStatus: (id: number | string, status: OrderStatus) => api.patch<Order>(`/orders/${id}/status`, { status }),
-  setPayment: (id: number | string, amountPaid: string) =>
-    api.patch<Order>(`/orders/${id}/payment`, { amountPaid }),
+  setStatus: (id: number | string, status: OrderStatus, refund?: { method: PaymentMethod }) =>
+    api.patch<Order>(`/orders/${id}/status`, { status, refund }),
+  addPayment: (id: number | string, body: PaymentEntryPayload) => api.post<Order>(`/orders/${id}/payments`, body),
+  voidPayment: (id: number | string, paymentId: number, reason: string | null) =>
+    api.post<Order>(`/orders/${id}/payments/${paymentId}/void`, { reason }),
   remove: (id: number | string) => api.delete<{ orderNumber: string; deletedInvoices: number }>(`/orders/${id}`),
 };
 

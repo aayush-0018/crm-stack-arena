@@ -103,7 +103,7 @@ async function main() {
 
   let orders = 0;
   let invoices = 0;
-  let outdated = 0;
+  let laterPayments = 0;
 
   for (let i = 0; i < CUSTOMERS; i++) {
     let phone: string;
@@ -166,7 +166,7 @@ async function main() {
       const r = rand();
       const paidShare = daysAgo > 30 ? (r < 0.85 ? 1 : r < 0.95 ? 0.5 : 0) : r < 0.55 ? 1 : r < 0.8 ? 0.4 : 0;
       const paid = Math.round(order.totalPaise * paidShare);
-      if (paid > 0) await setPayment(shopId, order.id, paid);
+      if (paid > 0) await setPayment(shopId, userId, order.id, paid);
 
       // Status: cancelled ~4%, otherwise completed if older than a few days.
       const cancelled = rand() < 0.04;
@@ -183,13 +183,13 @@ async function main() {
            WHERE id = $1`,
           [invoiceId, orderDate, int(0, 480)],
         );
-        // A few recent invoices get a later payment, so they show as "order changed since invoice".
+        // A few recent invoices get a later payment (recorded in the ledger; the invoice stays current).
         if (daysAgo < 20 && paid < order.totalPaise && rand() < 0.25) {
-          await setPayment(shopId, order.id, order.totalPaise);
-          outdated++;
+          await setPayment(shopId, userId, order.id, order.totalPaise);
+          laterPayments++;
         }
       }
-      if (status !== 'open') await setStatus(shopId, order.id, status);
+      if (status !== 'open') await setStatus(shopId, userId, order.id, status);
 
       // Timestamps follow the order date.
       await pool.query(
@@ -198,10 +198,15 @@ async function main() {
          WHERE id = $1`,
         [order.id, orderDate, int(0, 600)],
       );
+      // Payments too, so "payments received" in analytics spreads over time like real data.
+      await pool.query(
+        `UPDATE payments SET paid_on = $2::date, created_at = $2::date + interval '12 hours' WHERE order_id = $1`,
+        [order.id, orderDate],
+      );
     }
   }
 
-  console.log(`Done: ${CUSTOMERS} customers, ${orders} orders, ${invoices} invoices (${outdated} with later payments).`);
+  console.log(`Done: ${CUSTOMERS} customers, ${orders} orders, ${invoices} invoices (${laterPayments} with later payments).`);
 }
 
 main()

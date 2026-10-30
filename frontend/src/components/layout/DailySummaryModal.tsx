@@ -122,8 +122,8 @@ export default function DailySummaryModal({
                   <Tile label="Total orders" value={hide(String(s.orders))} foot={hideNumbers ? undefined : `${s.prevOrders} the day before`} />
                   <Tile
                     label="Payments received"
-                    value={hide(formatINRCompact(s.collectedPaise))}
-                    foot={hideNumbers || !s.revenuePaise ? undefined : `${Math.round((s.collectedPaise / s.revenuePaise) * 100)}% of sales`}
+                    value={hide(formatINRCompact(s.receivedPaise))}
+                    foot={hideNumbers ? undefined : s.refundedPaise ? `after ${formatINRCompact(s.refundedPaise)} refunded` : 'incl. older orders'}
                   />
                   <Tile
                     label="Still due"

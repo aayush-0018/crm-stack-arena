@@ -150,10 +150,30 @@ export interface InvoiceRef {
   outdated: boolean;
 }
 
+export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
+export type PaymentKind = 'payment' | 'refund';
+
+/** One ledger entry. Voided entries stay in the history and no longer count. */
+export interface Payment {
+  id: number;
+  kind: PaymentKind;
+  amountPaise: number;
+  /** 'unrecorded' = entered before payment history existed, or no method was given. */
+  method: PaymentMethod | 'unrecorded';
+  reference: string | null;
+  note: string | null;
+  paidOn: string;
+  createdAt: string;
+  createdByName: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+}
+
 export interface Order extends OrderBase {
   customer: Customer | null;
   items: OrderItem[];
   invoice: InvoiceRef | null;
+  payments: Payment[];
 }
 
 export interface Invoice {
@@ -205,8 +225,11 @@ export interface Analytics {
     prevRevenuePaise: number;
     prevOrders: number;
     activeCustomers: number;
+    /** Money received in the window by payment date (payments minus refunds). */
+    receivedPaise: number;
+    prevReceivedPaise: number;
   };
-  daily: { date: string; revenuePaise: number; collectedPaise: number; orders: number }[];
+  daily: { date: string; revenuePaise: number; collectedPaise: number; receivedPaise: number; orders: number }[];
   payment: { status: PaymentStatus; orders: number; duePaise: number }[];
   status: { status: OrderStatus; orders: number }[];
   topCustomers: { id: number; name: string; orders: number; revenuePaise: number }[];
@@ -233,4 +256,7 @@ export interface DailySummary {
   topCustomer: { id: number; name: string; orders: number; spentPaise: number } | null;
   busiestHour: { hour: number; orders: number } | null;
   outstanding: { duePaise: number; dueOrders: number };
+  /** Payments minus refunds entered in the window, on any order. */
+  receivedPaise: number;
+  refundedPaise: number;
 }

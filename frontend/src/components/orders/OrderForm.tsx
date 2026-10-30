@@ -4,13 +4,14 @@ import type { OrderPayload } from '../../api/endpoints';
 import { formatINR, lineTotalPaise, moneyToPaise, paiseToInput } from '../../lib/money';
 import { zodErrors } from '../../lib/zod';
 import { orderSchema } from '../../schemas';
-import type { Order } from '../../types';
+import type { Order, PaymentMethod } from '../../types';
 import { CustomerChoice } from '../customers/CustomerPicker';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { TextAreaField, TextField } from '../ui/Field';
 import { Alert } from '../ui/States';
 import LineItemsEditor, { ItemRow, newRow } from './LineItemsEditor';
+import { MethodPicker } from './Payments';
 
 export interface OrderFormState {
   rows: ItemRow[];
@@ -53,6 +54,7 @@ export default function OrderForm({
   submitLabel,
   onCancel,
   customerChoice,
+  paidSoFarPaise,
 }: {
   initial: OrderFormState;
   customerSection: (errors: Record<string, string>) => ReactNode;
@@ -61,8 +63,12 @@ export default function OrderForm({
   submitLabel: string;
   onCancel: () => void;
   customerChoice?: CustomerChoice;
+  /** Edit mode: what's already been paid. Payments are then changed on the order page, not here. */
+  paidSoFarPaise?: number;
 }) {
+  const editing = paidSoFarPaise !== undefined;
   const [state, setState] = useState(initial);
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -71,9 +77,9 @@ export default function OrderForm({
     const subtotal = state.rows.reduce((s, r) => s + lineTotalPaise(r.quantity, r.unitPrice), 0);
     const discount = moneyToPaise(state.discount || '0') ?? 0;
     const total = Math.max(0, subtotal - discount);
-    const paid = moneyToPaise(state.amountPaid || '0') ?? 0;
+    const paid = editing ? paidSoFarPaise : (moneyToPaise(state.amountPaid || '0') ?? 0);
     return { subtotal, discount, total, paid, balance: total - paid };
-  }, [state]);
+  }, [state, editing, paidSoFarPaise]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -85,15 +91,22 @@ export default function OrderForm({
     const parsed = orderSchema.safeParse({
       items: rows.map(({ itemName, quantity, unitPrice }) => ({ itemName, quantity, unitPrice })),
       discount: state.discount,
-      amountPaid: state.amountPaid,
+      amountPaid: editing ? '' : state.amountPaid,
       notes: state.notes,
     });
     const v: Record<string, string> = { ...(validateExtra?.() ?? {}), ...(parsed.success ? {} : zodErrors(parsed.error)) };
     if (totals.discount > totals.subtotal) v.discount = 'Discount cannot be more than the subtotal';
-    if (totals.paid > totals.total) v.amountPaid = 'Amount paid cannot be more than the total';
+    if (totals.paid > totals.total) {
+      if (editing) v.discount = 'Total is below what’s been paid';
+      else v.amountPaid = 'Amount paid cannot be more than the total';
+    }
     if (Object.keys(v).length) {
       setErrors(v);
-      setFormError('Please fix the highlighted fields.');
+      setFormError(
+        editing && totals.paid > totals.total
+          ? `The total can’t be less than the ${formatINR(totals.paid)} already paid. Record a refund on the order page first.`
+          : 'Please fix the highlighted fields.',
+      );
       return;
     }
     setErrors({});
@@ -107,7 +120,7 @@ export default function OrderForm({
           unitPrice: r.unitPrice.trim(),
         })),
         discount: state.discount.trim() || '0',
-        amountPaid: state.amountPaid.trim() || '0',
+        ...(editing ? {} : { amountPaid: state.amountPaid.trim() || '0', paymentMethod: method }),
         notes: state.notes.trim() || null,
         orderDate: state.orderDate || undefined,
       });
@@ -180,34 +193,48 @@ export default function OrderForm({
               <dt className="font-medium">Total</dt>
               <dd className="font-medium tabular-nums">{formatINR(totals.total)}</dd>
             </div>
-            <div className="flex items-start justify-between gap-4">
-              <dt className="pt-3 text-ink-2">
-                Amount paid (₹)
-                <button
-                  type="button"
-                  className="ml-2 text-[12px] text-ink underline"
-                  onClick={() => setState((s) => ({ ...s, amountPaid: paiseToInput(totals.total) }))}
-                >
-                  Full
-                </button>
-              </dt>
-              <dd className="w-36">
-                <TextField
-                  aria-label="Amount paid"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={state.amountPaid}
-                  onChange={(e) => setState((s) => ({ ...s, amountPaid: e.target.value }))}
-                  error={errors.amountPaid}
-                />
-              </dd>
-            </div>
+            {editing ? (
+              <div className="flex justify-between">
+                <dt className="text-ink-2">Paid so far</dt>
+                <dd className="font-medium tabular-nums">{formatINR(totals.paid)}</dd>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <dt className="pt-3 text-ink-2">
+                  Amount paid (₹)
+                  <button
+                    type="button"
+                    className="ml-2 text-[12px] text-ink underline"
+                    onClick={() => setState((s) => ({ ...s, amountPaid: paiseToInput(totals.total) }))}
+                  >
+                    Full
+                  </button>
+                </dt>
+                <dd className="w-36">
+                  <TextField
+                    aria-label="Amount paid"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={state.amountPaid}
+                    onChange={(e) => setState((s) => ({ ...s, amountPaid: e.target.value }))}
+                    error={errors.amountPaid}
+                  />
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-ink-2">Balance due</dt>
               <dd className="font-medium tabular-nums">{formatINR(Math.max(0, totals.balance))}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-[12px] text-ink-3">Final amounts are calculated and saved by the server.</p>
+          {!editing && totals.paid > 0 && (
+            <div className="mt-4">
+              <MethodPicker value={method} onChange={setMethod} />
+            </div>
+          )}
+          <p className="mt-3 text-[12px] text-ink-3">
+            {editing ? 'Payments and refunds are recorded on the order page. ' : ''}Final amounts are calculated and saved by the server.
+          </p>
         </Card>
       </div>
 

@@ -56,6 +56,8 @@ export function buildInvoiceDoc(inv: Invoice, logo: string | null = null): TDocu
     totalRow('Amount paid', formatRupees(inv.amountPaidPaise)),
     totalRow('Balance due', formatRupees(balance), { bold: true }),
     totalRow('Payment status', PAYMENT_LABEL[inv.paymentStatus]),
+    // Payments after issue are tracked on the order, not by reissuing the invoice.
+    [{ text: 'Paid and balance as on the invoice date', colSpan: 2, alignment: 'right', fontSize: 8, color: INK_3 }, {}],
   ];
   const totalIdx = inv.discountPaise > 0 ? 2 : 1; // row index of "Total"
 

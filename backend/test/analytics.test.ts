@@ -60,3 +60,34 @@ describe('analytics reconcile with a known fixture', () => {
     assert.deepEqual(r.topItems, []);
   });
 });
+
+describe('payments received are counted by payment date', () => {
+  test('old orders paid recently count now; refunds subtract; removed entries do not count', async () => {
+    const { api } = await newShop();
+    const today = await istToday();
+    const old = await newOrder(api, { orderDate: await daysAgo(40) }); // ₹100, outside the window
+    await api.post(`/orders/${old.id}/payments`, { amount: '100', method: 'cash', paidOn: await daysAgo(1) });
+    const fresh = await newOrder(api, { orderDate: today });
+    await api.post(`/orders/${fresh.id}/payments`, { amount: '60', method: 'upi' });
+    await api.post(`/orders/${fresh.id}/payments`, { kind: 'refund', amount: '10', method: 'upi' });
+    const mistake = (await api.post(`/orders/${fresh.id}/payments`, { amount: '20', method: 'card' })).body.payments.at(-1);
+    await api.post(`/orders/${fresh.id}/payments/${mistake.id}/void`, { reason: 'typo' });
+
+    const r = (await api.get('/dashboard/analytics?days=7')).body;
+    assert.equal(r.summary.receivedPaise, 10000 + 6000 - 1000);
+    assert.equal(r.summary.revenuePaise, 10000); // only the fresh order is a sale in the window
+    assert.equal(r.daily.find((d: any) => d.date === today).receivedPaise, 5000);
+    assert.equal(r.daily.reduce((t: number, d: any) => t + d.receivedPaise, 0), r.summary.receivedPaise);
+
+    // The summary window runs 10 pm -> 10 pm IST; after 10 pm, entries made now belong to tomorrow's.
+    const [{ d: summaryDate }] = await sql(
+      `SELECT (CASE WHEN extract(hour FROM now() AT TIME ZONE 'Asia/Kolkata') >= 22 THEN 1 ELSE 0 END
+               + (now() AT TIME ZONE 'Asia/Kolkata')::date)::text AS d`,
+    );
+    const s = (await api.get(`/dashboard/daily-summary?date=${summaryDate}`)).body;
+    assert.equal(s.refundedPaise, 1000);
+    // The daily summary goes by when entries were made (like the rest of it), so the back-dated
+    // payment entered just now counts here: 100 + 60 - 10, the removed entry excluded.
+    assert.equal(s.receivedPaise, 15000);
+  });
+});

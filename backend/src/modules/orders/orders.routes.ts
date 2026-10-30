@@ -40,7 +40,8 @@ ordersRouter.put(
   '/:id',
   ah(async (req, res) => {
     const { id } = idParam.parse(req.params);
-    res.json(await service.updateOrder(auth(req).shopId, id, updateOrderSchema.parse(req.body)));
+    const { userId, shopId } = auth(req);
+    res.json(await service.updateOrder(shopId, userId, id, updateOrderSchema.parse(req.body)));
   }),
 );
 
@@ -48,7 +49,9 @@ ordersRouter.patch(
   '/:id/status',
   ah(async (req, res) => {
     const { id } = idParam.parse(req.params);
-    res.json(await service.setStatus(auth(req).shopId, id, statusSchema.parse(req.body).status));
+    const { userId, shopId } = auth(req);
+    const b = statusSchema.parse(req.body);
+    res.json(await service.setStatus(shopId, userId, id, b.status, b.refund));
   }),
 );
 
@@ -56,7 +59,8 @@ ordersRouter.patch(
   '/:id/payment',
   ah(async (req, res) => {
     const { id } = idParam.parse(req.params);
-    res.json(await service.setPayment(auth(req).shopId, id, paymentSchema.parse(req.body).amountPaid));
+    const { userId, shopId } = auth(req);
+    res.json(await service.setPayment(shopId, userId, id, paymentSchema.parse(req.body).amountPaid));
   }),
 );
 

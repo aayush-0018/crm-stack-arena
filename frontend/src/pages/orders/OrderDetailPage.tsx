@@ -6,12 +6,13 @@ import { invoicesApi, ordersApi } from '../../api/endpoints';
 import { Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import MessageComposer from '../../components/customers/MessageComposer';
 import SendInvoiceModal from '../../components/invoices/SendInvoiceModal';
+import { MethodPicker, orderDue, PaymentEntryModal, PaymentsSection } from '../../components/orders/Payments';
 import Avatar from '../../components/ui/Avatar';
 import BackButton from '../../components/ui/BackButton';
 import { InvoiceBadge, ORDER_STATUS_LABEL, PaymentBadge, StatusBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
 import { SectionHeader } from '../../components/ui/Card';
-import { SelectField, TextField } from '../../components/ui/Field';
+import { SelectField } from '../../components/ui/Field';
 import InfoRows from '../../components/ui/InfoRows';
 import { ConfirmDialog, Modal } from '../../components/ui/Modal';
 import { Alert, EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
@@ -20,8 +21,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatDate, formatDateTime, relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
-import { formatINR, formatQty, isValidMoney, moneyToPaise, paiseToInput } from '../../lib/money';
-import type { Order, OrderStatus } from '../../types';
+import { formatINR, formatQty } from '../../lib/money';
+import type { OrderStatus, PaymentKind, PaymentMethod } from '../../types';
 
 export default function OrderDetailPage() {
   const { id = '' } = useParams();
@@ -33,7 +34,9 @@ export default function OrderDetailPage() {
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reissuePrompt, setReissuePrompt] = useState<{ invoiceNumber: string; nextRevision: number } | null>(null);
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentKind, setPaymentKind] = useState<PaymentKind | null>(null);
+  const [refundOnCancel, setRefundOnCancel] = useState(true);
+  const [refundMethod, setRefundMethod] = useState<PaymentMethod>('cash');
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [composing, setComposing] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -54,7 +57,7 @@ export default function OrderDetailPage() {
   const cancelled = o.status === 'cancelled';
   const inv = o.invoice;
   const liveInvoice = inv?.status === 'issued' ? inv : null;
-  const due = o.totalPaise - o.amountPaidPaise;
+  const due = orderDue(o); // a cancelled order owes nothing, as in every other figure
 
   const generate = async (reissue = false) => {
     setInvoiceBusy(true);
@@ -74,9 +77,9 @@ export default function OrderDetailPage() {
     }
   };
 
-  const changeStatus = async (status: OrderStatus) => {
+  const changeStatus = async (status: OrderStatus, refund?: { method: PaymentMethod }) => {
     try {
-      order.setData(await ordersApi.setStatus(o.id, status));
+      order.setData(await ordersApi.setStatus(o.id, status, refund));
       toast('success', `Order marked ${ORDER_STATUS_LABEL[status].toLowerCase()}`);
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Could not update status');
@@ -121,8 +124,13 @@ export default function OrderDetailPage() {
                 <Pencil size={14} /> Edit
               </ButtonLink>
             )}
-            {!cancelled && (
-              <Button variant="secondary" onClick={() => setPaymentOpen(true)}>
+            {o.amountPaidPaise > 0 && (
+              <Button variant="ghost" onClick={() => setPaymentKind('refund')}>
+                Refund
+              </Button>
+            )}
+            {!cancelled && due > 0 && (
+              <Button variant="secondary" onClick={() => setPaymentKind('payment')}>
                 Record payment
               </Button>
             )}
@@ -206,6 +214,14 @@ export default function OrderDetailPage() {
               <p className="whitespace-pre-line text-[14px] text-ink-2">{o.notes}</p>
             </div>
           )}
+          <PaymentsSection
+            order={o}
+            canRemove={isOwner}
+            onChanged={(updated) => {
+              order.setData(updated);
+              toast('success', 'Entry removed. It stays in the history, crossed out.');
+            }}
+          />
         </section>
 
         <aside className="border-t border-line lg:border-t-0">
@@ -235,7 +251,7 @@ export default function OrderDetailPage() {
                 </div>
                 {composing && (
                   <div className="mt-3">
-                    <MessageComposer name={o.customer.name} phone={o.customer.phone} duePaise={cancelled ? 0 : due} autoFocus compact />
+                    <MessageComposer name={o.customer.name} phone={o.customer.phone} duePaise={due} autoFocus compact />
                   </div>
                 )}
               </>
@@ -338,22 +354,39 @@ export default function OrderDetailPage() {
         danger
         confirmLabel="Cancel order"
         onClose={() => setPendingStatus(null)}
-        onConfirm={() => changeStatus('cancelled')}
-        message={liveInvoice ? `Invoice ${liveInvoice.invoiceNumber} will be marked cancelled.` : 'The order will be marked cancelled. You can reopen it later.'}
+        onConfirm={() => changeStatus('cancelled', o.amountPaidPaise > 0 && refundOnCancel ? { method: refundMethod } : undefined)}
+        message={
+          <div className="space-y-3">
+            <p>{liveInvoice ? `Invoice ${liveInvoice.invoiceNumber} will be marked cancelled.` : 'The order will be marked cancelled. You can reopen it later.'}</p>
+            {o.amountPaidPaise > 0 && (
+              <div className="space-y-3 rounded-lg border border-line px-3 py-3">
+                <label className="flex cursor-pointer items-start gap-2.5 text-[13.5px] text-ink">
+                  <input type="checkbox" checked={refundOnCancel} onChange={(e) => setRefundOnCancel(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[#171717]" />
+                  <span>
+                    Refund the {formatINR(o.amountPaidPaise)} paid to the customer
+                    <span className="block text-[12.5px] text-ink-3">Untick if you’re keeping the money (for example as credit).</span>
+                  </span>
+                </label>
+                {refundOnCancel && <MethodPicker value={refundMethod} onChange={setRefundMethod} label="Refunded by" />}
+              </div>
+            )}
+          </div>
+        }
       />
 
       {liveInvoice && (
         <SendInvoiceModal invoiceId={liveInvoice.id} outdated={liveInvoice.outdated} open={sendOpen} onClose={() => setSendOpen(false)} />
       )}
 
-      <PaymentModal
-        open={paymentOpen}
+      <PaymentEntryModal
+        open={!!paymentKind}
+        kind={paymentKind ?? 'payment'}
         order={o}
-        onClose={() => setPaymentOpen(false)}
+        onClose={() => setPaymentKind(null)}
         onSaved={(updated) => {
           order.setData(updated);
-          setPaymentOpen(false);
-          toast('success', 'Payment updated');
+          toast('success', paymentKind === 'refund' ? 'Refund recorded' : 'Payment recorded');
+          setPaymentKind(null);
         }}
       />
     </>
@@ -366,66 +399,5 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
       <dt className={strong ? '' : 'text-ink-2'}>{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </div>
-  );
-}
-
-function PaymentModal({ open, order, onClose, onSaved }: { open: boolean; order: Order; onClose: () => void; onSaved: (o: Order) => void }) {
-  const [amount, setAmount] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [lastOpen, setLastOpen] = useState(false);
-
-  if (open !== lastOpen) {
-    setLastOpen(open);
-    if (open) {
-      setAmount(paiseToInput(order.amountPaidPaise));
-      setError(null);
-    }
-  }
-
-  const save = async () => {
-    const v = amount.trim() || '0';
-    if (!isValidMoney(v)) return setError('Enter a valid amount (up to 2 decimals)');
-    if ((moneyToPaise(v) ?? 0) > order.totalPaise) return setError('Amount paid cannot be more than the order total');
-    setBusy(true);
-    setError(null);
-    try {
-      onSaved(await ordersApi.setPayment(order.id, v));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save payment');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      title="Record payment"
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={save} loading={busy}>
-            Save
-          </Button>
-        </>
-      }
-    >
-      <p className="mb-3">
-        Order total: <span className="text-ink">{formatINR(order.totalPaise)}</span>
-      </p>
-      <TextField label="Total amount paid so far (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={error ?? undefined} autoFocus />
-      <div className="mt-2 flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => setAmount(paiseToInput(order.totalPaise))}>
-          Fully paid
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setAmount('0')}>
-          Unpaid
-        </Button>
-      </div>
-    </Modal>
   );
 }

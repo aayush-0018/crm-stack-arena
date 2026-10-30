@@ -42,6 +42,7 @@ export default function OrderEditPage() {
       )}
       <OrderForm
         initial={orderToForm(o)}
+        paidSoFarPaise={o.amountPaidPaise}
         customerSection={() =>
           o.customer ? (
             <div className="text-sm">

@@ -172,7 +172,8 @@ export async function updatePayment(
   paymentStatus: PaymentStatus,
 ) {
   await db.query(
-    `UPDATE orders SET amount_paid_paise = $3, payment_status = $4, version = version + 1, updated_at = now()
+    // No version bump: a payment doesn't change what was billed, so the invoice stays current.
+    `UPDATE orders SET amount_paid_paise = $3, payment_status = $4, updated_at = now()
      WHERE shop_id = $1 AND id = $2`,
     [shopId, id, amountPaidPaise, paymentStatus],
   );

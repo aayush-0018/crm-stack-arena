@@ -104,6 +104,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
           <Row label="Amount paid" value={formatINR(invoice.amountPaidPaise)} />
           <Row label="Balance due" value={formatINR(balance)} strong />
           <Row label="Payment status" value={PAYMENT_STATUS_LABEL[invoice.paymentStatus]} />
+          <p className="mt-1.5 text-right text-[11.5px] text-ink-3">Paid and balance as on the invoice date</p>
         </dl>
       </section>
 

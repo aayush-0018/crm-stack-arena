@@ -1,13 +1,16 @@
 import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
-import { branchCode, formatOrderNumber, nextSeq } from '../../lib/numbering';
+import { branchCode, formatOrderNumber, nextSeq, todayIST } from '../../lib/numbering';
 import { findCustomer } from '../customers/customers.repo';
 import { createCustomer } from '../customers/customers.service';
 import { latestInvoiceForOrder, voidIssuedInvoice } from '../invoices/invoices.repo';
+import { listPayments } from '../payments/payments.repo';
+import { PaymentMethod } from '../payments/payments.schemas';
+import { addEntry, adjustPaidTo, syncPaid } from '../payments/payments.service';
 import * as repo from './orders.repo';
 import { CreateOrderInput, OrderStatus, UpdateOrderInput } from './orders.schemas';
-import { assertPaidWithinTotal, computeTotals, derivePaymentStatus } from './totals';
+import { assertPaidWithinTotal, computeTotals } from './totals';
 
 const orderCancelled = () =>
   new AppError(409, 'ORDER_CANCELLED', 'This order is cancelled. Reopen it before making changes.');
@@ -15,15 +18,17 @@ const orderCancelled = () =>
 export async function getOrder(shopId: number, id: number) {
   const order = await repo.findOrder(pool, shopId, id);
   if (!order) throw notFound('Order');
-  const [customer, items, invoice] = await Promise.all([
+  const [customer, items, invoice, payments] = await Promise.all([
     findCustomer(pool, shopId, order.customerId, { includeDeleted: true }),
     repo.findItems(pool, id),
     latestInvoiceForOrder(pool, id),
+    listPayments(pool, id),
   ]);
   return {
     ...order,
     customer,
     items,
+    payments,
     invoice: invoice
       ? {
           id: invoice.id,
@@ -70,6 +75,18 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
         createdBy: userId,
       });
       await repo.replaceItems(c, id, totals.lines);
+      if (totals.amountPaidPaise > 0) {
+        await addEntry(c, {
+          shopId,
+          orderId: id,
+          userId,
+          kind: 'payment',
+          amountPaise: totals.amountPaidPaise,
+          method: input.paymentMethod ?? 'unrecorded',
+          paidOn: input.orderDate ?? (await todayIST(c)),
+          note: 'Paid when the order was created',
+        });
+      }
       return id;
     });
   } catch (err) {
@@ -84,16 +101,20 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
   return { order: await getOrder(shopId, orderId), created: true };
 }
 
-export async function updateOrder(shopId: number, id: number, input: UpdateOrderInput) {
+export async function updateOrder(shopId: number, userId: number, id: number, input: UpdateOrderInput) {
   await withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
     if (order.status === 'cancelled') throw orderCancelled();
 
-    const totals = computeTotals(input.items, input.discount, input.amountPaid ?? order.amountPaidPaise);
+    // Payments live in the ledger. An amount paid sent with an edit (older app versions) is
+    // recorded as one adjustment entry; omitting it keeps the payments as they are.
+    const paid = input.amountPaid ?? order.amountPaidPaise;
+    const totals = computeTotals(input.items, input.discount, paid);
+    await adjustPaidTo(c, shopId, order, userId, paid, 'Adjusted while editing the order');
     await repo.updateOrderTotals(c, shopId, id, totals, input.notes, input.orderDate);
     await repo.replaceItems(c, id, totals.lines);
-    await repo.completeIfSettled(c, shopId, id);
+    await syncPaid(c, shopId, id);
   });
   // Issued invoices are never modified here; getOrder reports invoice.outdated.
   return getOrder(shopId, id);
@@ -111,24 +132,49 @@ export async function deleteOrder(shopId: number, id: number) {
   });
 }
 
-export async function setStatus(shopId: number, id: number, status: OrderStatus) {
+export async function setStatus(
+  shopId: number,
+  userId: number,
+  id: number,
+  status: OrderStatus,
+  refund?: { method: PaymentMethod },
+) {
   await withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
     await repo.updateStatus(c, shopId, id, status);
-    if (status === 'cancelled') await voidIssuedInvoice(c, id);
+    if (status === 'cancelled') {
+      await voidIssuedInvoice(c, id);
+      if (refund && order.amountPaidPaise > 0) {
+        await addEntry(c, {
+          shopId,
+          orderId: id,
+          userId,
+          kind: 'refund',
+          amountPaise: order.amountPaidPaise,
+          method: refund.method,
+          paidOn: await todayIST(c),
+          note: 'Refunded when the order was cancelled',
+        });
+        await syncPaid(c, shopId, id);
+      }
+    }
   });
   return getOrder(shopId, id);
 }
 
-export async function setPayment(shopId: number, id: number, amountPaidPaise: number) {
+/**
+ * Older API: sets the total paid so far. Kept so a cached copy of the previous app keeps working;
+ * the difference is recorded in the ledger as one entry. New code uses POST /orders/:id/payments.
+ */
+export async function setPayment(shopId: number, userId: number, id: number, amountPaidPaise: number) {
   await withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
     if (order.status === 'cancelled') throw orderCancelled();
     assertPaidWithinTotal(amountPaidPaise, order.totalPaise);
-    await repo.updatePayment(c, shopId, id, amountPaidPaise, derivePaymentStatus(amountPaidPaise, order.totalPaise));
-    await repo.completeIfSettled(c, shopId, id);
+    await adjustPaidTo(c, shopId, order, userId, amountPaidPaise, 'Total paid updated');
+    await syncPaid(c, shopId, id);
   });
   return getOrder(shopId, id);
 }

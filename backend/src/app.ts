@@ -10,6 +10,7 @@ import { customersRouter } from './modules/customers/customers.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoices.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
+import { paymentsRouter } from './modules/payments/payments.routes';
 import { publicLogoRouter } from './modules/shop/logo';
 import { branchesRouter, shopRouter } from './modules/shop/shop.routes';
 
@@ -41,6 +42,7 @@ app.use('/api/shop', shopRouter);
 app.use('/api/branches', branchesRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/orders', paymentsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api', invoicesRouter);
 

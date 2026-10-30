@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { moneyInput, quantityInput } from '../../lib/money';
 import { optionalText, paginationQuery } from '../../lib/validation';
 import { customerInput } from '../customers/customers.schemas';
+import { paymentMethodInput } from '../payments/payments.schemas';
 
 export const ORDER_STATUSES = ['open', 'completed', 'cancelled'] as const;
 export const PAYMENT_STATUSES = ['unpaid', 'partial', 'paid'] as const;
@@ -33,6 +34,8 @@ export const createOrderSchema = z
     customerId: z.coerce.number().int().positive().optional(),
     newCustomer: customerInput.nullish(),
     amountPaid: moneyInput.default(0),
+    /** How the amount paid at creation was paid. Omitted -> recorded as 'unrecorded'. */
+    paymentMethod: paymentMethodInput.optional(),
   })
   .refine((o) => Boolean(o.customerId) !== Boolean(o.newCustomer), {
     message: 'Select an existing customer or add a new one',
@@ -46,7 +49,11 @@ export const updateOrderSchema = z.object({
 });
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 
-export const statusSchema = z.object({ status: z.enum(ORDER_STATUSES) });
+export const statusSchema = z.object({
+  status: z.enum(ORDER_STATUSES),
+  /** When cancelling: refund everything paid so far, by this method. */
+  refund: z.object({ method: paymentMethodInput }).optional(),
+});
 export const paymentSchema = z.object({ amountPaid: moneyInput });
 
 export const listOrdersQuery = paginationQuery.extend({

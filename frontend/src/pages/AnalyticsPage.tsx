@@ -71,9 +71,10 @@ export default function AnalyticsPage() {
         />
         <Stat
           label="Payments received"
-          value={formatINRCompact(s.collectedPaise)}
-          suffix={s.revenuePaise ? `${Math.round((s.collectedPaise / s.revenuePaise) * 100)}%` : undefined}
-          visual={<TickGauge value={s.revenuePaise ? s.collectedPaise / s.revenuePaise : 0} reference={0.9} label="Share of revenue collected" />}
+          value={formatINRCompact(s.receivedPaise)}
+          suffix={change(s.receivedPaise, s.prevReceivedPaise)}
+          trend={s.receivedPaise >= s.prevReceivedPaise ? 'up' : 'down'}
+          visual={<Sparkline values={d.daily.map((x) => x.receivedPaise)} label="Money received per day by payment date, after refunds" />}
         />
         <Stat
           label="Payments pending"
@@ -131,7 +132,7 @@ export default function AnalyticsPage() {
                       <td className="px-3 py-1.5">{r.date}</td>
                       <td className="px-3 py-1.5 text-right">{r.orders}</td>
                       <td className="px-3 py-1.5 text-right">{formatINR(r.revenuePaise)}</td>
-                      <td className="px-3 py-1.5 text-right">{formatINR(r.collectedPaise)}</td>
+                      <td className="px-3 py-1.5 text-right">{formatINR(r.receivedPaise)}</td>
                     </tr>
                   ))}
                 </tbody>

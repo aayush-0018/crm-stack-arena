@@ -44,7 +44,10 @@ dashboardRouter.get(
          SELECT to_char(days.d, 'YYYY-MM-DD') AS date,
            COALESCE(sum(o.total_paise), 0)::bigint AS "revenuePaise",
            COALESCE(sum(o.amount_paid_paise), 0)::bigint AS "collectedPaise",
-           count(o.id)::int AS orders
+           count(o.id)::int AS orders,
+           -- money actually received that day (payments minus refunds), whatever the order's date
+           (SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END), 0) FROM payments p
+              WHERE p.shop_id = $1 AND p.paid_on = days.d AND p.voided_at IS NULL)::bigint AS "receivedPaise"
          FROM days
          LEFT JOIN orders o ON o.shop_id = $1 AND o.order_date = days.d AND o.status <> 'cancelled'
          GROUP BY days.d ORDER BY days.d`,
@@ -58,7 +61,11 @@ dashboardRouter.get(
            COALESCE(sum(total_paise - amount_paid_paise) FILTER (WHERE order_date > ${today} - $2::int), 0)::bigint AS "outstandingPaise",
            COALESCE(sum(total_paise) FILTER (WHERE order_date <= ${today} - $2::int), 0)::bigint AS "prevRevenuePaise",
            count(*) FILTER (WHERE order_date <= ${today} - $2::int)::int AS "prevOrders",
-           count(DISTINCT customer_id) FILTER (WHERE order_date > ${today} - $2::int)::int AS "activeCustomers"
+           count(DISTINCT customer_id) FILTER (WHERE order_date > ${today} - $2::int)::int AS "activeCustomers",
+           (SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END) FILTER (WHERE p.paid_on > ${today} - $2::int), 0)
+              FROM payments p WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.paid_on > ${today} - 2 * $2::int)::bigint AS "receivedPaise",
+           (SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END) FILTER (WHERE p.paid_on <= ${today} - $2::int), 0)
+              FROM payments p WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.paid_on > ${today} - 2 * $2::int)::bigint AS "prevReceivedPaise"
          FROM orders
          WHERE shop_id = $1 AND status <> 'cancelled' AND order_date > ${today} - 2 * $2::int`,
         params,
@@ -124,7 +131,7 @@ dashboardRouter.get(
       ), b AS (SELECT e - interval '1 day' AS s, e, e - interval '2 days' AS ps FROM w)`;
     const p = [shopId, date];
 
-    const [orders, items, customers, invoices, topItems, topCustomer, hours, outstanding, window] = await Promise.all([
+    const [orders, items, customers, invoices, topItems, topCustomer, hours, outstanding, window, received] = await Promise.all([
       pool.query(
         `${win}
          SELECT
@@ -191,6 +198,15 @@ dashboardRouter.get(
         [shopId],
       ),
       pool.query(`${win} SELECT s AS "from", e AS "to" FROM b WHERE $1::bigint IS NOT NULL`, p),
+      // Money entered in the window (payments minus refunds), including payments on older orders.
+      pool.query(
+        `${win}
+         SELECT COALESCE(sum(CASE WHEN p.kind = 'payment' THEN p.amount_paise ELSE -p.amount_paise END), 0)::bigint AS "receivedPaise",
+           COALESCE(sum(p.amount_paise) FILTER (WHERE p.kind = 'refund'), 0)::bigint AS "refundedPaise"
+         FROM payments p, b
+         WHERE p.shop_id = $1 AND p.voided_at IS NULL AND p.created_at >= b.s AND p.created_at < b.e`,
+        p,
+      ),
     ]);
 
     res.json({
@@ -207,6 +223,8 @@ dashboardRouter.get(
       topCustomer: topCustomer.rows[0] ?? null,
       busiestHour: hours.rows[0] ?? null,
       outstanding: outstanding.rows[0],
+      receivedPaise: received.rows[0].receivedPaise,
+      refundedPaise: received.rows[0].refundedPaise,
     });
   }),
 );
