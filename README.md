@@ -22,12 +22,20 @@ psql postgres -c "CREATE DATABASE crm_dev OWNER crm;"
 cd backend
 npm install
 # .env is already created (local DB, random JWT secret). Edit DATABASE_URL if your credentials differ.
-npm run migrate     # applies db/migrations/001_init.sql
+npm run migrate     # applies every new file in db/migrations (skips ones already applied)
 npm run dev         # http://127.0.0.1:4000  (check: curl http://127.0.0.1:4000/api/health)
 ```
 
 Alternative to `npm run migrate`: `psql postgres://crm:crm@localhost:5432/crm_dev -f db/migrations/001_init.sql`
 (use one or the other, not both).
+
+### Tests
+
+```bash
+psql -d postgres -c "CREATE DATABASE crm_test OWNER crm"   # once
+npm test            # wipes and rebuilds crm_test; refuses any database not named *_test
+npm run typecheck   # src, scripts and tests
+```
 
 ## 3. Frontend
 

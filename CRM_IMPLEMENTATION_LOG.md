@@ -1,0 +1,332 @@
+# CartWell CRM — Implementation Log
+
+Findings (F#) and plan items (P0-#, P1-#) refer to `CRM_AUDIT_REPORT.md`.
+All testing used synthetic data in separate local databases:
+- `crm_test`: wiped and rebuilt from the migrations by every automated test file.
+- `crm_e2e_test`: browser checks.
+
+Your development database `crm_dev` and production were **not touched**.
+
+---
+
+## Checkpoint 2 — P0 batch (30 Oct 2026)
+
+### T0 — Automated test suite (F5)
+
+- **Change:** an integration suite that runs the real API against a disposable database.
+  - Uses Node's built-in `node:test` runner and `fetch`, plus the existing `tsx`. **No new dependency.**
+  - Commands: `npm test` and `npm run typecheck` (the latter now also type-checks the tests).
+  - Safety guard: the suite refuses to run unless the database is local and its name ends in `_test`.
+- **Files:**
+  - `backend/test/helpers.ts`
+  - `backend/test/{orders,invoices,customers,tenancy,analytics,auth}.test.ts`
+  - `backend/tsconfig.test.json`
+  - `backend/package.json` (`test` and `typecheck` scripts)
+- **Coverage:**
+  - Server-side totals and rounding; rejection of over-discount and overpayment.
+  - Idempotent order creation; 10 concurrent orders get unique sequential numbers.
+  - Payment status transitions; auto-complete when paid and invoiced.
+  - Invoice: no duplicates, outdated → reissue keeps the number, cancel → void, PDF and public share link.
+  - Invoice summary counts each order once.
+  - Customer phone normalisation and duplicate block; search; archive keeps history.
+  - **Two-shop isolation** across every read, write and delete route.
+  - Analytics reconciled against a hand-calculated fixture (paid, partial, unpaid, cancelled, previous-period), and checked against the order list for the same window.
+  - An empty shop returns zeros.
+- **Baseline run on the unchanged code: 23/23 passed.**
+
+### P0-1 — Login brute-force protection (F1)
+
+- **Change:** failed logins are limited to 5 per account and 20 per IP address in 15 minutes. After that the API returns 429 with "Too many failed attempts. Please try again in N minutes, or reset your password."
+  - A successful login clears that account's failures.
+  - Only failures count, so normal use is never slowed down.
+- **Files:**
+  - `backend/src/lib/throttle.ts` (new)
+  - `backend/src/modules/auth/auth.service.ts`
+  - `backend/src/modules/auth/auth.routes.ts`
+- **Database:** none.
+- **Tests:** `auth.test.ts`, 4 tests. They **failed before the fix** (2 of 4) and pass after. A manual API check showed 401×5 then 429. The browser check confirms the message appears on the login page.
+- **Known trade-offs:**
+  - Someone who knows an owner's email can lock that account for 15 minutes by guessing wrong. Password reset still works during the lock.
+  - Counters live in memory: they reset when the server restarts, and a multi-server setup would need a shared store. Render runs one instance today.
+
+### P0-2 — "Oldest unpaid orders" on the Dashboard (F2)
+
+- **Change:** the panel now lists orders that still owe money: not cancelled, and paid less than the total. Unpaid **and** part-paid orders appear; cancelled orders no longer do.
+  - Done with a new API-only list option `due=true`. The column filters are **unchanged**, as you asked.
+- **Files:**
+  - `backend/src/modules/orders/orders.schemas.ts`
+  - `backend/src/modules/orders/orders.repo.ts`
+  - `frontend/src/api/endpoints.ts`
+  - `frontend/src/pages/DashboardPage.tsx`
+- **Database:** none.
+- **Tests:** an orders test (failed before, passes after). In the browser check, the panel shows the unpaid and part-paid orders and not the cancelled one.
+
+### P0-3 — Average bill value label (F3)
+
+- **Change:** the suffix now reads "30d", matching the 30-day figure it shows. The sparkline stays a 7-day rolling line; its accessible label already said so.
+- **Files:** `frontend/src/pages/DashboardPage.tsx`.
+- **Tests:** browser check.
+
+### P0-4 — Customer order count consistency (F4)
+
+- **Change:** the customer page's "Orders" (and "Average order") now exclude cancelled orders, the same as the customer list, Total spent and Payments pending.
+- **Regression caught and fixed during the recheck:** the delete dialog used the same count to choose between "delete" and "archive". A customer with only cancelled orders would have been offered "Delete" and then actually archived.
+  - The API now also returns `allOrderCount` (including cancelled), and the dialog uses that.
+  - The customer hover card also shows a consistent number now.
+- **Files:**
+  - `backend/src/modules/customers/customers.repo.ts`
+  - `frontend/src/types/index.ts`
+  - `frontend/src/pages/customers/CustomerDetailPage.tsx`
+- **Tests:**
+  - The customers test (failed before: expected 1, got 2; passes after).
+  - A new test: a customer with only a cancelled order shows 0 orders but is archived, and the order is kept.
+  - Browser check: the page shows "Orders 0" and the dialog says "has 1 order … Archive customer".
+
+### Batch verification
+
+| Check | Result |
+|---|---|
+| `backend: npm run typecheck` (src + scripts + tests) | Pass |
+| `backend: npm test` | **29/29 pass** |
+| `backend: npm run build` | Pass |
+| `frontend: tsc --noEmit` / `npm run build` | Pass |
+| Browser check (`crm_e2e_test`, desktop 1440px) | 8/8 pass, no page errors |
+
+### Recheck protocol
+
+1. **What changed and why:** T0 (F5), P0-1 (F1), P0-2 (F2), P0-3 (F3), P0-4 (F4). Each finding was confirmed in code before the change, and F2/F4 also in local data.
+2. **Files and database objects:** listed above. **No schema or data changes. No migrations.**
+3. **Tests:** written first where possible and seen failing, then passing. Full suite 29/29.
+4. **UI vs stored data:** yes. The dashboard panel and customer page were compared with the API and the fixture records.
+5. **Adjacent workflows:**
+   - The delete-customer dialog regression was found and fixed.
+   - Orders list filters are untouched; `due` is a separate option.
+   - Login error display was verified.
+6. **Unresolved assumptions:** none for P0. The decisions for P1 are listed in the audit report.
+7. **Safe to proceed:** yes. P1 waits for your decisions on the financial changes (payments, refunds, ₹0 orders), as `00_START_HERE` requires.
+
+---
+
+## Decisions received (30 Oct 2026)
+
+| Question | Your answer |
+|---|---|
+| Payment ledger (F6, F7, F8) | **Approved** |
+| Refund when cancelling an order that has payments (F9) | **Approved**: ask, and record the refund |
+| ₹0 orders count as Paid (F10) | **Approved** |
+| Rename the "Active" tab, international phones, customer invoices/payments sections | Not now |
+| New modules | **Products & inventory** approved. Suppliers and expenses not now |
+
+---
+
+## Checkpoint 3, module 1 — Payment ledger (P1-A, P1-B)
+
+**Why:** F6 (payments were one overwritten number), F7 ("Payments received" wasn't money received), F8 (every payment flagged the invoice for reissue), F9 (no refunds).
+
+**What changed**
+
+- **Database (`007_payments.sql`, additive):**
+  - New `payments` table: payment or refund, amount, method, date, reference, note, who recorded it, and void fields.
+  - Each order that already had money paid gets **one opening entry** for exactly that amount, dated to the order date, method "not recorded".
+  - No existing column or value is changed.
+- **Rules (API):**
+  - Each payment or refund is its own entry. `orders.amount_paid_paise` is **recalculated from the ledger** in the same transaction, with the order row locked.
+  - A payment can't be more than the balance due. A refund can't be more than what was paid. Dates can't be in the future.
+  - A cancelled order takes no payments, but refunds are allowed.
+  - A retried request (same key) never records twice.
+  - A mistaken entry is **voided**, not deleted (owners only, with an optional reason). It stays in the history, crossed out.
+  - Removing a payment that would leave more refunded than paid is refused, with "Remove the refund first."
+  - **Payments no longer mark the invoice "Needs reissue".** Item or price edits still do.
+  - Cancelling can refund everything paid in one entry, with the method you choose.
+  - Old endpoints kept for a cached copy of the old app: `PATCH /orders/:id/payment` ("total paid so far") and an `amountPaid` sent with an order edit. Both record the difference as one ledger entry.
+- **Reports:**
+  - Analytics **"Payments received"** now means money received **by payment date** in the period (payments minus refunds), including payments on older orders. It has a previous-period comparison and a daily series.
+  - The daily table's "Received" column uses the same definition.
+  - The 10 pm summary's "Payments received" = money entered that day (consistent with the rest of the summary).
+  - Dashboard "Collection rate" is unchanged: the share of the period's sales already paid.
+- **Screens:**
+  - **Order page:**
+    - "Record payment" (amount defaults to the balance due; Cash, UPI, Card, Bank or Other; date; reference; note) and a "Refund" button.
+    - A **Payments** history showing who recorded each entry, with received / refunded / balance totals and owner-only removal.
+    - The cancel dialog offers "Refund ₹X paid", ticked by default.
+  - **New order form:** choose how the amount paid at creation was paid.
+  - **Edit order form:** "Paid so far" is read-only. Lowering the total below what was paid is refused, with "Record a refund on the order page first."
+  - **Invoice (screen and PDF):** "Paid and balance as on the invoice date" under the totals.
+  - A **cancelled order shows ₹0 balance due** on its page (it already counted as ₹0 everywhere else). This bug was there before; I found it during the mobile check.
+
+**Files**
+
+- Backend:
+  - `db/migrations/007_payments.sql`
+  - `src/modules/payments/{payments.schemas,payments.repo,payments.service,payments.routes}.ts` (new)
+  - `src/modules/orders/{orders.service,orders.repo,orders.schemas,orders.routes,totals}.ts`
+  - `src/modules/dashboard/dashboard.routes.ts`
+  - `src/modules/invoices/invoicePdf.ts`
+  - `src/app.ts`
+  - `scripts/seed.ts` (new signatures)
+- Frontend:
+  - `components/orders/Payments.tsx` (new)
+  - `components/orders/OrderForm.tsx`
+  - `pages/orders/{OrderDetailPage,OrderEditPage}.tsx`
+  - `pages/AnalyticsPage.tsx`
+  - `components/layout/DailySummaryModal.tsx`
+  - `components/invoices/InvoiceView.tsx`
+  - `api/endpoints.ts`, `types/index.ts`
+
+**Tests**
+
+- `payments.test.ts`: 16 tests covering entries, limits, idempotency (two identical requests at once), method at creation, cancelled orders, refunds, cancel-with-refund, voiding and its guard, invoices not outdated by payments, edits, the older API, and two-shop isolation.
+- After the suite, a **ledger check over every order it created** confirms the paid total equals the ledger: 0 differences.
+- `analytics.test.ts`: received-by-payment-date, refunds subtract, voided entries excluded, the daily series adds up to the KPI, and the daily summary. This test is timezone-safe after 10 pm IST.
+- `migrations.test.ts`: upgrade from 006 with paid, part-paid, unpaid and cancelled orders. Exactly one opening entry each, and order rows identical before and after.
+- **Upgrade rehearsal on a copy of your dev data** (`crm_upgrade_test`, 390 orders, 320 invoices):
+  - Order and invoice checksums are identical before and after.
+  - 349 opening entries total ₹2,84,234.25, equal to the recorded paid amounts.
+  - 0 orders disagree with the ledger.
+- Browser (`crm_e2e_test`), 18/18:
+  - The opening entry shows; a partial payment with a reference.
+  - Overpayment is refused in the dialog.
+  - A refund in red; void with a reason (crossed out); balance updates.
+  - Edit page read-only "Paid so far" with the below-paid guard.
+  - Cancel with a UPI refund.
+  - The invoice footnote.
+  - No horizontal scroll at 390px; no page errors.
+  - The PDF was rendered and checked by eye.
+- **Full suite: 48/48 at the end of this module.**
+
+**Recheck protocol**
+
+1. **Justification:** F6–F9, as approved.
+2. **Files and database objects:** listed above. New table `payments`, with indexes `payments_shop_idem_uq`, `payments_order_idx` and `payments_shop_paid_on_idx`.
+3. **Tests:** above. All pass.
+4. **UI vs stored data:** checked in the browser against API values. The ledger invariant is checked in SQL.
+5. **Adjacent workflows:**
+   - Order create and edit, cancel and reopen, invoice generation and reissue, auto-complete, analytics, daily summary, and the seed script (updated).
+   - Customer totals are unchanged because they still read `amount_paid_paise`.
+6. **Unresolved:**
+   - The **10 invoices already flagged "Needs reissue"** only because of past payments stay flagged. I left them, because changing their stored version would alter historical rows. You can reissue them, or ask me for a one-off script that clears the flag where nothing billed changed.
+   - Payment **receipts** (a printable receipt per payment) are not built.
+7. **Safe to proceed:** yes.
+
+## Checkpoint 3, module 2 — ₹0 orders count as Paid (P1-C)
+
+- **Why:** F10, approved.
+- **Change:**
+  - `derivePaymentStatus`: paid ≥ total means "paid", so ₹0 of ₹0 is paid.
+  - `008_zero_total_orders.sql` replaces the payment-status rule: "unpaid" needs something owed, and "paid" means paid = total.
+- **Data repair** (approved, in the migration): existing ₹0 orders marked unpaid become paid, and the ones with an issued invoice are completed (the rule from 006). Issued invoice snapshots are left alone. Your local data has **no** ₹0 orders, so this changes nothing there.
+- **Bug caught by the upgrade test before it shipped:** the first draft repaired the data while the old rule was still in place. The migration would have **failed on Supabase**. It's now ordered drop rule → repair → add rule, all in one transaction.
+- **Tests:**
+  - Free and 100%-discount orders are paid, not "due", not counted as unpaid on the dashboard, and complete when invoiced. Editing one to have a price makes it unpaid.
+  - The upgrade test checks repair, completion, untouched invoice snapshots, and that the new rule is enforced.
+  - Upgrade rehearsal on the dev-data copy: the migration applied cleanly; orders and invoices are unchanged (no ₹0 orders).
+- **Full suite: 50/50.**
+- **Safe to proceed:** yes.
+
+## Checkpoint 3, module 3 — Products & inventory (P2, approved)
+
+**Why:** checklist 07, approved by you. The audit confirmed the module didn't exist (line items were free text only).
+
+**Defaults chosen** (07 says to document them; all reversible):
+
+| Question | Default |
+|---|---|
+| Stock per branch? | Yes, per branch |
+| When is stock deducted? | When the order is saved. Cancel puts it back, reopen takes it again, an edit posts the difference, delete (and delete-customer-with-orders) puts it back |
+| Selling below zero? | **Refused** with an exact message. Setting **Settings → Stock → "Allow selling when stock runs out"**. When on, stock goes negative and shows red and "low" |
+| Variants | Each variant is its own product |
+| Units | Products have a unit (pcs/kg/m…) for stock. Order and invoice lines stay qty-only, as you asked earlier |
+| Free-text items | Still allowed |
+| Cost price | Stored for reference; no profit anywhere (09) |
+| Product edits | Never change past orders or invoices (name and price are copied onto the line) |
+| Deleting products | Not possible; **archive** instead (history refers to them) |
+
+**What changed**
+
+- **Database (`009_products_inventory.sql`, additive):**
+  - `products`.
+  - `stock_movements`: the ledger; stock = sum, in milli-units.
+  - `order_items.product_id` (optional).
+  - `shops.allow_negative_stock` (default off).
+- **API:** `/api/products`, covering list (active / low / archived, search), detail with history and running balance, create (with opening stock), edit, archive/restore, stock entries (received / write-off / stock count, idempotent), and the low-stock count.
+  - Orders validate that linked products belong to the shop. A single reconcile function (`syncOrderStock`) runs in the order's transaction with product rows locked in id order, so it's safe under concurrency and can't deadlock.
+- **Screens:**
+  - **Products** in the menu, with a low-stock count.
+  - A list with All / Low stock / Archived tabs.
+  - Add and edit forms.
+  - A product page with stock, prices, warning level, **stock history** (who, what, change, stock after; sales link to their order) and **Update stock**.
+  - **Order form:** the item name searches products (stock and price shown; keyboard-friendly), and picking fills the price. There's a stock hint under the line, and typing over the name unlinks it.
+  - **Order page:** linked items link to their product.
+  - **Settings:** the stock setting.
+- **Also caught by the typecheck:** the new shop setting would have been copied into every invoice's shop snapshot. It's now excluded.
+
+**Files**
+
+- Backend:
+  - `db/migrations/009_products_inventory.sql`
+  - `src/modules/products/{products.schemas,products.repo,products.routes,stock.service}.ts` (new)
+  - `src/modules/orders/{orders.schemas,orders.repo,orders.service,orders.routes,totals}.ts`
+  - `src/modules/customers/{customers.service,customers.routes}.ts`
+  - `src/modules/shop/{shop.repo,shop.schemas,shop.routes}.ts`
+  - `src/modules/invoices/invoices.service.ts`
+  - `src/app.ts`
+- Frontend:
+  - `components/products/ProductParts.tsx`, `components/orders/ProductPicker.tsx` (new)
+  - `pages/products/{ProductListPage,ProductFormPages,ProductDetailPage}.tsx` (new)
+  - `components/orders/{LineItemsEditor,OrderForm}.tsx`
+  - `pages/orders/OrderDetailPage.tsx`
+  - `pages/SettingsPage.tsx`
+  - `components/layout/AppShell.tsx`, `App.tsx`
+  - `api/endpoints.ts`, `types/index.ts`
+
+**Tests:** `products.test.ts` (15, including the stock invariant after the suite), the 009 upgrade test, and the rehearsal on the dev-data copy (all 1,286 lines unchanged). Browser inventory script 18/18. **Full suite 66/66.**
+
+**Recheck protocol:**
+
+1. **Justification:** 07, approved.
+2. **Files and database objects:** listed above.
+3. **Tests:** all pass.
+4. **UI vs data:** stock levels and history in the browser match the API and the movements.
+5. **Adjacent workflows:**
+   - Orders: create, edit, cancel, reopen and delete.
+   - Customer purge; invoices (snapshot unchanged); settings save; seed script.
+6. **Unresolved:**
+   - Shop types, variants, batch/expiry and stock valuation weren't specified (07), so they're not built.
+   - Suppliers and purchases (08) and expenses (09) were declined for now.
+   - Stock entries can't be voided yet; a stock count corrects mistakes.
+7. **Safe to proceed:** yes.
+
+## Checkpoint 4 — UX and reporting
+
+Done inside each module rather than as a separate redesign, since you asked to keep existing functionality and filters as they are:
+- "Payments received" now has a clear definition.
+- The "30d" label is fixed.
+- Cancelled orders owe ₹0 on their page.
+- Every new screen has empty, loading and error states, and has been checked at 390px.
+- **The column filters were left untouched**, as you asked.
+
+## Checkpoint 5 — Final verification
+
+See `CRM_TEST_RESULTS.md`.
+- All commands pass.
+- Upgrade rehearsal on a copy of real data passed.
+- Two-shop authorization tested.
+- Desktop and phone sweep of every page passed.
+- KPI reconciliation is exact.
+- Code scan is clean.
+- `crm_dev` was confirmed unchanged.
+
+### Fixed during final verification
+
+- The seed script dated payments today (it now uses the order date).
+- My own browser scripts needed fixes (wrong element, shared login between pages, hidden-input false positive). In every case the app was right.
+
+## Not done (needs your decision or out of scope)
+
+- Clearing the "Needs reissue" flag on the **10 invoices flagged earlier only because of payments**. Reissue them, or ask for a one-off script.
+- Payment receipts.
+- Voiding stock entries.
+- Customer page invoices/payments sections, the "Active" tab rename, and international phone numbers (declined for now).
+- Suppliers, expenses and profit; GST and FY invoice numbering (needs an accountant).
+- Lint setup.
+- Production deployment: **you** run migrations 006–009 on Supabase, then push (see `DEPLOYMENT.md`).

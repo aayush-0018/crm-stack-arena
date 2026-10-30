@@ -248,11 +248,26 @@ Client-sent totals are ignored.
 
 ```
 backend/db/migrations/
-  001_init.sql     -- all enums, tables, indexes (schema_migrations is created by the runner)
+  001_init.sql                     -- all enums, tables, indexes (schema_migrations is created by the runner)
+  002_invoice_sharing.sql          -- invoices.share_token, invoice_shares
+  003_branches.sql                 -- shop_members, shops.code
+  004_last_branch_set_null.sql     -- users.shop_id -> ON DELETE SET NULL
+  005_logos_and_password_reset.sql -- shop_logos, shops.logo_key, password_resets, users.password_changed_at
+  006_complete_settled_orders.sql  -- data: fully paid + invoiced open orders -> completed
+  007_payments.sql                 -- payments ledger (+ opening entries for existing paid amounts)
+  008_zero_total_orders.sql        -- ₹0 orders are 'paid'; orders_payment_ck updated
+  009_products_inventory.sql       -- products, stock_movements, order_items.product_id, shops.allow_negative_stock
 ```
+
+### Added after V1
+
+- **`payments`**: one row per payment or refund (`kind`, `amount_paise` > 0, `method`, `paid_on`, `reference`, `note`, `created_by`, idempotency key). Wrong entries are voided (`voided_at`, `voided_by`, `void_reason`), never deleted. `orders.amount_paid_paise` = payments − refunds over non-voided rows. The API recalculates it in the same transaction as every change, so it's a cached total, not an input. Payments don't bump `orders.version`, so they never mark an invoice "needs reissue".
+- **`products`**: per branch. `unit`, `price_paise`, optional `cost_paise` (reference only, no profit calculated), `track_stock`, `low_stock_milli`, `active`. Names and SKUs are unique among active products.
+- **`stock_movements`**: the stock ledger. Signed `qty_milli` (1.5 kg = 1500). `kind` is opening / receipt / stocktake / write_off (entered by hand) or sale / sale_reversal (posted by orders). The stock level is the sum, never a stored number. Orders post the difference between what their tracked lines need and what they've already taken, on create, edit, cancel (needs 0), reopen and delete, inside the order's transaction with product rows locked.
+- **`order_items.product_id`**: optional link. Name and price stay copied on the line, so product edits never change past orders or invoices.
 
 New changes go in new numbered files (002_..., 003_...); never edit an applied file.
 
 ## Explicitly Not in Schema (V1)
 
-Products/inventory catalogue, tax/GST calculation, payments ledger, campaigns, loyalty, analytics tables.
+Tax/GST calculation, suppliers/purchases, expenses/profit, campaigns, loyalty, analytics tables. (Payments ledger and products/inventory were added later; see above.)

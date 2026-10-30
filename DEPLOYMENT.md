@@ -311,6 +311,10 @@ The runner skips files already applied, so it's safe to run any time.
 | `003_branches.sql` | `shop_members` table (backfilled from existing users), `shops.code` | Branches — **without it, nobody can log in** |
 | `004_last_branch_set_null.sql` | Deleting a branch no longer deletes users whose last-opened branch it was | Safety fix for 003 — run together |
 | `005_logos_and_password_reset.sql` | `shop_logos` table, `shops.logo_key`, `password_resets` table, `users.password_changed_at` | Logos and forgot password — **without it, nobody can log in** (the shop now includes its logo). Run before pushing. See [MAIL_SETUP.md](MAIL_SETUP.md) |
+| `006_complete_settled_orders.sql` | Data only: open orders that are fully paid and invoiced become Completed | Safe before or after the push |
+| `007_payments.sql` | `payments` table (payment ledger), plus one "opening" entry for every order that already has money paid. No existing value changes | Payments, refunds, analytics — **run before pushing**: order pages and analytics read this table |
+| `008_zero_total_orders.sql` | ₹0 orders count as Paid (data repair + updated `orders_payment_ck` rule) | Run with 007 |
+| `009_products_inventory.sql` | `products`, `stock_movements`, `order_items.product_id`, `shops.allow_negative_stock` | Products & stock — **run before pushing**: login returns the shop's stock setting |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -319,7 +323,16 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
 psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 ```
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos` and `password_resets` too.
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products` and `stock_movements` too.
+
+**007–009 (payments, ₹0 orders, products):** run all three before pushing that code. Each file runs in one transaction, so a failure changes nothing. They were rehearsed on a copy of the local data (390 orders, 320 invoices): orders and invoices came out unchanged, and the ledger matched every order's paid amount.
+
+```bash
+cd backend
+DATABASE_URL="<session-pooler-string>" ALLOW_REMOTE_DB=true DATABASE_SSL=true npm run migrate
+```
+
+Rollback: the code before these changes ignores the new tables and column, so rolling back the deploy is enough. Don't drop the tables: they hold payment and stock history.
 
 ### Invoice links in production
 
