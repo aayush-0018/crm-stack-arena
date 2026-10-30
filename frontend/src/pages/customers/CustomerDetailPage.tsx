@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { customersApi } from '../../api/endpoints';
 import { Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import MessageComposer from '../../components/customers/MessageComposer';
+import SettleDuesModal from '../../components/customers/SettleDuesModal';
 import OrdersTable from '../../components/orders/OrdersTable';
 import Avatar from '../../components/ui/Avatar';
 import BackButton from '../../components/ui/BackButton';
@@ -30,6 +31,7 @@ export default function CustomerDetailPage() {
   const [page, setPage] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [purge, setPurge] = useState(false);
+  const [settling, setSettling] = useState(false);
   const isOwner = useAuth().user?.role === 'owner';
 
   const customer = useAsync(() => customersApi.get(id), [id]);
@@ -76,6 +78,11 @@ export default function CustomerDetailPage() {
             <ButtonLink to={`/customers/${c.id}/edit`} variant="secondary">
               <Pencil size={14} /> Edit
             </ButtonLink>
+            {c.stats.outstandingPaise > 0 && !c.deletedAt && (
+              <Button variant="secondary" onClick={() => setSettling(true)}>
+                Settle dues
+              </Button>
+            )}
             <ButtonLink to={`/orders/new?customerId=${c.id}`}>New order</ButtonLink>
           </>
         }
@@ -169,6 +176,14 @@ export default function CustomerDetailPage() {
             </>
           )
         }
+      />
+      <SettleDuesModal
+        open={settling}
+        customerId={c.id}
+        customerName={c.name}
+        duePaise={c.stats.outstandingPaise}
+        onClose={() => setSettling(false)}
+        onSaved={() => setSettling(false)}
       />
     </>
   );

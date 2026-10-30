@@ -13,6 +13,8 @@ export interface OrderRow {
   subtotalPaise: number;
   discountPaise: number;
   totalPaise: number;
+  /** Value of items returned so far; already taken off totalPaise. */
+  returnedPaise: number;
   amountPaidPaise: number;
   notes: string | null;
   orderDate: string;
@@ -23,7 +25,7 @@ export interface OrderRow {
 
 const COLS = `o.id, o.customer_id AS "customerId", o.order_number AS "orderNumber", o.status,
   o.payment_status AS "paymentStatus", o.subtotal_paise AS "subtotalPaise",
-  o.discount_paise AS "discountPaise", o.total_paise AS "totalPaise",
+  o.discount_paise AS "discountPaise", o.total_paise AS "totalPaise", o.returned_paise AS "returnedPaise",
   o.amount_paid_paise AS "amountPaidPaise", o.notes, o.order_date AS "orderDate",
   o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt"`;
 

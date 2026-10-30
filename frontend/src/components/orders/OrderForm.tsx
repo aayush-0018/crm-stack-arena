@@ -56,6 +56,7 @@ export default function OrderForm({
   onCancel,
   customerChoice,
   paidSoFarPaise,
+  heldStock,
 }: {
   initial: OrderFormState;
   customerSection: (errors: Record<string, string>) => ReactNode;
@@ -66,6 +67,8 @@ export default function OrderForm({
   customerChoice?: CustomerChoice;
   /** Edit mode: what's already been paid. Payments are then changed on the order page, not here. */
   paidSoFarPaise?: number;
+  /** Edit mode: stock the saved order already holds, per product (milli-units). */
+  heldStock?: Record<number, number>;
 }) {
   const editing = paidSoFarPaise !== undefined;
   const [state, setState] = useState(initial);
@@ -150,7 +153,7 @@ export default function OrderForm({
       <Card title="Customer">{customerSection(errors)}</Card>
 
       <Card title="Items">
-        <LineItemsEditor rows={state.rows} onChange={(rows) => setState((s) => ({ ...s, rows }))} errors={errors} />
+        <LineItemsEditor rows={state.rows} onChange={(rows) => setState((s) => ({ ...s, rows }))} errors={errors} heldStock={heldStock} />
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">

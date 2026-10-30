@@ -13,16 +13,19 @@ export interface Payment {
   createdByName: string | null;
   voidedAt: string | null;
   voidReason: string | null;
+  receiptId: number | null;
+  receiptNumber: string | null;
 }
 
 const COLS = `p.id, p.kind, p.amount_paise AS "amountPaise", p.method, p.reference, p.note,
   p.paid_on AS "paidOn", p.created_at AS "createdAt", u.name AS "createdByName",
-  p.voided_at AS "voidedAt", p.void_reason AS "voidReason"`;
+  p.voided_at AS "voidedAt", p.void_reason AS "voidReason",
+  p.receipt_id AS "receiptId", r.receipt_number AS "receiptNumber"`;
 
 /** Every entry for an order, oldest first, including voided ones (shown struck out). */
 export async function listPayments(db: Db, orderId: number): Promise<Payment[]> {
   const { rows } = await db.query(
-    `SELECT ${COLS} FROM payments p LEFT JOIN users u ON u.id = p.created_by
+    `SELECT ${COLS} FROM payments p LEFT JOIN users u ON u.id = p.created_by LEFT JOIN receipts r ON r.id = p.receipt_id
      WHERE p.order_id = $1 ORDER BY p.paid_on, p.id`,
     [orderId],
   );
@@ -59,12 +62,14 @@ export async function insertPayment(
     note?: string | null;
     idempotencyKey?: string;
     userId: number;
+    receiptId: number;
+    returnId?: number;
   },
 ): Promise<number> {
   const { rows } = await db.query(
-    `INSERT INTO payments (shop_id, order_id, kind, amount_paise, method, paid_on, reference, note, idempotency_key, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-    [p.shopId, p.orderId, p.kind, p.amountPaise, p.method, p.paidOn, p.reference ?? null, p.note ?? null, p.idempotencyKey ?? null, p.userId],
+    `INSERT INTO payments (shop_id, order_id, kind, amount_paise, method, paid_on, reference, note, idempotency_key, created_by, receipt_id, return_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+    [p.shopId, p.orderId, p.kind, p.amountPaise, p.method, p.paidOn, p.reference ?? null, p.note ?? null, p.idempotencyKey ?? null, p.userId, p.receiptId, p.returnId ?? null],
   );
   return rows[0].id;
 }

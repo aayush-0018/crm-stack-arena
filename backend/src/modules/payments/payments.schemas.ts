@@ -23,3 +23,15 @@ export const paymentEntrySchema = z.object({
 export type PaymentEntryInput = z.infer<typeof paymentEntrySchema>;
 
 export const voidPaymentSchema = z.object({ reason: optionalText(300) });
+
+/** One payment that settles a customer's oldest unpaid orders first. */
+export const settleSchema = z.object({
+  amount: moneyInput.refine((p) => p > 0, 'Amount must be more than 0'),
+  method: paymentMethodInput,
+  paidOn: dateInput.optional(),
+  reference: optionalText(100),
+  note: optionalText(300),
+  idempotencyKey: z.string().uuid().optional(),
+  dryRun: z.boolean().default(false),
+});
+export type SettleInput = z.infer<typeof settleSchema>;

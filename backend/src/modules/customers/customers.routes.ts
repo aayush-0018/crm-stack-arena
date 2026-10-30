@@ -9,6 +9,8 @@ import { listOrdersQuery } from '../orders/orders.schemas';
 import { customersSummary, listCustomers } from './customers.repo';
 import { parseImportBody } from '../../lib/importRows';
 import { importCustomers } from './customers.import';
+import { settleSchema } from '../payments/payments.schemas';
+import { settleDues } from '../payments/settle.service';
 import { customerInput, listCustomersQuery } from './customers.schemas';
 import * as service from './customers.service';
 
@@ -44,6 +46,18 @@ customersRouter.post(
   ah(async (req, res) => {
     const { rows, dryRun } = parseImportBody(req.body);
     res.json(await importCustomers(auth(req).shopId, rows, dryRun));
+  }),
+);
+
+/** Settle dues: one payment spread over the customer's oldest unpaid orders. dryRun = preview only. */
+customersRouter.post(
+  '/:id/settle',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const { userId, shopId } = auth(req);
+    const input = settleSchema.parse(req.body);
+    const result = await settleDues(shopId, userId, id, input, input.dryRun);
+    res.status('created' in result && result.created ? 201 : 200).json(result);
   }),
 );
 

@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Sun,
   UserPlus,
+  Wallet,
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
@@ -209,6 +210,7 @@ export default function AppShell() {
         <NavItem to="/invoices" icon={<FileText {...ICON} />} label="Invoices" count={counts.outdated} />
         <NavItem to="/products" icon={<Package {...ICON} />} label="Products" count={counts.lowStock} />
         <NavItem to="/analytics" icon={<ChartLine {...ICON} />} label="Analytics and reports" />
+        <NavItem to="/reports" icon={<Wallet {...ICON} />} label="Dues and collections" />
 
         <SectionLabel>Shop</SectionLabel>
         <NavItem to="/settings" icon={<Settings {...ICON} />} label="Settings" />

@@ -7,6 +7,7 @@ import { Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import MessageComposer from '../../components/customers/MessageComposer';
 import SendInvoiceModal from '../../components/invoices/SendInvoiceModal';
 import { MethodPicker, orderDue, PaymentEntryModal, PaymentsSection } from '../../components/orders/Payments';
+import { canReturn, ReturnModal, ReturnsSection } from '../../components/orders/Returns';
 import Avatar from '../../components/ui/Avatar';
 import BackButton from '../../components/ui/BackButton';
 import { InvoiceBadge, ORDER_STATUS_LABEL, PaymentBadge, StatusBadge } from '../../components/ui/Badge';
@@ -41,6 +42,7 @@ export default function OrderDetailPage() {
   const [composing, setComposing] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(false);
+  const [returning, setReturning] = useState(false);
   const isOwner = useAuth().user?.role === 'owner';
 
   if (order.loading && !order.data) return <LoadingState />;
@@ -58,6 +60,8 @@ export default function OrderDetailPage() {
   const inv = o.invoice;
   const liveInvoice = inv?.status === 'issued' ? inv : null;
   const due = orderDue(o); // a cancelled order owes nothing, as in every other figure
+  // Returned lines refer to the order as sold: it can't be edited, cancelled or deleted any more.
+  const hasReturns = o.returns.length > 0;
 
   const generate = async (reissue = false) => {
     setInvoiceBusy(true);
@@ -114,15 +118,20 @@ export default function OrderDetailPage() {
         title={o.orderNumber}
         actions={
           <>
-            {isOwner && (
+            {isOwner && !hasReturns && (
               <Button variant="ghost" className="text-danger hover:text-danger" onClick={() => setConfirmDeleteOrder(true)} aria-label="Delete order">
                 <Trash2 size={15} />
               </Button>
             )}
-            {!cancelled && (
+            {!cancelled && !hasReturns && (
               <ButtonLink to={`/orders/${o.id}/edit`} variant="secondary">
                 <Pencil size={14} /> Edit
               </ButtonLink>
+            )}
+            {canReturn(o) && (
+              <Button variant="ghost" onClick={() => setReturning(true)}>
+                Return items
+              </Button>
             )}
             {o.amountPaidPaise > 0 && (
               <Button variant="ghost" onClick={() => setPaymentKind('refund')}>
@@ -212,6 +221,7 @@ export default function OrderDetailPage() {
           <dl className="ml-auto max-w-sm space-y-2 border-t border-line px-4 py-5 text-[14px] sm:px-6">
             <Row label="Subtotal" value={formatINR(o.subtotalPaise)} />
             {o.discountPaise > 0 && <Row label="Discount" value={`− ${formatINR(o.discountPaise)}`} />}
+            {o.returnedPaise > 0 && <Row label="Returned" value={`− ${formatINR(o.returnedPaise)}`} />}
             <Row label="Total" value={formatINR(o.totalPaise)} strong />
             <Row label="Paid" value={formatINR(o.amountPaidPaise)} />
             <Row label="Balance due" value={formatINR(due)} strong />
@@ -230,6 +240,7 @@ export default function OrderDetailPage() {
               toast('success', 'Entry removed. It stays in the history, crossed out.');
             }}
           />
+          <ReturnsSection order={o} />
         </section>
 
         <aside className="border-t border-line lg:border-t-0">
@@ -303,12 +314,15 @@ export default function OrderDetailPage() {
               }}
             >
               {Object.entries(ORDER_STATUS_LABEL).map(([v, l]) => (
-                <option key={v} value={v}>
+                <option key={v} value={v} disabled={v === 'cancelled' && hasReturns && !cancelled}>
                   {l}
                 </option>
               ))}
             </SelectField>
             {cancelled && <p className="mt-2 text-[12.5px] text-ink-3">Cancelled orders can’t be invoiced. Reopen to make changes.</p>}
+            {hasReturns && (
+              <p className="mt-2 text-[12.5px] text-ink-3">Items were returned, so this order can no longer be edited, cancelled or deleted.</p>
+            )}
           </div>
         </aside>
       </div>
@@ -395,6 +409,18 @@ export default function OrderDetailPage() {
           order.setData(updated);
           toast('success', paymentKind === 'refund' ? 'Refund recorded' : 'Payment recorded');
           setPaymentKind(null);
+        }}
+      />
+
+      <ReturnModal
+        open={returning}
+        order={o}
+        onClose={() => setReturning(false)}
+        onSaved={(updated) => {
+          order.setData(updated);
+          setReturning(false);
+          const r = updated.returns[updated.returns.length - 1];
+          toast('success', r ? `Return ${r.returnNumber} saved` : 'Return saved');
         }}
       />
     </>

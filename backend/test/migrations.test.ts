@@ -118,3 +118,41 @@ describe('010_walk_in_orders upgrade', () => {
     await sql(`INSERT INTO orders (shop_id, order_number, subtotal_paise, total_paise) VALUES ($1, 'O2', 100, 100)`, [shop.id]);
   });
 });
+
+describe('011_receipts and 012_returns upgrade', () => {
+  test('existing orders, payments and counters are unchanged; the new rules apply', async () => {
+    await resetDb(migrationFiles().filter((f) => f < '011'));
+    const [shop] = await sql(`INSERT INTO shops (name) VALUES ('S') RETURNING id`);
+    await sql(`INSERT INTO shop_counters (shop_id, next_order_seq, next_invoice_seq) VALUES ($1, 7, 3)`, [shop.id]);
+    const [cust] = await sql(`INSERT INTO customers (shop_id, name, phone) VALUES ($1, 'C', '9876500004') RETURNING id`, [shop.id]);
+    const [o] = await sql(
+      `INSERT INTO orders (shop_id, customer_id, order_number, payment_status, subtotal_paise, discount_paise, total_paise, amount_paid_paise)
+       VALUES ($1, $2, 'O1', 'partial', 1000, 100, 900, 400) RETURNING *`,
+      [shop.id, cust.id],
+    );
+    const [p] = await sql(
+      `INSERT INTO payments (shop_id, order_id, kind, amount_paise, method, paid_on) VALUES ($1, $2, 'payment', 400, 'upi', CURRENT_DATE) RETURNING *`,
+      [shop.id, o.id],
+    );
+    const ordersBefore = await sql(`SELECT * FROM orders ORDER BY id`);
+
+    await applyMigration('011_receipts.sql');
+    await applyMigration('012_returns.sql');
+
+    const ordersAfter = await sql(`SELECT * FROM orders ORDER BY id`);
+    assert.equal(ordersAfter[0].returned_paise, 0);
+    const strip = (rows: any[]) => rows.map(({ returned_paise: _r, ...rest }) => rest);
+    assert.deepEqual(strip(ordersAfter), ordersBefore, 'order rows identical apart from the new column');
+    const [pAfter] = await sql(`SELECT * FROM payments WHERE id = $1`, [p.id]);
+    assert.equal(pAfter.receipt_id, null);
+    assert.equal(pAfter.return_id, null);
+    assert.equal(pAfter.amount_paise, p.amount_paise);
+    const [ctr] = await sql(`SELECT * FROM shop_counters WHERE shop_id = $1`, [shop.id]);
+    assert.deepEqual([ctr.next_order_seq, ctr.next_invoice_seq, ctr.next_receipt_seq, ctr.next_refund_seq, ctr.next_return_seq], [7, 3, 1, 1, 1]);
+    // The total rule now includes returns.
+    await assert.rejects(sql(`UPDATE orders SET returned_paise = 100 WHERE id = $1`, [o.id]));
+    await sql(`UPDATE orders SET returned_paise = 100, total_paise = 800 WHERE id = $1`, [o.id]);
+    const [prod] = await sql(`INSERT INTO products (shop_id, name, price_paise) VALUES ($1, 'P', 100) RETURNING id`, [shop.id]);
+    await sql(`INSERT INTO stock_movements (shop_id, product_id, kind, qty_milli) VALUES ($1, $2, 'return', 1000)`, [shop.id, prod.id]);
+  });
+});

@@ -1,5 +1,13 @@
 import type {
+  AgeingReport,
+  CollectionsReport,
   ImportResult,
+  OrderReturn,
+  Receipt,
+  ReturnCondition,
+  ReturnDoc,
+  ReturnPreview,
+  SettlePreview,
   Analytics,
   Branch,
   AnalyticsDays,
@@ -144,6 +152,8 @@ export const ordersApi = {
   addPayment: (id: number | string, body: PaymentEntryPayload) => api.post<Order>(`/orders/${id}/payments`, body),
   voidPayment: (id: number | string, paymentId: number, reason: string | null) =>
     api.post<Order>(`/orders/${id}/payments/${paymentId}/void`, { reason }),
+  /** The entry's receipt id; issues one for entries recorded before receipts existed. */
+  receiptFor: (id: number | string, paymentId: number) => api.post<{ receiptId: number }>(`/orders/${id}/payments/${paymentId}/receipt`),
   remove: (id: number | string) => api.delete<{ orderNumber: string; deletedInvoices: number }>(`/orders/${id}`),
 };
 
@@ -193,4 +203,46 @@ export const productsApi = {
     id: number | string,
     body: { kind: 'receipt' | 'write_off' | 'stocktake'; qty: string; note: string | null; idempotencyKey: string },
   ) => api.post<ProductDetail>(`/products/${id}/stock`, body),
+};
+
+export interface SettlePayload {
+  amount: string;
+  method: PaymentMethod;
+  paidOn: string;
+  reference: string | null;
+  note: string | null;
+  idempotencyKey: string;
+}
+
+export const settleApi = {
+  preview: (customerId: number | string, body: SettlePayload) =>
+    api.post<SettlePreview>(`/customers/${customerId}/settle`, { ...body, dryRun: true }),
+  save: (customerId: number | string, body: SettlePayload) =>
+    api.post<{ created: boolean; receipt: Receipt }>(`/customers/${customerId}/settle`, { ...body, dryRun: false }),
+};
+
+export const receiptsApi = {
+  get: (id: number | string) => api.get<Receipt>(`/receipts/${id}`),
+  pdf: (id: number | string) => api.blob(`/receipts/${id}/pdf`),
+};
+
+export interface ReturnPayload {
+  items: { position: number; quantity: string; condition: ReturnCondition }[];
+  reason: string | null;
+  refundMethod: 'original' | PaymentMethod;
+  idempotencyKey: string;
+}
+
+export const returnsApi = {
+  preview: (orderId: number | string, body: ReturnPayload) =>
+    api.post<{ preview: ReturnPreview }>(`/orders/${orderId}/returns`, { ...body, dryRun: true }),
+  save: (orderId: number | string, body: ReturnPayload) =>
+    api.post<{ created: boolean; return: OrderReturn; order: Order }>(`/orders/${orderId}/returns`, { ...body, dryRun: false }),
+  get: (id: number | string) => api.get<ReturnDoc>(`/returns/${id}`),
+  pdf: (id: number | string) => api.blob(`/returns/${id}/pdf`),
+};
+
+export const reportsApi = {
+  ageing: (q: { from?: string; to?: string }) => api.get<AgeingReport>('/reports/ageing', q),
+  collections: (q: { from?: string; to?: string }) => api.get<CollectionsReport>('/reports/collections', q),
 };

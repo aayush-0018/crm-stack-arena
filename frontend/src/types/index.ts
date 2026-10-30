@@ -133,6 +133,8 @@ export interface OrderBase {
   subtotalPaise: number;
   discountPaise: number;
   totalPaise: number;
+  /** Value of returned items; already taken off totalPaise (total = subtotal − discount − returned). */
+  returnedPaise: number;
   amountPaidPaise: number;
   notes: string | null;
   orderDate: string;
@@ -173,6 +175,9 @@ export interface Payment {
   createdByName: string | null;
   voidedAt: string | null;
   voidReason: string | null;
+  /** Every entry recorded since receipts were introduced has one; older ones can be given one. */
+  receiptId: number | null;
+  receiptNumber: string | null;
 }
 
 export interface Order extends OrderBase {
@@ -180,6 +185,143 @@ export interface Order extends OrderBase {
   items: OrderItem[];
   invoice: InvoiceRef | null;
   payments: Payment[];
+  returns: OrderReturn[];
+}
+
+export type ReturnCondition = 'saleable' | 'damaged';
+
+export interface ReturnItem {
+  position: number;
+  itemName: string;
+  productId: number | null;
+  quantity: string;
+  unitPricePaise: number;
+  grossPaise: number;
+  valuePaise: number;
+  condition: ReturnCondition;
+}
+
+export interface ReturnRefund {
+  id: number;
+  amountPaise: number;
+  method: PaymentMethod | 'unrecorded';
+  paidOn: string;
+  voidedAt: string | null;
+  receiptId: number | null;
+  receiptNumber: string | null;
+}
+
+export interface OrderReturn {
+  id: number;
+  orderId: number;
+  orderNumber: string;
+  returnNumber: string;
+  returnDate: string;
+  reason: string | null;
+  valuePaise: number;
+  refundPaise: number;
+  createdAt: string;
+  createdByName: string | null;
+  items: ReturnItem[];
+  refunds: ReturnRefund[];
+}
+
+/** The internal return adjustment document. */
+export interface ReturnDoc extends OrderReturn {
+  orderDate: string;
+  customerId: number | null;
+  shop: Omit<Shop, 'id'>;
+  customer: { name: string; phone: string | null };
+  invoice: { id: number; invoiceNumber: string; revision: number; status: InvoiceStatus } | null;
+}
+
+export interface ReturnPreview {
+  orderId: number;
+  orderNumber: string;
+  returnDate: string;
+  valuePaise: number;
+  totalBeforePaise: number;
+  totalAfterPaise: number;
+  paidBeforePaise: number;
+  refundPaise: number;
+  dueAfterPaise: number;
+  refunds: { method: PaymentMethod | 'unrecorded'; amountPaise: number }[];
+  lines: { position: number; itemName: string; quantity: number; condition: ReturnCondition; grossPaise: number; valuePaise: number }[];
+}
+
+export interface Receipt {
+  id: number;
+  kind: PaymentKind;
+  receiptNumber: string;
+  receiptDate: string;
+  customerId: number | null;
+  method: PaymentMethod | 'unrecorded';
+  reference: string | null;
+  note: string | null;
+  amountPaise: number;
+  shopSnapshot: Omit<Shop, 'id'>;
+  customerSnapshot: { name: string; phone: string | null; email: string | null; address: string | null };
+  allocations: { orderId: number; orderNumber: string; amountPaise: number }[];
+  createdAt: string;
+  createdByName: string | null;
+  /** Part of this receipt later removed from the payment history. */
+  voidedPaise: number;
+}
+
+export interface SettlePreview {
+  totalDuePaise: number;
+  amountPaise: number;
+  allocations: { orderId: number; orderNumber: string; orderDate: string; duePaise: number; allocatePaise: number; remainingPaise: number }[];
+}
+
+export type AgeingBucket = '0-30' | '31-60' | '61-90' | '90+';
+
+export interface AgeingReport {
+  asOf: string;
+  from: string | null;
+  to: string | null;
+  buckets: AgeingBucket[];
+  totals: Record<AgeingBucket, number> & { totalPaise: number; orders: number };
+  customers: (Record<AgeingBucket, number> & {
+    customerId: number | null;
+    customerName: string;
+    customerPhone: string | null;
+    totalPaise: number;
+    orders: number;
+    oldestOrderDate: string;
+  })[];
+  orders: {
+    id: number;
+    orderNumber: string;
+    orderDate: string;
+    customerId: number | null;
+    customerName: string | null;
+    customerPhone: string | null;
+    totalPaise: number;
+    paidPaise: number;
+    duePaise: number;
+    ageDays: number;
+    bucket: AgeingBucket;
+    invoiceId: number | null;
+    invoiceNumber: string | null;
+  }[];
+}
+
+export interface CollectionTotals {
+  receivedPaise: number;
+  refundedPaise: number;
+  netPaise: number;
+  payments: number;
+  refunds: number;
+}
+
+export interface CollectionsReport {
+  from: string;
+  to: string;
+  rows: (CollectionTotals & { date: string; method: PaymentMethod | 'unrecorded' })[];
+  byMethod: (CollectionTotals & { method: PaymentMethod | 'unrecorded' })[];
+  byDate: (CollectionTotals & { date: string })[];
+  totals: CollectionTotals;
 }
 
 export interface Invoice {

@@ -12,6 +12,9 @@ import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoice
 import { ordersRouter } from './modules/orders/orders.routes';
 import { paymentsRouter } from './modules/payments/payments.routes';
 import { productsRouter } from './modules/products/products.routes';
+import { receiptsRouter } from './modules/receipts/receipts.routes';
+import { reportsRouter } from './modules/reports/reports.routes';
+import { returnsRouter } from './modules/returns/returns.routes';
 import { publicLogoRouter } from './modules/shop/logo';
 import { branchesRouter, shopRouter } from './modules/shop/shop.routes';
 
@@ -51,7 +54,10 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/orders', paymentsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/reports', reportsRouter);
+app.use('/api/receipts', receiptsRouter);
 app.use('/api', invoicesRouter);
+app.use('/api', returnsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

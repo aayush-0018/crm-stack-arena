@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ordersApi } from '../../api/endpoints';
+import type { Order } from '../../types';
 import OrderForm, { orderToForm } from '../../components/orders/OrderForm';
 import { ButtonLink } from '../../components/ui/Button';
 import BackButton from '../../components/ui/BackButton';
@@ -17,6 +18,15 @@ export default function OrderEditPage() {
   if (order.loading) return <LoadingState />;
   if (order.error || !order.data) return <ErrorState error={order.error ?? 'Not found'} onRetry={order.reload} />;
   const o = order.data;
+  if (o.returns.length) {
+    return (
+      <EmptyState
+        title="This order can't be edited"
+        description="Items on it have been returned. Use another return for anything else that comes back."
+        action={<ButtonLink to={`/orders/${o.id}`}>Back to the order</ButtonLink>}
+      />
+    );
+  }
 
   if (o.status === 'cancelled') {
     return (
@@ -43,6 +53,7 @@ export default function OrderEditPage() {
       <OrderForm
         initial={orderToForm(o)}
         paidSoFarPaise={o.amountPaidPaise}
+        heldStock={heldStock(o)}
         customerSection={() =>
           o.customer ? (
             <div className="text-sm">
@@ -66,4 +77,12 @@ export default function OrderEditPage() {
       </div>
     </>
   );
+}
+
+/** Stock the saved order already holds per product; a cancelled order holds none. */
+function heldStock(o: Order): Record<number, number> {
+  const held: Record<number, number> = {};
+  if (o.status === 'cancelled') return held;
+  for (const it of o.items) if (it.productId) held[it.productId] = (held[it.productId] ?? 0) + Math.round(Number(it.quantity) * 1000);
+  return held;
 }

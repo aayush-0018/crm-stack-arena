@@ -9,6 +9,7 @@ import { countOrdersWithEntries, listPayments } from '../payments/payments.repo'
 import { PaymentMethod } from '../payments/payments.schemas';
 import { addEntry, adjustPaidTo, syncPaid } from '../payments/payments.service';
 import { assertShopProducts, syncOrderStock } from '../products/stock.service';
+import { hasReturnsError, listReturns, orderHasReturns } from '../returns/returns.service';
 import * as repo from './orders.repo';
 import { CreateOrderInput, OrderStatus, UpdateOrderInput } from './orders.schemas';
 import { assertPaidWithinTotal, computeTotals } from './totals';
@@ -19,17 +20,19 @@ const orderCancelled = () =>
 export async function getOrder(shopId: number, id: number) {
   const order = await repo.findOrder(pool, shopId, id);
   if (!order) throw notFound('Order');
-  const [customer, items, invoice, payments] = await Promise.all([
+  const [customer, items, invoice, payments, returns] = await Promise.all([
     order.customerId ? findCustomer(pool, shopId, order.customerId, { includeDeleted: true }) : null, // null = walk-in
     repo.findItems(pool, id),
     latestInvoiceForOrder(pool, id),
     listPayments(pool, id),
+    listReturns(pool, id),
   ]);
   return {
     ...order,
     customer,
     items,
     payments,
+    returns,
     invoice: invoice
       ? {
           id: invoice.id,
@@ -113,6 +116,8 @@ export async function updateOrder(shopId: number, userId: number, id: number, in
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
     if (order.status === 'cancelled') throw orderCancelled();
+    // Returned lines refer to the items as sold, so they can't be changed any more.
+    if (await orderHasReturns(c, id)) throw hasReturnsError();
 
     // Payments live in the ledger. An amount paid sent with an edit (older app versions) is
     // recorded as one adjustment entry; omitting it keeps the payments as they are.
@@ -134,6 +139,7 @@ export async function deleteOrder(shopId: number, userId: number, id: number) {
   return withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
+    if (await orderHasReturns(c, id)) throw hasReturnsError();
     // Payments cascade with the order, so deleting would silently erase the money trail.
     if (await countOrdersWithEntries(c, shopId, [id])) {
       throw new AppError(
@@ -160,6 +166,8 @@ export async function setStatus(
   await withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
+    // Cancelling would put back stock and money that the returns already account for.
+    if (status === 'cancelled' && status !== order.status && (await orderHasReturns(c, id))) throw hasReturnsError();
     await repo.updateStatus(c, shopId, id, status);
     // Cancelling puts the stock back; reopening takes it again (refused if it has run out).
     if (status === 'cancelled' || order.status === 'cancelled') {

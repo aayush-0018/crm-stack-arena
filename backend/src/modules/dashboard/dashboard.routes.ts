@@ -93,7 +93,10 @@ dashboardRouter.get(
         params,
       ),
       pool.query(
-        `SELECT oi.item_name AS name, sum(oi.line_total_paise)::bigint AS "revenuePaise",
+        // Returned items are taken off (at their line value, like the sales they reverse).
+        `SELECT oi.item_name AS name,
+           (sum(oi.line_total_paise) - COALESCE(sum((SELECT sum(ri.gross_paise) FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id
+              WHERE r.order_id = oi.order_id AND ri.position = oi.position)), 0))::bigint AS "revenuePaise",
            count(DISTINCT oi.order_id)::int AS orders
          FROM order_items oi JOIN orders o ON o.id = oi.order_id
          WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int AND o.order_date <= ${today}

@@ -13,6 +13,8 @@ import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerEditPage from './pages/customers/CustomerEditPage';
 import CustomerListPage from './pages/customers/CustomerListPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import { ReceiptPage, ReturnPage } from './pages/documents/DocumentPages';
+import ReportsPage from './pages/ReportsPage';
 import InvoiceListPage from './pages/invoices/InvoiceListPage';
 import InvoicePreviewPage from './pages/invoices/InvoicePreviewPage';
 import OrderCreatePage from './pages/orders/OrderCreatePage';
@@ -48,6 +50,9 @@ export default function App() {
           <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="products/:id/edit" element={<ProductEditPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="receipts/:id" element={<ReceiptPage />} />
+          <Route path="returns/:id" element={<ReturnPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

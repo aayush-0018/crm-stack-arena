@@ -4,6 +4,7 @@ import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
 import { todayIST } from '../../lib/numbering';
 import { completeIfSettled, findOrder, OrderRow, updatePayment } from '../orders/orders.repo';
 import { derivePaymentStatus } from '../orders/totals';
+import { issueReceipt } from '../receipts/receipts.service';
 import * as repo from './payments.repo';
 import { PaymentEntryInput, PaymentKind, PaymentMethod } from './payments.schemas';
 
@@ -26,12 +27,47 @@ export async function syncPaid(c: Db, shopId: number, orderId: number) {
   await completeIfSettled(c, shopId, orderId);
 }
 
-/** Adds one ledger row without re-syncing (callers sync once at the end). */
-export function addEntry(
+/**
+ * Adds one ledger row without re-syncing (callers sync once at the end). Every entry gets a receipt:
+ * pass `receiptId` when several entries share one (settling dues across orders); otherwise a receipt
+ * (or refund receipt) for just this entry is issued in the same transaction.
+ */
+export async function addEntry(
   c: Db,
-  e: { shopId: number; orderId: number; userId: number; kind: PaymentKind; amountPaise: number; method: PaymentMethod; paidOn: string; reference?: string | null; note?: string | null; idempotencyKey?: string },
+  e: {
+    shopId: number;
+    orderId: number;
+    userId: number;
+    kind: PaymentKind;
+    amountPaise: number;
+    method: PaymentMethod;
+    paidOn: string;
+    reference?: string | null;
+    note?: string | null;
+    idempotencyKey?: string;
+    receiptId?: number;
+    /** Set on refunds made because of a return. */
+    returnId?: number;
+  },
 ) {
-  return repo.insertPayment(c, e);
+  let receiptId = e.receiptId;
+  if (!receiptId) {
+    const { rows } = await c.query(`SELECT order_number AS "orderNumber", customer_id AS "customerId" FROM orders WHERE id = $1`, [e.orderId]);
+    receiptId = (
+      await issueReceipt(c, {
+        shopId: e.shopId,
+        kind: e.kind,
+        date: e.paidOn,
+        customerId: rows[0].customerId,
+        method: e.method,
+        reference: e.reference,
+        note: e.note,
+        allocations: [{ orderId: e.orderId, orderNumber: rows[0].orderNumber, amountPaise: e.amountPaise }],
+        userId: e.userId,
+      })
+    ).id;
+  }
+  return repo.insertPayment(c, { ...e, receiptId });
 }
 
 /**
@@ -69,8 +105,10 @@ export async function recordEntry(shopId: number, userId: number, orderId: numbe
     }
   }
   try {
-    await withTransaction(async (c) => {
+    const duplicate = await withTransaction(async (c) => {
       const order = await lockOrder(c, shopId, orderId);
+      // An identical request may have committed while we waited for the lock.
+      if (input.idempotencyKey && (await repo.findPaymentIdByIdempotencyKey(c, shopId, input.idempotencyKey))) return true;
       const today = await todayIST(c);
       const paidOn = input.paidOn ?? today;
       if (paidOn > today) throw invalid('paidOn', 'The date can’t be in the future');
@@ -99,7 +137,9 @@ export async function recordEntry(shopId: number, userId: number, orderId: numbe
         idempotencyKey: input.idempotencyKey,
       });
       await syncPaid(c, shopId, orderId);
+      return false;
     });
+    if (duplicate) return { created: false };
   } catch (err) {
     if (input.idempotencyKey && isUniqueViolation(err, 'payments_shop_idem_uq')) return { created: false };
     throw err;

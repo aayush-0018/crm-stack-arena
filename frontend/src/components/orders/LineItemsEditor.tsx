@@ -27,10 +27,13 @@ export default function LineItemsEditor({
   rows,
   onChange,
   errors,
+  heldStock = {},
 }: {
   rows: ItemRow[];
   onChange: (rows: ItemRow[]) => void;
   errors: Record<string, string>;
+  /** Editing a saved order: milli-units of each product it already holds, which the edit can reuse. */
+  heldStock?: Record<number, number>;
 }) {
   const update = (i: number, patch: Partial<ItemRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.length === 1 ? [newRow()] : rows.filter((_, j) => j !== i));
@@ -87,7 +90,7 @@ export default function LineItemsEditor({
                 }
               />
               {err(i, 'itemName') && <p className="mt-1 text-xs text-danger">{err(i, 'itemName')}</p>}
-              {r.productId ? <StockHint row={r} /> : null}
+              {r.productId ? <StockHint row={r} held={heldStock[r.productId] ?? 0} /> : null}
             </div>
             <div>
               <input
@@ -138,14 +141,19 @@ export default function LineItemsEditor({
   );
 }
 
-/** "From products · 7 kg in stock", or a warning when the line asks for more than that. */
-function StockHint({ row }: { row: ItemRow }) {
+/**
+ * "From products · 7 kg in stock", or a warning when the line asks for more than that. When editing, the
+ * stock this order already holds counts as available (the server checks the same way).
+ */
+function StockHint({ row, held }: { row: ItemRow; held: number }) {
   if (!row.stock) return <p className="mt-1 text-[12px] text-ink-3">From products</p>;
   const wanted = Math.round(Number(row.quantity) * 1000);
-  const short = Number.isFinite(wanted) && wanted > row.stock.milli;
+  const short = Number.isFinite(wanted) && wanted > row.stock.milli + held;
   return (
     <p className={`mt-1 text-[12px] ${short ? 'text-danger' : 'text-ink-3'}`}>
-      From products · {formatStock(row.stock.milli, row.stock.unit)} in stock{short ? ' — not enough for this quantity' : ''}
+      From products · {formatStock(row.stock.milli, row.stock.unit)} in stock
+      {held > 0 ? ` + ${formatStock(held, row.stock.unit)} already on this order` : ''}
+      {short ? ' — not enough for this quantity' : ''}
     </p>
   );
 }

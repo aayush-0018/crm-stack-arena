@@ -4,6 +4,7 @@ import { ah } from '../../lib/asyncHandler';
 import { assertOwner } from '../../lib/guards';
 import { auth } from '../../middleware/auth';
 import { getOrder } from '../orders/orders.service';
+import { receiptForEntry } from '../receipts/receipts.service';
 import { paymentEntrySchema, voidPaymentSchema } from './payments.schemas';
 import * as service from './payments.service';
 
@@ -20,6 +21,16 @@ paymentsRouter.post(
     const { userId, shopId } = auth(req);
     const { created } = await service.recordEntry(shopId, userId, id, paymentEntrySchema.parse(req.body));
     res.status(created ? 201 : 200).json(await getOrder(shopId, id));
+  }),
+);
+
+/** The receipt of a ledger entry; issues one first for entries recorded before receipts existed. */
+paymentsRouter.post(
+  '/:id/payments/:paymentId/receipt',
+  ah(async (req, res) => {
+    const { id, paymentId } = paymentParam.parse(req.params);
+    const { userId, shopId } = auth(req);
+    res.json({ receiptId: await receiptForEntry(shopId, userId, id, paymentId) });
   }),
 );
 

@@ -1,8 +1,16 @@
 import { Db } from '../db/pool';
 
+const SEQ_COLUMN = {
+  order: 'next_order_seq',
+  invoice: 'next_invoice_seq',
+  receipt: 'next_receipt_seq',
+  refund: 'next_refund_seq',
+  return: 'next_return_seq',
+} as const;
+
 /** Takes the next per-shop sequence number. The UPDATE row-locks the counter until commit. */
-export async function nextSeq(db: Db, shopId: number, kind: 'order' | 'invoice'): Promise<number> {
-  const col = kind === 'order' ? 'next_order_seq' : 'next_invoice_seq';
+export async function nextSeq(db: Db, shopId: number, kind: keyof typeof SEQ_COLUMN): Promise<number> {
+  const col = SEQ_COLUMN[kind];
   const { rows } = await db.query(
     `UPDATE shop_counters SET ${col} = ${col} + 1 WHERE shop_id = $1 RETURNING ${col} - 1 AS seq`,
     [shopId],
@@ -17,6 +25,9 @@ export const formatOrderNumber = (seq: number, code?: string | null) =>
   `ORD-${withCode(code)}${String(seq).padStart(6, '0')}`;
 export const formatInvoiceNumber = (year: string, seq: number, code?: string | null) =>
   `INV-${withCode(code)}${year}-${String(seq).padStart(6, '0')}`;
+/** Receipts, refund receipts and return documents: same shape as invoices, e.g. RCPT-JPR-2026-000001. */
+export const formatDocNumber = (prefix: 'RCPT' | 'RFND' | 'RTN', year: string, seq: number, code?: string | null) =>
+  `${prefix}-${withCode(code)}${year}-${String(seq).padStart(6, '0')}`;
 
 /** The branch's short code (e.g. "JPR"), printed in new order and invoice numbers. */
 export async function branchCode(db: Db, shopId: number): Promise<string | null> {

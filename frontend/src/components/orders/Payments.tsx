@@ -1,5 +1,6 @@
-import { Trash2 } from 'lucide-react';
+import { Receipt as ReceiptIcon, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ordersApi } from '../../api/endpoints';
 import { formatDate, formatDateTime, todayIST } from '../../lib/date';
 import { formatINR, isValidMoney, moneyToPaise, paiseToInput } from '../../lib/money';
@@ -166,7 +167,22 @@ export function PaymentEntryModal({
 
 /** The order's payment history, with removal of mistaken entries (owners only). */
 export function PaymentsSection({ order, canRemove, onChanged }: { order: Order; canRemove: boolean; onChanged: (o: Order) => void }) {
+  const navigate = useNavigate();
   const [removing, setRemoving] = useState<Payment | null>(null);
+  const [issuing, setIssuing] = useState<number | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  // Entries recorded before receipts existed get one on request (always the same one afterwards).
+  const openReceipt = async (p: Payment) => {
+    setIssuing(p.id);
+    setReceiptError(null);
+    try {
+      navigate(`/receipts/${(await ordersApi.receiptFor(order.id, p.id)).receiptId}`);
+    } catch (err) {
+      setReceiptError(err instanceof Error ? err.message : 'Could not get the receipt');
+    } finally {
+      setIssuing(null);
+    }
+  };
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const live = order.payments.filter((p) => !p.voidedAt);
@@ -201,6 +217,20 @@ export function PaymentsSection({ order, canRemove, onChanged }: { order: Order;
                       {p.voidReason ? ` — ${p.voidReason}` : ''}
                     </p>
                   )}
+                  {p.receiptId ? (
+                    <Link to={`/receipts/${p.receiptId}`} className="mt-0.5 inline-flex items-center gap-1 text-[12.5px] text-ink-2 hover:text-ink hover:underline">
+                      <ReceiptIcon size={12} /> {p.receiptNumber}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openReceipt(p)}
+                      disabled={issuing === p.id}
+                      className="mt-0.5 inline-flex items-center gap-1 text-[12.5px] text-ink-3 underline-offset-2 hover:text-ink hover:underline disabled:opacity-50"
+                    >
+                      <ReceiptIcon size={12} /> {issuing === p.id ? 'Getting receipt…' : 'Get receipt'}
+                    </button>
+                  )}
                 </div>
                 <span className={`pt-0.5 text-[14px] tabular-nums ${voided ? 'text-ink-3 line-through' : refund ? 'text-danger' : 'text-ink'}`}>
                   {refund ? '− ' : ''}
@@ -224,6 +254,11 @@ export function PaymentsSection({ order, canRemove, onChanged }: { order: Order;
             );
           })}
         </ul>
+      )}
+      {receiptError && (
+        <p role="alert" className="px-4 pb-2 text-[13px] text-danger sm:px-6">
+          {receiptError}
+        </p>
       )}
       {live.length > 0 && (
         <dl className="flex flex-wrap justify-end gap-x-5 gap-y-1 border-t border-line px-4 py-3 text-[13px] text-ink-2 sm:px-6">

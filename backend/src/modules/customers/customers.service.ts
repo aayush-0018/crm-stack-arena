@@ -53,6 +53,10 @@ export async function deleteCustomer(shopId: number, userId: number, id: number,
     if (purge) {
       // Their orders are deleted as if they never happened, so their stock goes back first.
       const { rows: orders } = await c.query(`SELECT id FROM orders WHERE shop_id = $1 AND customer_id = $2 ORDER BY id FOR UPDATE`, [shopId, id]);
+      const { rows: withReturns } = await c.query(`SELECT 1 FROM order_returns WHERE shop_id = $1 AND order_id = ANY($2::bigint[]) LIMIT 1`, [shopId, orders.map((o) => o.id)]);
+      if (withReturns.length) {
+        throw new AppError(409, 'ORDERS_HAVE_RETURNS', `Some of ${customer.name}'s orders have returns. Archive the customer instead.`);
+      }
       // Payments cascade with their orders; refuse rather than erase the money trail.
       const withPayments = await countOrdersWithEntries(c, shopId, orders.map((o) => o.id));
       if (withPayments) {
