@@ -45,3 +45,39 @@ describe('007_payments upgrade', () => {
     assert.ok(applied[0].n > 0);
   });
 });
+
+describe('008_zero_total_orders upgrade', () => {
+  test('existing ₹0 "unpaid" orders become paid; invoiced ones complete; nothing else changes', async () => {
+    await resetDb(migrationFiles().filter((f) => f < '008'));
+    const [shop] = await sql(`INSERT INTO shops (name) VALUES ('S') RETURNING id`);
+    const [cust] = await sql(`INSERT INTO customers (shop_id, name, phone) VALUES ($1, 'C', '9876500001') RETURNING id`, [shop.id]);
+    const mk = async (n: string, total: number, paid: number, status = 'open') =>
+      (await sql(
+        `INSERT INTO orders (shop_id, customer_id, order_number, status, payment_status, subtotal_paise, total_paise, amount_paid_paise)
+         VALUES ($1, $2, $3, $4, $5, $6, $6, $7) RETURNING id`,
+        [shop.id, cust.id, n, status, paid === 0 ? 'unpaid' : paid < total ? 'partial' : 'paid', total, paid],
+      ))[0].id as number;
+    const zeroInvoiced = await mk('Z1', 0, 0);
+    const zeroOpen = await mk('Z2', 0, 0);
+    const zeroCancelled = await mk('Z3', 0, 0, 'cancelled');
+    const normal = await mk('N1', 5000, 0);
+    await sql(
+      `INSERT INTO invoices (shop_id, order_id, invoice_number, order_version, invoice_date, shop_snapshot, customer_snapshot,
+         order_snapshot, items_snapshot, subtotal_paise, discount_paise, total_paise, amount_paid_paise, payment_status)
+       VALUES ($1, $2, 'INV-1', 1, '2026-01-01', '{}', '{}', '{}', '[]', 0, 0, 0, 0, 'unpaid')`,
+      [shop.id, zeroInvoiced],
+    );
+
+    await applyMigration('008_zero_total_orders.sql');
+
+    const rows = Object.fromEntries((await sql(`SELECT id, status, payment_status FROM orders`)).map((r: any) => [r.id, `${r.status}/${r.payment_status}`]));
+    assert.equal(rows[zeroInvoiced], 'completed/paid');
+    assert.equal(rows[zeroOpen], 'open/paid');
+    assert.equal(rows[zeroCancelled], 'cancelled/paid');
+    assert.equal(rows[normal], 'open/unpaid');
+    // the issued invoice's snapshot is history and is left alone
+    assert.equal((await sql(`SELECT payment_status FROM invoices`))[0].payment_status, 'unpaid');
+    // the new rule is enforced: a ₹0 order can no longer be stored as unpaid
+    await assert.rejects(sql(`UPDATE orders SET payment_status = 'unpaid' WHERE id = $1`, [zeroOpen]));
+  });
+});

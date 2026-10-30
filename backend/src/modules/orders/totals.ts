@@ -20,8 +20,8 @@ export interface ComputedTotals {
 }
 
 export function derivePaymentStatus(amountPaidPaise: number, totalPaise: number): PaymentStatus {
-  if (amountPaidPaise <= 0) return 'unpaid';
-  return amountPaidPaise >= totalPaise ? 'paid' : 'partial';
+  if (amountPaidPaise >= totalPaise) return 'paid'; // includes ₹0 orders: nothing is owed
+  return amountPaidPaise <= 0 ? 'unpaid' : 'partial';
 }
 
 export function assertPaidWithinTotal(amountPaidPaise: number, totalPaise: number) {

@@ -126,3 +126,24 @@ describe('orders with money due (dashboard "Oldest unpaid orders")', () => {
     assert.equal(r.total, 2);
   });
 });
+
+describe('₹0 orders', () => {
+  test('a free order (or 100% discount) counts as paid and is never "payment pending"', async () => {
+    const { api } = await newShop();
+    const free = await newOrder(api, { items: [{ itemName: 'Sample', quantity: '1', unitPrice: '0' }] });
+    assert.equal(free.totalPaise, 0);
+    assert.equal(free.paymentStatus, 'paid');
+    const discounted = await newOrder(api, { discount: '100' });
+    assert.equal(discounted.paymentStatus, 'paid');
+    assert.equal((await api.get('/orders?due=true')).body.total, 0);
+    assert.equal((await api.get('/dashboard/summary')).body.unpaidOrders, 0);
+
+    // invoicing a ₹0 order completes it, like any fully paid order
+    await api.post(`/orders/${free.id}/invoice`);
+    assert.equal((await api.get(`/orders/${free.id}`)).body.status, 'completed');
+
+    // editing a ₹0 order to have a price makes it unpaid again
+    const r = await api.put(`/orders/${discounted.id}`, { items: [{ itemName: 'Rice', quantity: '2', unitPrice: '50' }], discount: '0' });
+    assert.equal(r.body.paymentStatus, 'unpaid');
+  });
+});
