@@ -8,6 +8,7 @@
     "start": "node dist/src/server.js",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
+    "check-reissue": "tsx scripts/check-reissue-flags.ts",
     "set-password": "tsx scripts/set-password.ts",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts"

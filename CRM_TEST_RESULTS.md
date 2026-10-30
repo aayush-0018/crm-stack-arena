@@ -90,3 +90,38 @@ On a seeded throwaway shop (100 customers, 388 orders, 319 invoices), the 30-day
 | Browser: walk-in sale | 9/9: choose walk-in, save with UPI, order page / orders list / invoice / invoice list show walk-in, still asks to choose when nothing is picked, 390px layout, no page errors |
 | Browser: all-pages sweep (fresh seeded shop) | **38/38** desktop and phone |
 | `crm_dev` (your data) | Not touched: still on migration 006, 390 orders, no test accounts |
+
+
+---
+
+## Priority 1: Financial management, 31 Oct 2026 (Windows, PostgreSQL 16.14, local `crm_test`)
+
+| Command / check | Result |
+|---|---|
+| Baseline `backend: npm test` before any change | **90/90 pass**. This was the first real run of the round 3 and round 4 tests |
+| `backend: npm run typecheck` / `npm run build` | Pass |
+| `backend: npm test` after Priority 1 | **108/108 pass**, 40 suites, about 72 s |
+| `frontend: npm run build` (tsc and vite) | Pass |
+| `npm run check-reissue` on test data | Correctly separates "only a payment" (1) from "items changed" (1); read-only |
+
+**Required scenarios, all automated and run:**
+
+| Scenario | Test |
+|---|---|
+| One customer paying several outstanding orders | `receipts.test.ts` › settle dues: oldest first, one receipt, preview saves nothing |
+| Partial payment followed by another | `receipts.test.ts`: two sequential `RCPT-JPR-YYYY-00000N` receipts |
+| Partial return on an invoiced, part-paid order | `returns.test.ts`: balance drops, no refund, invoice snapshot unchanged and not flagged, invoice list due updated |
+| Refund to the original payment | `returns.test.ts`: newest method first, spill-over to the next, or a chosen method |
+| Saleable vs damaged returns | `returns.test.ts`: stock +1 for saleable only, `return` movement, ledger sums |
+| ₹10,000 UPI then a ₹2,000 refund = ₹8,000 net | `reports.test.ts` › collections |
+| Receipt numbering, reprints, duplicate requests | `receipts.test.ts`: same number after shop and customer edits, PDF, idempotent retries, 3 identical settlements at once give one receipt |
+| Payment and invoice reconciliation across dates | `reports.test.ts`: collections equal the ledger and analytics "Payments received" for the same window; ageing equals independent SQL; date filters |
+| Walk-ins still work | `walkin.test.ts` (6) plus walk-in receipt and return tests |
+| Atomicity under concurrency | A settlement racing a single payment: one wins, no partial writes; two identical returns at once give one return |
+| Isolation between shops | Receipts, settle, returns and reports return 404 or nothing for another shop |
+| Upgrade | 010 → 012 keeps order and payment rows identical; the new total rule is enforced |
+
+**Browser** (headless Chrome, `crm_e2e_test`, synthetic data):
+- **Pages:** order with a return, multi-order receipt, return document, ageing, collections, customer "Settle dues", blocked edit, dark mode.
+- **Width check:** order, reports and receipt measure exactly 390px wide at 390px, so nothing scrolls sideways.
+- **Not done:** click-through of the Return and Settle dialogs (their API flows are covered by the tests).

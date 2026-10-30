@@ -316,6 +316,8 @@ The runner skips files already applied, so it's safe to run any time.
 | `008_zero_total_orders.sql` | ₹0 orders count as Paid (data repair + updated `orders_payment_ck` rule) | Run with 007 |
 | `009_products_inventory.sql` | `products`, `stock_movements`, `order_items.product_id`, `shops.allow_negative_stock` | Products & stock — **run before pushing**: login returns the shop's stock setting |
 | `010_walk_in_orders.sql` | `orders.customer_id` may be empty (walk-in sales). Existing orders unchanged | Walk-in sales — run before pushing that code |
+| `011_receipts.sql` | `receipts` table, `payments.receipt_id`, receipt and refund counters | Receipts — **run before deploying**: every new payment writes a receipt, so recording payments fails without it |
+| `012_returns.sql` | `order_returns`, `order_return_items`, `orders.returned_paise` (total rule now `subtotal − discount − returned`), `payments.return_id`, the `return` stock movement | Returns — **run before deploying**: every order page reads returns |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -324,7 +326,11 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
 psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 ```
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products` and `stock_movements` too.
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns` and `order_return_items` too.
+
+**011–012 (receipts, returns):** additive; existing rows keep their values (`returned_paise` starts at 0). Rehearsed by the upgrade test in `migrations.test.ts`. Rollback: redeploy the previous code; don't drop the tables (they hold receipt and return history).
+
+**"Needs reissue" check (read-only):** `DATABASE_URL="<session-pooler-string>" ALLOW_REMOTE_DB=true DATABASE_SSL=true npm run check-reissue` lists invoices flagged only by old payments vs. ones with a real change. It changes nothing.
 
 **007–009 (payments, ₹0 orders, products):** run all three before pushing that code. Each file runs in one transaction, so a failure changes nothing. They were rehearsed on a copy of the local data (390 orders, 320 invoices): orders and invoices came out unchanged, and the ledger matched every order's paid amount.
 

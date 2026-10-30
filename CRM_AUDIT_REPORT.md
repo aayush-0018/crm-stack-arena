@@ -235,3 +235,17 @@ The baseline could not run. Neither `backend/` nor `frontend/` has `node_modules
 | A8 | Backups will be done in Supabase, not in code | Not changed |
 | A9 | Fine for now | Not changed |
 | A10 | Left as it is for now | Not changed |
+
+
+### Priority 1 status (31 Oct 2026)
+
+| Item | Status |
+|---|---|
+| F-a Outstanding & ageing | **Built, tested** (age by order date; no due dates exist) |
+| F-b Payment reconciliation | **Built, tested** |
+| F-d Receipts (`RCPT-`/`RFND-`, per branch) | **Built, tested** |
+| F-e Settle dues (oldest first) | **Built, tested** |
+| F-f Returns and internal return adjustments | **Built, tested**. Not a GST credit note |
+| Stock hint while editing | **Confirmed and fixed** |
+| "Needs reissue" invoices | **Investigated**. Root cause is pre-007 payments. Read-only `npm run check-reissue` provided; production not checked (no credentials); nothing changed |
+| F-c cash closing, F-g GST, F-h FY numbering | **Deferred** by decision |

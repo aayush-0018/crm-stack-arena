@@ -184,13 +184,17 @@ function AgeingView({ from, to }: { from: string; to: string }) {
   return (
     <>
       <StatStrip page="report-ageing" dim={report.loading}>
-        <Stat label="Total outstanding" value={formatINR(t.totalPaise)} suffix={`${t.orders} order${t.orders === 1 ? '' : 's'}`} />
+        <Stat label="Total outstanding" value={formatINR(t.totalPaise)} />
         {r.buckets.map((b) => (
           <Stat key={b} label={BUCKET_LABEL[b]} value={formatINR(t[b])} />
         ))}
       </StatStrip>
       <SectionHeader
-        title={<span className="text-[14px] font-normal text-ink-2">As of {formatDate(r.asOf)} · age counted from the order date</span>}
+        title={
+          <span className="text-[14px] font-normal text-ink-2">
+            {t.orders} order{t.orders === 1 ? '' : 's'} due · as of {formatDate(r.asOf)} · age counted from the order date
+          </span>
+        }
         actions={
           <>
             <Toggle
@@ -266,14 +270,14 @@ function CollectionsView({ from, to }: { from: string; to: string }) {
   return (
     <>
       <StatStrip page="report-collections" dim={report.loading}>
-        <Stat label="Received" value={formatINR(t.receivedPaise)} suffix={`${t.payments} payment${t.payments === 1 ? '' : 's'}`} />
-        <Stat label="Refunded" value={formatINR(t.refundedPaise)} suffix={`${t.refunds} refund${t.refunds === 1 ? '' : 's'}`} />
+        <Stat label="Received" value={formatINR(t.receivedPaise)} />
+        <Stat label="Refunded" value={formatINR(t.refundedPaise)} />
         <Stat label="Net collected" value={formatINR(t.netPaise)} />
       </StatStrip>
       <SectionHeader
         title={
           <span className="text-[14px] font-normal text-ink-2">
-            {formatDate(r.from)} – {formatDate(r.to)} · by payment date
+            {formatDate(r.from)} – {formatDate(r.to)} · by payment date · {t.payments + t.refunds} ledger entr{t.payments + t.refunds === 1 ? 'y' : 'ies'}
           </span>
         }
         actions={

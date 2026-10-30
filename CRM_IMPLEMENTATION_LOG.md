@@ -486,3 +486,69 @@ See `CRM_TEST_RESULTS.md`.
 2. Import products with opening stock, then re-import one with its ID.
 3. Toggle the theme on each page, open a dialog, open an invoice in dark mode, and print.
 4. Use the eye button on login.
+
+
+---
+
+## Priority 1: Financial management, 31 Oct 2026
+
+**Decisions:**
+- **Approved:** F-a ageing, F-b collections, F-d receipts, F-e settle dues and F-f returns.
+- **Deferred:** F-c cash closing, F-g GST and F-h financial-year numbering.
+
+**Test environment:**
+- PostgreSQL 16.14 runs as portable binaries in the session's scratch folder, on `127.0.0.1:5432`.
+- Databases: `crm_test` for the suite and `crm_e2e_test` for the browser checks. Production was never touched.
+- **Baseline before any change: 90/90**. This was also the first real run of the round 3 and round 4 tests.
+
+**Reused, not rebuilt:**
+- the payment ledger (`addEntry`, `syncPaid`, idempotency keys);
+- per-branch counters (`nextSeq`);
+- the invoice snapshot pattern (for receipt snapshots);
+- `pdfmake` with the invoice PDF layout;
+- the stock movement ledger (`insertMovement`);
+- `derivePaymentStatus`, `completeIfSettled`, `findItems` and `listPayments`;
+- frontend: `DataTable`, `StatStrip`, `Modal`, `MethodPicker`, `downloadCsv`, and the invoice page layout.
+
+### What was built
+
+| Item | Backend | Frontend |
+|---|---|---|
+| F-a Outstanding & ageing | `GET /api/reports/ageing?from&to`. Non-cancelled orders with a balance, age = today − order date, buckets 0–30/31–60/61–90/90+, totals by customer (walk-ins grouped) and by order, with invoice links | "Dues and collections" page, *Outstanding & ageing* tab. Date filter, by customer or by order, rows open the customer or order, invoice links, CSV export of the current view |
+| F-b Collections | `GET /api/reports/collections?from&to`. Received, refunded and net by payment date × method, totals by method and by date, voided entries excluded, at most 366 days | *Collections* tab. Date filter, by method or by date, CSV export |
+| F-d Receipts | Migration 011. `receipts` table with shop, customer and allocation snapshots, plus `payments.receipt_id`. Every ledger entry from every path (payment, refund, money taken at order creation, cancel-with-refund, the older "total paid" API, settle, return refund) now gets a receipt in the same transaction. `RCPT-`/`RFND-[code-]YYYY-NNNNNN`. `GET /api/receipts/:id` and `/pdf`. `POST /api/orders/:id/payments/:pid/receipt` gives older entries a receipt, once | Each payment line links to its receipt, or offers "Get receipt" for older entries. Receipt page with Print and PDF |
+| F-e Settle dues | `POST /api/customers/:id/settle` (`dryRun` previews the split). Oldest first, locks the customer's due orders in id order, one receipt, the same reference on every allocation, no overpayment, retry-safe | "Settle dues" button on the customer page (shown only when something is owed). The dialog shows the split, then confirms and opens the receipt |
+| F-f Returns | Migration 012. `order_returns` and `order_return_items`, `orders.returned_paise` (the total rule includes it), `payments.return_id`, a `return` stock movement. `POST /api/orders/:id/returns` (`dryRun` preview). `GET /api/returns/:id` and `/pdf`. Orders with returns refuse edit, cancel, delete and purge (409). Best-selling items subtract returns | "Return items" dialog with a server preview of value, refund and new balance. "Returned" line in the order totals. Returns section linking to the return document (Print, PDF). Edit, Delete and Cancel are hidden or disabled with an explanation |
+| Stock hint (confirmed) | — | Editing an order counts the stock it already holds (`heldStock`); the text shows "+ N already on this order" |
+| "Needs reissue" (investigated) | `npm run check-reissue`: read-only. Lists invoices flagged only by old payments vs. ones with a real change | — |
+
+### Bugs found and fixed while building
+
+1. **A retried payment could be refused instead of recognised.** It happened when the retry waited on the first request's lock; it then saw no balance left and returned "nothing due". The fix rechecks the key after taking the lock (single payments, settlements and returns).
+2. **Collections figures overlapped** on desktop: the count labels ran into the next figure. The counts now sit in the line under the figures.
+3. **A missing space** in the round-3 Export buttons (`exporting}className`). It was harmless, and was fixed in round 4.
+
+### "Needs reissue" invoices
+
+- **Root cause:** before migration 007, recording a payment bumped the order version, which flags its invoice. Payments haven't done that since 007.
+- **Production:** not checked. There are no Supabase credentials on this machine.
+- **The check:** `npm run check-reissue` is a read-only transaction. It was verified on test data: one invoice flagged only by a payment and one with a real item change were classified correctly.
+- **Historical invoices:** nothing changed. Run the check, then reissue from the order page, or approve a one-off fix for the "only payments" group.
+
+### Recheck
+
+1. **Justification:** approved items F-a, F-b, F-d, F-e and F-f, plus the two existing issues.
+2. **Files and database objects:**
+   - Migrations `011_receipts.sql` and `012_returns.sql`.
+   - New backend modules `receipts`, `reports` and `returns`, plus `payments/settle.service.ts` and `scripts/check-reissue-flags.ts`.
+   - New frontend files `ReportsPage`, `pages/documents`, `components/documents`, `components/orders/Returns.tsx` and `components/customers/SettleDuesModal.tsx`.
+3. **Tests:** 108/108. That's 90 existing plus 18 new: `reports` 4, `receipts` 7, `returns` 6 and the 011/012 upgrade test.
+4. **UI vs data:** browser screenshots on `crm_e2e_test` were compared with API values: order with return, receipt, return document, ageing, collections, customer page, blocked edit, dark mode, and a 390px page width (no sideways scroll).
+5. **Adjacent workflows:**
+   - Walk-ins, invoices and the invoice list's due amount, analytics and best-sellers, and the stock ledger are covered by the tests.
+   - CSV import and export, dark mode and the earlier suites all still pass.
+6. **Unresolved:**
+   - Production "Needs reissue" data.
+   - The Return and Settle dialogs were exercised through the API and checked visually, but not clicked through in a browser.
+   - F-c, F-g and F-h are deferred.
+7. **Safe to deploy:** yes, **after running 011 and 012 on Supabase first**.
