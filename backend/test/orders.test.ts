@@ -111,3 +111,18 @@ describe('order deletion', () => {
     assert.equal((await sql(`SELECT 1 FROM order_items WHERE order_id = $1`, [o.id])).length, 0);
   });
 });
+
+describe('orders with money due (dashboard "Oldest unpaid orders")', () => {
+  test('due=true lists unpaid and part-paid orders, never cancelled or settled ones', async () => {
+    const { api } = await newShop();
+    const unpaid = await newOrder(api);
+    const partial = await newOrder(api, { amountPaid: '40' });
+    await newOrder(api, { amountPaid: '100' }); // paid
+    const cancelled = await newOrder(api);
+    await api.patch(`/orders/${cancelled.id}/status`, { status: 'cancelled' });
+
+    const r = (await api.get('/orders?due=true&sort=date&dir=asc')).body;
+    assert.deepEqual(r.data.map((o: any) => o.id).sort(), [unpaid.id, partial.id].sort());
+    assert.equal(r.total, 2);
+  });
+});

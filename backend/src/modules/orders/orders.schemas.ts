@@ -54,6 +54,8 @@ export const listOrdersQuery = paginationQuery.extend({
   customerId: z.coerce.number().int().positive().optional(),
   status: z.enum(ORDER_STATUSES).optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
+  /** Money still owed: not cancelled, and paid less than the total. */
+  due: z.enum(['true', 'false']).optional(),
   from: dateString.optional(),
   to: dateString.optional(),
   sort: z.enum(['date', 'total', 'number']).default('date'),

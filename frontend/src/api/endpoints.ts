@@ -100,6 +100,8 @@ export interface OrderListQuery {
   search?: string;
   status?: OrderStatus | '';
   paymentStatus?: PaymentStatus | '';
+  /** Only orders with money still owed (not cancelled, paid < total). */
+  due?: 'true';
   from?: string;
   to?: string;
   sort?: 'date' | 'total' | 'number';

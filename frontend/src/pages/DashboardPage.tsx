@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const customers = useAsync(() => customersApi.summary(), []);
   const recent = useAsync(() => ordersApi.list({ pageSize: 8 }), []);
   const forgotten = useAsync(() => customersApi.list({ segment: 'forgotten', sort: 'spent', dir: 'desc', pageSize: 5 }), []);
-  const unpaid = useAsync(() => ordersApi.list({ paymentStatus: 'unpaid', sort: 'date', dir: 'asc', pageSize: 5 }), []);
+  const unpaid = useAsync(() => ordersApi.list({ due: 'true', sort: 'date', dir: 'asc', pageSize: 5 }), []);
 
   const a = analytics.data;
   const s = a?.summary;
@@ -72,7 +72,7 @@ export default function DashboardPage() {
           <Stat
             label="Average bill value"
             value={formatINR(s.orders ? Math.round(s.revenuePaise / s.orders) : 0).replace(/\.\d+$/, '')}
-            suffix="7d rolling"
+            suffix="30d"
             visual={<Sparkline values={aov} label="Average order value, 7-day rolling" />}
           />
           <Stat

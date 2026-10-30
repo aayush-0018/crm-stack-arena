@@ -49,6 +49,7 @@ export async function listOrders(db: Db, shopId: number, q: ListOrdersQuery) {
   if (q.customerId) add((i) => `o.customer_id = $${i}`, q.customerId);
   if (q.status) add((i) => `o.status = $${i}`, q.status);
   if (q.paymentStatus) add((i) => `o.payment_status = $${i}`, q.paymentStatus);
+  if (q.due === 'true') where.push(`o.status <> 'cancelled' AND o.total_paise > o.amount_paid_paise`);
   if (q.from) add((i) => `o.order_date >= $${i}`, q.from);
   if (q.to) add((i) => `o.order_date <= $${i}`, q.to);
 
