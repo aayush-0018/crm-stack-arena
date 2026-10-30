@@ -1,10 +1,27 @@
 import { z } from 'zod';
 import { optionalEmail, optionalText } from '../../lib/validation';
 
+/** A shop line can be a landline, mobile or toll-free number, so only the shape is checked: 6–15 digits, plus + ( ) - and spaces. */
+const shopPhone = z
+  .union([
+    z.literal(''),
+    z
+      .string()
+      .trim()
+      .max(20)
+      .regex(/^\+?[\d\s()-]+$/, 'Use digits only, e.g. 0141 2345678')
+      .refine((v) => {
+        const digits = v.replace(/\D/g, '').length;
+        return digits >= 6 && digits <= 15;
+      }, 'Enter a phone number with 6 to 15 digits'),
+  ])
+  .nullish()
+  .transform((v) => (v ? v : null));
+
 export const updateShopSchema = z.object({
   name: z.string().trim().min(1, 'Shop name is required').max(120),
   code: z.lazy(() => branchCodeInput),
-  phone: optionalText(20),
+  phone: shopPhone,
   email: optionalEmail,
   addressLine1: optionalText(200),
   addressLine2: optionalText(200),
@@ -34,5 +51,5 @@ export const createBranchSchema = z.object({
   name: z.string().trim().min(1, 'Branch name is required').max(120),
   code: branchCodeInput,
   city: optionalText(80),
-  phone: optionalText(20),
+  phone: shopPhone,
 });

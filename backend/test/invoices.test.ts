@@ -56,6 +56,22 @@ describe('invoice lifecycle', () => {
     assert.equal((await client().get(`/public/invoices/${'x'.repeat(24)}/pdf`)).status, 404);
   });
 
+  test('resetting a share link stops the old link and the new one works', async () => {
+    const { api } = await newShop();
+    const o = await newOrder(api);
+    const inv = (await api.post(`/orders/${o.id}/invoice`)).body;
+    const old = (await api.post(`/invoices/${inv.id}/share-link`)).body.token;
+    const fresh = (await api.post(`/invoices/${inv.id}/share-link/reset`)).body.token;
+    assert.notEqual(fresh, old);
+    assert.equal((await client().get(`/public/invoices/${old}/pdf`)).status, 404);
+    assert.equal((await client().get(`/public/invoices/${fresh}/pdf`)).status, 200);
+    // Opening the share screen again keeps the new link.
+    assert.equal((await api.post(`/invoices/${inv.id}/share-link`)).body.token, fresh);
+    // Another shop can't reset it.
+    const other = await newShop('Other Shop');
+    assert.equal((await other.api.post(`/invoices/${inv.id}/share-link/reset`)).status, 404);
+  });
+
   test('invoice summary counts each order once', async () => {
     const { api } = await newShop();
     const o1 = await newOrder(api, { amountPaid: '30' });

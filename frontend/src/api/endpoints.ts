@@ -154,6 +154,7 @@ export const invoicesApi = {
   remove: (id: number | string) => api.delete<{ orderId: number; invoiceNumber: string; revision: number }>(`/invoices/${id}`),
   pdf: (id: number | string) => api.blob(`/invoices/${id}/pdf`),
   shareLink: (id: number | string) => api.post<{ token: string }>(`/invoices/${id}/share-link`),
+  resetShareLink: (id: number | string) => api.post<{ token: string }>(`/invoices/${id}/share-link/reset`),
   logShare: (id: number | string, channel: ShareChannel, recipient?: string | null) =>
     api.post<InvoiceShare[]>(`/invoices/${id}/shares`, { channel, recipient: recipient ?? null }),
 };

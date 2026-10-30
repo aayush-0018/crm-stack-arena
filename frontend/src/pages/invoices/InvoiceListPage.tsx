@@ -14,7 +14,8 @@ import Button, { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
-import { downloadCsv, rupees } from '../../lib/csv';
+import { useToast } from '../../context/ToastContext';
+import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
 import { formatDate } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 import { formatINR, formatINRCompact } from '../../lib/money';
@@ -91,10 +92,11 @@ export default function InvoiceListPage() {
   };
 
   const summary = useAsync(() => invoicesApi.summary(), []);
-  const list = useAsync(
-    () => invoicesApi.list({ status, search: search || undefined, from: from || undefined, to: to || undefined, page, pageSize: PAGE_SIZE }),
-    [status, search, from, to, page],
-  );
+  const fetchPage = (p: number, pageSize: number) =>
+    invoicesApi.list({ status, search: search || undefined, from: from || undefined, to: to || undefined, page: p, pageSize });
+  const list = useAsync(() => fetchPage(page, PAGE_SIZE), [status, search, from, to, page]);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
   const filterCount = [status, from, to].filter(Boolean).length;
   const clearFilters = () => {
     setSelected(new Set());
@@ -127,6 +129,18 @@ export default function InvoiceListPage() {
       { header: 'Bill amount (Rs)', value: (i) => rupees(i.totalPaise) },
       { header: 'Status', value: (i) => (i.outdated ? 'needs reissue' : i.status === 'superseded' ? 'replaced' : i.status === 'void' ? 'cancelled' : i.status) },
     ]);
+
+  // Export covers every invoice matching the current filters, not just this page.
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      exportCsv(await fetchAllPages(fetchPage));
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -203,7 +217,7 @@ export default function InvoiceListPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={() => exportCsv(rows)} disabled={!rows.length} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
+              <button type="button" onClick={exportAll} disabled={!rows.length || exporting}className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
                 <Download size={16} strokeWidth={1.75} /> Export
               </button>
               <CustomizeButton columns={COLUMNS.filter((c) => c.optional)} hidden={hidden} onToggle={toggle} />

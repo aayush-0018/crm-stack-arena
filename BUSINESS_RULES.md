@@ -26,6 +26,7 @@ All dates and "today" are in **India time (IST)**. A "last N days" window means 
 | Paid on an order | Payments − refunds, ignoring removed (voided) entries. `orders.amount_paid_paise` holds this and is recalculated in the same transaction as every entry | `syncPaid()` | payments: ledger invariant after the suite |
 | Balance due | `total − paid`. A **cancelled** order owes **₹0** | screens, all reports | customers, analytics |
 | Limits | A payment can't exceed the balance due (no overpayment or customer credit). A refund can't exceed what was paid | `recordEntry()` | payments |
+| Deleting | An order with payment or refund entries still counting **can't be deleted**, and a customer whose orders have them can't be deleted with their orders. Cancel the order (with a refund) or archive the customer instead. An owner who removes those entries first can then delete | `deleteOrder()`, `deleteCustomer()`, `countOrdersWithEntries()` | orders |
 | Dates | A payment date can't be in the future. Money entered with a new order is dated the order date if that's in the past, otherwise **today** | `recordEntry()`, `createOrder()` | payments, rules |
 | Cancelled orders | No new payments. Refunds are allowed. Cancelling can refund everything paid in one entry (you choose) | `recordEntry()`, `setStatus()` | payments |
 | Duplicates | Retrying with the same key never records twice | idempotency key + unique index | payments |
@@ -65,6 +66,8 @@ Payment status and order status are **independent**: a paid order can be open (n
 | Cancelled | The order was cancelled |
 
 An invoice is an **immutable snapshot**. Shop, customer, items and amounts are copied when it's issued, and later edits never change it. Its paid/balance lines are "as on the invoice date" (printed on the invoice). Numbers come from a per-branch sequence (`INV-[code-]YYYY-NNNNNN`, the year it was issued) and are safe under concurrent use. *Financial-year numbering and GST rules need your accountant (not built).*
+
+**Share links:** "Send invoice" makes one private link per invoice revision that opens that invoice's PDF without a login. **Reset link** replaces it, so every link sent before stops working (`resetShareToken()`; test: invoices). Links don't expire on their own.
 
 ## 4. Customers
 
@@ -123,6 +126,7 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 | Field | Rule |
 |---|---|
 | Customer name | Required, up to 120 characters |
+| Shop / branch phone | Optional. 6–15 digits; may contain `+`, spaces, brackets and dashes (landline, mobile or toll-free) |
 | Mobile | Indian mobile, 10 digits starting 6–9 (`+91`/`0`/spaces stripped). *International numbers pending your decision* |
 | Email | Optional, valid format |
 | Dates (order, payment, filters, summary) | A real calendar date (31 Feb is refused), YYYY-MM-DD. Payment dates not in the future |

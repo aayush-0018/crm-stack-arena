@@ -3,6 +3,7 @@ import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
 import * as repo from './customers.repo';
 import { CustomerInput } from './customers.schemas';
+import { countOrdersWithEntries } from '../payments/payments.repo';
 import { syncOrderStock } from '../products/stock.service';
 
 function phoneExists(existingCustomerId: number) {
@@ -52,6 +53,15 @@ export async function deleteCustomer(shopId: number, userId: number, id: number,
     if (purge) {
       // Their orders are deleted as if they never happened, so their stock goes back first.
       const { rows: orders } = await c.query(`SELECT id FROM orders WHERE shop_id = $1 AND customer_id = $2 ORDER BY id FOR UPDATE`, [shopId, id]);
+      // Payments cascade with their orders; refuse rather than erase the money trail.
+      const withPayments = await countOrdersWithEntries(c, shopId, orders.map((o) => o.id));
+      if (withPayments) {
+        throw new AppError(
+          409,
+          'ORDERS_HAVE_PAYMENTS',
+          `${withPayments} of ${customer.name}'s orders ${withPayments === 1 ? 'has' : 'have'} payments recorded. Archive the customer instead, or remove those payments first.`,
+        );
+      }
       for (const o of orders) await syncOrderStock(c, shopId, o.id, userId, { removing: true, why: 'deleted with customer' });
       await c.query(
         `DELETE FROM invoices WHERE shop_id = $1 AND order_id IN (SELECT id FROM orders WHERE shop_id = $1 AND customer_id = $2)`,

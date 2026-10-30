@@ -12,7 +12,8 @@ import Button, { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
-import { downloadCsv, rupees } from '../../lib/csv';
+import { useToast } from '../../context/ToastContext';
+import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
 import { useAsync } from '../../lib/hooks';
 import { formatINRCompact } from '../../lib/money';
 import type { OrderListItem, OrderStatus, PaymentStatus } from '../../types';
@@ -43,21 +44,21 @@ export default function OrderListPage() {
 
   const analytics = useAsync(() => dashboardApi.analytics(30), []);
   const counts = useAsync(() => dashboardApi.summary(), []);
-  const list = useAsync(
-    () =>
-      ordersApi.list({
-        search: get('search') || undefined,
-        status,
-        paymentStatus,
-        from: get('from') || undefined,
-        to: get('to') || undefined,
-        sort,
-        dir,
-        page,
-        pageSize: PAGE_SIZE,
-      }),
-    [params.toString()],
-  );
+  const fetchPage = (p: number, pageSize: number) =>
+    ordersApi.list({
+      search: get('search') || undefined,
+      status,
+      paymentStatus,
+      from: get('from') || undefined,
+      to: get('to') || undefined,
+      sort,
+      dir,
+      page: p,
+      pageSize,
+    });
+  const list = useAsync(() => fetchPage(page, PAGE_SIZE), [params.toString()]);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
 
   const a = analytics.data;
   const rows = list.data?.data ?? [];
@@ -102,6 +103,18 @@ export default function OrderListPage() {
       { header: 'Total (Rs)', value: (o) => rupees(o.totalPaise) },
       { header: 'Paid (Rs)', value: (o) => rupees(o.amountPaidPaise) },
     ]);
+
+  // Export covers every order matching the current filters, not just this page.
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      exportCsv(await fetchAllPages(fetchPage));
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -171,7 +184,7 @@ export default function OrderListPage() {
                   analytics.reload();
                   counts.reload();
                 }}
-                warning="Each order is deleted permanently with its items and all its invoices. Order and invoice numbers are not reused. This can't be undone."
+                warning="Each order is deleted permanently with its items and all its invoices. Order and invoice numbers are not reused. This can't be undone. Orders with payments recorded are kept: cancel those instead."
               />
               <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())} className="text-ink-3 hover:text-ink">
                 <X size={16} />
@@ -179,7 +192,7 @@ export default function OrderListPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={() => exportCsv(rows)} disabled={!rows.length} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
+              <button type="button" onClick={exportAll} disabled={!rows.length || exporting}className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
                 <Download size={16} strokeWidth={1.75} /> Export
               </button>
               <CustomizeButton columns={orderColumns(true).filter((c) => c.optional)} hidden={hidden} onToggle={toggle} />

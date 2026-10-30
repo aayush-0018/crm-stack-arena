@@ -13,7 +13,8 @@ import Button, { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
-import { downloadCsv, rupees } from '../../lib/csv';
+import { useToast } from '../../context/ToastContext';
+import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
 import { relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
@@ -68,10 +69,10 @@ export default function CustomerListPage() {
   };
 
   const summary = useAsync(() => customersApi.summary(), []);
-  const list = useAsync(
-    () => customersApi.list({ segment, search: search || undefined, sort, dir, page, pageSize: PAGE_SIZE }),
-    [segment, search, sort, dir, page],
-  );
+  const fetchPage = (p: number, pageSize: number) => customersApi.list({ segment, search: search || undefined, sort, dir, page: p, pageSize });
+  const list = useAsync(() => fetchPage(page, PAGE_SIZE), [segment, search, sort, dir, page]);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
 
   const columns = COLUMNS.map((c) =>
     c.key === 'status'
@@ -111,6 +112,18 @@ export default function CustomerListPage() {
       { header: 'Due (Rs)', value: (c) => rupees(c.duePaise) },
       { header: 'Status', value: (c) => (c.segment ? SEGMENT_LABEL[c.segment] : '') },
     ]);
+
+  // Export covers every customer matching the current tab, search and sort, not just this page.
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      exportCsv(await fetchAllPages(fetchPage));
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -190,7 +203,7 @@ export default function CustomerListPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={() => exportCsv(rows)} disabled={!rows.length} className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
+              <button type="button" onClick={exportAll} disabled={!rows.length || exporting}className="hidden items-center gap-1.5 text-[14px] text-ink-2 hover:text-ink disabled:opacity-40 sm:inline-flex">
                 <Download size={16} strokeWidth={1.75} /> Export
               </button>
               <CustomizeButton columns={COLUMNS.filter((c) => c.optional)} hidden={hidden} onToggle={toggle} />

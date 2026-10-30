@@ -1,3 +1,15 @@
+import type { Paged } from '../types';
+
+/** Every row matching a list's filters, fetched page by page (the API caps a page at 100), so exports aren't cut off at the visible page. */
+export async function fetchAllPages<T>(fetchPage: (page: number, pageSize: number) => Promise<Paged<T>>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 1; ; page++) {
+    const res = await fetchPage(page, 100);
+    rows.push(...res.data);
+    if (!res.data.length || rows.length >= res.total) return rows;
+  }
+}
+
 /** Builds a CSV from rows and downloads it. Runs entirely in the browser. */
 export function downloadCsv<T>(filename: string, rows: T[], columns: { header: string; value: (row: T) => string | number | null | undefined }[]) {
   const esc = (v: string | number | null | undefined) => {

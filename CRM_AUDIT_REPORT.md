@@ -177,3 +177,61 @@ Suspected defects were probed with tests that expect the correct behaviour (`bac
 | P1 | POS: walk-in sale without a customer | Missing → **built** (approved) | Every order needed a customer with a valid mobile |
 | P2 | POS: duplicate submit, cart kept after a failure, concurrency-safe stock, refund trail | Already present | Idempotency keys, form state kept on error, row locks, payment ledger |
 | P3 | POS: barcode scanning, split payment at checkout, counter receipt printing, cash-drawer shifts, offline mode | Not built | Declined for now (barcode/split/receipt) or out of scope (drawer, offline) |
+
+---
+
+## 7. Third audit: the remaining review files (31 Oct 2026)
+
+Files: `01`, `02`, `11`, `13`, `14`, `16`, `17`, `18`, `19` and `20`. Files `03`–`10`, `12` and `15` were audited in sections 3 and 6.
+
+**Out of scope at your request:** login and password reset. Logout and sessions are noted only; nothing about them will be changed.
+
+### Baseline on this machine (Windows)
+
+The baseline could not run. Neither `backend/` nor `frontend/` has `node_modules` installed, and PostgreSQL is not installed. `npm run typecheck` and `npm test` stopped with "tsc is not recognized" and every test file failed to start. That says nothing about the code. The last full run (80/80, section 6) was on another machine. **No change will be made until the baseline runs here.**
+
+### Findings
+
+| # | File | Finding | Status | Evidence | Severity |
+|---|---|---|---|---|---|
+| A1 | 02, 10, 14 | **"Export" on Customers, Orders and Invoices downloads only the rows on the current page** (25), with nothing telling you so | Confirmed | `CustomerListPage.tsx:193`, `OrderListPage.tsx:182`, `InvoiceListPage.tsx:206` call `exportCsv(rows)`, and `rows` is one page (`PAGE_SIZE = 25`) | P1: a silently incomplete export |
+| A2 | 13, 14 | Deleting an order also deletes its payment and refund entries | Needs product decision (part of F15) | `007_payments.sql`: `payments.order_id … ON DELETE CASCADE`. Deleting is owner-only (`assertOwner`) | P1: financial history can disappear |
+| A3 | 14, 17 | Public invoice links never expire and can't be revoked | Needs product decision | `invoices.repo.ts:179` sets a token once. There's no expiry column or revoke route. The token is random (`randomBytes`) and unlocks one invoice | P2 |
+| A4 | 16 | Without branch codes, two branches both issue `INV-2026-000001`. Codes are unique only through an app check, with no database constraint | Needs accountant decision (with F16) | Per-branch counters; `codeTakenByOtherBranch()` in `shop.routes.ts` | P2 |
+| A5 | 16 | Shop phone accepts any text up to 20 characters, unlike customer phones | Confirmed, low | `shop.schemas.ts`: `phone: optionalText(20)` | P2 |
+| A6 | 02 | Animations ignore the "reduce motion" setting | Confirmed, low | No `prefers-reduced-motion` or `motion-reduce` anywhere; 16 animated or transition classes | P2 |
+| A7 | 14, 19 | No security headers on the frontend (frame-ancestors / X-Frame-Options, nosniff, referrer policy) | Confirmed, low | `frontend/vercel.json` has rewrites only | P2 |
+| A8 | 19 | No backups, error monitoring or structured logs. Unexpected errors go to the console only | Confirmed; needs an ops decision | `errorHandler.ts:41`; `DEPLOYMENT.md:365` asks the owner to schedule `pg_dump` | P1 before real shop data |
+| A9 | 11, 17 | Click-to-chat templates include promotional text ("Fresh stock", "We miss you"), and no consent or opt-out is recorded | Needs product decision | `MessageComposer.tsx`. Messages are sent by hand, one at a time, from the owner's own WhatsApp; nothing is automated | P2 |
+| A10 | 13 | Shop isolation is enforced in the API, not by the database (no row-level security) | Needs product decision | Every query is shop-scoped and proven by `tenancy.test.ts`; `DEPLOYMENT.md` closes Supabase's Data API | P2 |
+
+### Not applicable
+
+- **CSRF:** the token is sent as a Bearer header, not a cookie.
+- **Webhooks and background integrations:** there are none. WhatsApp and email open on the owner's own device (`wa.me`, `mailto:`).
+- **Uploads other than the logo:** there are none. The logo is PNG only, at most 400 KB, checked by signature.
+- **Role tests for staff:** no flow creates staff, so owner checks (`assertOwner`) are the only role rule.
+- **Payment gateway states:** there is no gateway (R6).
+
+### Verified working
+
+- **Input:** every route validates on the server (zod); unexpected errors return a generic message.
+- **XSS and SQL injection:** no `dangerouslySetInnerHTML`; SQL is parameterised; `LIKE` input is escaped.
+- **Lists:** every list is paged (at most 100 rows) with a stable sort order; the customer page's order history is paged.
+- **Configuration:** checked at startup (`config/env.ts`); there's a health check at `/api/health`; no secrets or `.env` files are committed (only `.env.example`).
+- **Shop settings:** the logo, pincode and GSTIN are validated; issued invoices keep a copy of the shop details (verified in section 3).
+
+### Decisions and status (31 Oct 2026)
+
+| # | Decision | Status |
+|---|---|---|
+| A1 | Approved | **Fixed.** Export fetches every row matching the current filters |
+| A2 | Approved | **Fixed.** Orders with payments can't be deleted (cancel or remove the payments first) |
+| A3 | Approved | **Fixed.** "Reset link" replaces an invoice's share link. Expiry isn't built (it would need a migration) |
+| A5 | Approved | **Fixed.** Shop and branch phone: 6–15 digits |
+| A6 | Approved | **Fixed.** Reduced-motion setting respected |
+| A7 | Approved | **Fixed.** Frontend security headers in `vercel.json` |
+| A4 | Removed for now | Not changed |
+| A8 | Backups will be done in Supabase, not in code | Not changed |
+| A9 | Fine for now | Not changed |
+| A10 | Left as it is for now | Not changed |

@@ -117,6 +117,13 @@ export async function getShareToken(shopId: number, id: number) {
   return token;
 }
 
+/** A new link for the invoice; the old one stops working. */
+export async function resetShareToken(shopId: number, id: number) {
+  const token = await repo.replaceShareToken(pool, shopId, id, newShareToken());
+  if (!token) throw notFound('Invoice');
+  return token;
+}
+
 export async function recordShare(
   shopId: number,
   userId: number,

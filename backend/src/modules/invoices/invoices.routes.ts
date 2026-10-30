@@ -76,6 +76,14 @@ invoicesRouter.post(
   }),
 );
 
+invoicesRouter.post(
+  '/invoices/:id/share-link/reset',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    res.json({ token: await service.resetShareToken(auth(req).shopId, id) });
+  }),
+);
+
 const shareBody = z.object({
   channel: z.enum(['whatsapp', 'email', 'share', 'link', 'download']),
   recipient: z.string().trim().max(200).nullish(),

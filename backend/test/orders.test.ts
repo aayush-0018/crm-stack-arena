@@ -110,6 +110,28 @@ describe('order deletion', () => {
     assert.equal(r.body.deletedInvoices, 1);
     assert.equal((await sql(`SELECT 1 FROM order_items WHERE order_id = $1`, [o.id])).length, 0);
   });
+
+  test('an order with payments recorded is not deleted, so its money history is kept', async () => {
+    const { api } = await newShop();
+    const o = await newOrder(api);
+    const p = (await api.post(`/orders/${o.id}/payments`, { amount: '50', method: 'cash' })).body.payments[0];
+    const r = await api.del(`/orders/${o.id}`);
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error.code, 'ORDER_HAS_PAYMENTS');
+    assert.equal((await sql(`SELECT 1 FROM payments WHERE order_id = $1`, [o.id])).length, 1);
+    // Once the owner removes the payment, deleting works as before.
+    await api.post(`/orders/${o.id}/payments/${p.id}/void`, { reason: 'Test order' });
+    assert.equal((await api.del(`/orders/${o.id}`)).status, 200);
+  });
+
+  test('a customer whose orders have payments is not purged', async () => {
+    const { api } = await newShop();
+    const o = await newOrder(api, { amountPaid: '10' });
+    const r = await api.del(`/customers/${o.customerId}?purge=true`);
+    assert.equal(r.status, 409);
+    assert.equal(r.body.error.code, 'ORDERS_HAVE_PAYMENTS');
+    assert.equal((await sql(`SELECT 1 FROM orders WHERE id = $1`, [o.id])).length, 1);
+  });
 });
 
 describe('orders with money due (dashboard "Oldest unpaid orders")', () => {

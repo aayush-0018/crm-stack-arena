@@ -77,6 +77,17 @@ export async function voidPayment(db: Db, id: number, userId: number, reason: st
   ]);
 }
 
+/** How many of these orders still have payment or refund entries (not removed). Deleting them would erase money history. */
+export async function countOrdersWithEntries(db: Db, shopId: number, orderIds: number[]): Promise<number> {
+  if (!orderIds.length) return 0;
+  const { rows } = await db.query(
+    `SELECT count(DISTINCT order_id)::int AS n FROM payments
+     WHERE shop_id = $1 AND order_id = ANY($2::bigint[]) AND voided_at IS NULL`,
+    [shopId, orderIds],
+  );
+  return rows[0].n;
+}
+
 /** Payments minus refunds, ignoring voided entries. */
 export async function netPaid(db: Db, orderId: number): Promise<number> {
   const { rows } = await db.query(

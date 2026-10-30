@@ -25,6 +25,18 @@
   --delta-down: #b42318;
 }
 
+/* Respect the device's "reduce motion" setting. The loading spinner keeps turning: it shows work is in progress. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @media print {
   @page {
     size: A4;

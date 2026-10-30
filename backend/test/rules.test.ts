@@ -64,3 +64,22 @@ describe('totals stay exact', () => {
     assert.equal(r.status, 400);
   });
 });
+
+describe('shop phone', () => {
+  test('landline, mobile and toll-free formats are accepted; text is refused', async () => {
+    const { api } = await newShop();
+    const shop = (await api.get('/shop')).body;
+    for (const phone of ['0141 2345678', '+91 98765 43210', '1800-123-4567', '(0141) 234567']) {
+      const r = await api.put('/shop', { ...shop, phone });
+      assert.equal(r.status, 200, phone);
+      assert.equal(r.body.phone, phone);
+    }
+    for (const phone of ['call me', '12345', '9'.repeat(16)]) {
+      const r = await api.put('/shop', { ...shop, phone });
+      assert.equal(r.status, 400, phone);
+      assert.ok(r.body.error.details.phone, phone);
+    }
+    assert.equal((await api.put('/shop', { ...shop, phone: '' })).body.phone, null);
+    assert.equal((await api.post('/branches', { name: 'Second', phone: 'abc' })).status, 400);
+  });
+});

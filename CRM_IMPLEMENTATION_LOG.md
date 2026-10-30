@@ -382,3 +382,58 @@ See `CRM_TEST_RESULTS.md`.
 5. **Adjacent workflows:** invoices, sending, payments, stock, dashboard, customers summary, seed script.
 6. **Unresolved:** the "Active" tab wording (R7); the other POS items were declined.
 7. **Safe to proceed:** yes. Run migration **010** on Supabase before pushing this code.
+
+---
+
+## Round 3: remaining review files (A1–A7), 31 Oct 2026
+
+**Environment:** Windows, Node 24. Dependencies were installed with `npm ci` from the lockfiles. There's no local PostgreSQL: you chose to check against Supabase live. So the **integration tests (`npm test`) were not run**. New tests were written and type-checked, and they'll run wherever `crm_test` exists.
+
+**Your instructions:** login and password reset are untouched, and the existing UI design is kept. New controls reuse existing styles.
+
+| Item | Change | Files |
+|---|---|---|
+| A1 | Export on Customers, Orders and Invoices fetches every page that matches the current tab, search, filters and sort (100 rows per request), not just the 25 rows on screen. The button is disabled while it works, and an error shows as a toast. Exporting selected rows is unchanged. All three lists sort with an `id` tiebreaker, so paging can't skip or repeat a row | `frontend/src/lib/csv.ts` (`fetchAllPages`), `pages/customers/CustomerListPage.tsx`, `pages/orders/OrderListPage.tsx`, `pages/invoices/InvoiceListPage.tsx` |
+| A2 | Deleting an order that still has payment or refund entries counting is refused with 409 `ORDER_HAS_PAYMENTS` and a plain message. Deleting a customer together with their orders is refused with 409 `ORDERS_HAVE_PAYMENTS` when any of those orders has them. Removed (voided) entries don't block, so an owner can still clear a mistaken order in two deliberate steps. The bulk-delete warning on the Orders list says paid orders are kept; other screens already show the server's message | `backend/src/modules/payments/payments.repo.ts` (`countOrdersWithEntries`), `orders/orders.service.ts`, `customers/customers.service.ts`, `frontend/src/pages/orders/OrderListPage.tsx` |
+| A3 | `POST /api/invoices/:id/share-link/reset` makes a new token, so the old link returns 404. The Send invoice dialog has a "Reset link" text button that asks for a second click, then swaps the link in the box and in the message | `backend/src/modules/invoices/invoices.{repo,service,routes}.ts`, `frontend/src/api/endpoints.ts`, `components/invoices/SendInvoiceModal.tsx` |
+| A5 | Shop and branch phone accept 6–15 digits with `+ ( ) -` and spaces, or blank. Other text gets a field error under Phone. Existing values aren't changed; a bad one only has to be fixed when the shop details are next saved | `backend/src/modules/shop/shop.schemas.ts` |
+| A6 | When the device asks for reduced motion, transitions are switched off. The loading spinner keeps turning | `frontend/src/index.css` |
+| A7 | Vercel sends `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` that blocks camera, microphone and location. The app uses no iframes or camera (checked). The CSP only stops framing; a full script policy would need testing on the live domains | `frontend/vercel.json` |
+
+**Database:** no migrations and no data changes.
+
+**Checks run**
+
+| Check | Result |
+|---|---|
+| `backend: npm run typecheck` (src, scripts, tests) | Pass |
+| `backend: npm run build` | Pass |
+| `frontend: npm run build` (tsc and vite) | Pass |
+| Shop-phone schema run directly with good and bad inputs | Accepts and refuses as specified |
+| `backend: npm test` | **Not run**: no local PostgreSQL |
+| Browser checks | **Not run**: needs a running API and database. Check live after deploy (below) |
+
+**New tests (written, not yet run):**
+- `orders.test.ts`: a paid order can't be deleted; once its payment is removed, it can; a customer with a paid order can't be purged.
+- `invoices.test.ts`: reset kills the old link and the new one works; another shop can't reset it.
+- `rules.test.ts`: shop and branch phone formats.
+
+**Check on the live site after deploying:**
+1. Export from each list with a filter that matches more than 25 rows. The file should hold all of them.
+2. Try to delete an order that has a payment. It should be refused with the message.
+3. Send invoice → Reset link (two clicks). The old link should stop opening.
+4. Settings → phone "abc" should show an error; a landline should save.
+5. Check the response headers on the Vercel URL.
+
+**Recheck protocol**
+
+1. **Justification:** findings A1, A2, A3, A5, A6 and A7, as approved.
+2. **Files and database objects:** listed above; no database objects changed.
+3. **Tests:** typecheck and builds pass. Integration tests weren't run (no database).
+4. **UI vs data:** not checked in a browser; to be checked live.
+5. **Adjacent workflows:**
+   - Selected-row export, bulk delete error reporting and the order and customer delete toasts were reviewed in code.
+   - Opening the send dialog still returns the existing link.
+   - Login and password reset are untouched.
+6. **Unresolved:** share-link expiry and a full CSP.
+7. **Safe to deploy:** yes, once `npm test` passes somewhere with a database, or the live checks above pass.

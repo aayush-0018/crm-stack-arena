@@ -70,6 +70,7 @@ export default function SendInvoiceModal({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const shareable = canShareFiles();
 
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function SendInvoiceModal({
     let cancelled = false;
     setError(null);
     setCopied(false);
+    setConfirmReset(false);
     Promise.all([invoicesApi.get(invoiceId), invoicesApi.shareLink(invoiceId)])
       .then(([invoice, { token }]) => {
         if (cancelled) return;
@@ -144,6 +146,22 @@ export default function SendInvoiceModal({
       log('link');
     } catch {
       toast('error', 'Could not copy — select the link and copy it manually');
+    }
+  };
+
+  // Two clicks: links already sent to customers stop working once it's reset.
+  const resetLink = async () => {
+    if (!confirmReset) return setConfirmReset(true);
+    setConfirmReset(false);
+    try {
+      const { token } = await invoicesApi.resetShareLink(invoiceId);
+      const link = `${apiOrigin()}/api/public/invoices/${token}/pdf`;
+      if (url) setMessage((m) => m.split(url).join(link));
+      setUrl(link);
+      setCopied(false);
+      toast('success', 'New link ready. The old link no longer opens this invoice.');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Could not reset the link');
     }
   };
 
@@ -255,7 +273,10 @@ export default function SendInvoiceModal({
                 </Button>
               </div>
               <p className="-mt-2 text-[12px] text-ink-3">
-                Anyone with this link can download this one invoice — no login needed. It doesn't open anything else in your shop.
+                Anyone with this link can download this one invoice — no login needed. It doesn't open anything else in your shop.{' '}
+                <button type="button" className="text-ink-3 underline-offset-2 hover:text-ink hover:underline" onClick={resetLink}>
+                  {confirmReset ? 'Click again to reset: links already sent will stop working' : 'Reset link'}
+                </button>
               </p>
             </>
           )}

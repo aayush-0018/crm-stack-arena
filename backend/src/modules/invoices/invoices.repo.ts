@@ -183,6 +183,15 @@ export async function ensureShareToken(db: Db, shopId: number, id: number, fresh
   return rows[0]?.shareToken ?? null;
 }
 
+/** Replaces the share token, so every link handed out before stops working. */
+export async function replaceShareToken(db: Db, shopId: number, id: number, fresh: string): Promise<string | null> {
+  const { rows } = await db.query(
+    `UPDATE invoices SET share_token = $3 WHERE shop_id = $1 AND id = $2 RETURNING share_token AS "shareToken"`,
+    [shopId, id, fresh],
+  );
+  return rows[0]?.shareToken ?? null;
+}
+
 /** Public lookup: the token itself is the authorisation, so there is no shop scope. */
 export async function findInvoiceByShareToken(db: Db, token: string): Promise<Invoice | null> {
   const { rows } = await db.query(`SELECT ${FULL_COLS} FROM invoices i WHERE i.share_token = $1`, [token]);

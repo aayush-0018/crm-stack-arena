@@ -5,7 +5,7 @@ import { branchCode, formatOrderNumber, nextSeq, todayIST } from '../../lib/numb
 import { findCustomer } from '../customers/customers.repo';
 import { createCustomer } from '../customers/customers.service';
 import { latestInvoiceForOrder, voidIssuedInvoice } from '../invoices/invoices.repo';
-import { listPayments } from '../payments/payments.repo';
+import { countOrdersWithEntries, listPayments } from '../payments/payments.repo';
 import { PaymentMethod } from '../payments/payments.schemas';
 import { addEntry, adjustPaidTo, syncPaid } from '../payments/payments.service';
 import { assertShopProducts, syncOrderStock } from '../products/stock.service';
@@ -134,6 +134,14 @@ export async function deleteOrder(shopId: number, userId: number, id: number) {
   return withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
+    // Payments cascade with the order, so deleting would silently erase the money trail.
+    if (await countOrdersWithEntries(c, shopId, [id])) {
+      throw new AppError(
+        409,
+        'ORDER_HAS_PAYMENTS',
+        `${order.orderNumber} has payments recorded. Cancel it instead (you can refund what was paid), or remove its payments first.`,
+      );
+    }
     await syncOrderStock(c, shopId, id, userId, { removing: true, why: 'deleted' });
     // invoices -> orders is RESTRICT, so invoices go first (their share logs cascade).
     const inv = await c.query(`DELETE FROM invoices WHERE shop_id = $1 AND order_id = $2`, [shopId, id]);
