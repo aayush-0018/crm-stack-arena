@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError } from '../../lib/errors';
+import { createLimiter } from '../../lib/throttle';
 import { signToken } from '../../middleware/auth';
 import { findShop } from '../shop/shop.repo';
 import { loginSchema, registerSchema } from './auth.schemas';
@@ -46,14 +47,29 @@ export async function register(input: z.infer<typeof registerSchema>) {
   return session(user);
 }
 
-export async function login(input: z.infer<typeof loginSchema>) {
+// Failed logins only: 5 per account and 20 per IP address in 15 minutes, then wait.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const failedByEmail = createLimiter(5, LOGIN_WINDOW_MS);
+const failedByIp = createLimiter(20, LOGIN_WINDOW_MS);
+
+export async function login(input: z.infer<typeof loginSchema>, ip = 'unknown') {
+  const wait = Math.max(failedByEmail.retryAfter(input.email), failedByIp.retryAfter(ip));
+  if (wait > 0) {
+    const mins = Math.ceil(wait / 60_000);
+    throw new AppError(429, 'RATE_LIMITED', `Too many failed attempts. Please try again in ${mins} minute${mins === 1 ? '' : 's'}, or reset your password.`);
+  }
   const { rows } = await pool.query(
     `SELECT ${USER_COLS}, password_hash AS "passwordHash" FROM users WHERE lower(email) = $1`,
     [input.email],
   );
   const row = rows[0];
   const ok = row ? await bcrypt.compare(input.password, row.passwordHash) : false;
-  if (!ok) throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+  if (!ok) {
+    failedByEmail.hit(input.email);
+    failedByIp.hit(ip);
+    throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+  }
+  failedByEmail.reset(input.email);
   return openLastBranch(row.id, row.shopId);
 }
 

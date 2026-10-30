@@ -18,7 +18,7 @@ authRouter.post(
 authRouter.post(
   '/login',
   ah(async (req, res) => {
-    res.json(await service.login(loginSchema.parse(req.body)));
+    res.json(await service.login(loginSchema.parse(req.body), req.ip ?? 'unknown'));
   }),
 );
 
