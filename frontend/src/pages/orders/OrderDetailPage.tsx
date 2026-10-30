@@ -190,7 +190,15 @@ export default function OrderDetailPage() {
                 {o.items.map((it) => (
                   <tr key={it.position}>
                     <td className="h-[46px] pl-4 pr-3 text-ink-3 sm:pl-6">{it.position}</td>
-                    <td className="px-3 text-ink">{it.itemName}</td>
+                    <td className="px-3 text-ink">
+                      {it.productId ? (
+                        <Link to={`/products/${it.productId}`} className="hover:underline">
+                          {it.itemName}
+                        </Link>
+                      ) : (
+                        it.itemName
+                      )}
+                    </td>
                     <td className="px-3 text-right tabular-nums">
                       {formatQty(it.quantity)}
                     </td>

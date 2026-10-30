@@ -21,6 +21,8 @@ export const updateShopSchema = z.object({
     ])
     .nullish()
     .transform((v) => (v ? v : null)),
+  /** Omitted = leave as it is. */
+  allowNegativeStock: z.boolean().optional(),
 });
 
 export const branchCodeInput = z

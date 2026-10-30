@@ -8,6 +8,7 @@ import { latestInvoiceForOrder, voidIssuedInvoice } from '../invoices/invoices.r
 import { listPayments } from '../payments/payments.repo';
 import { PaymentMethod } from '../payments/payments.schemas';
 import { addEntry, adjustPaidTo, syncPaid } from '../payments/payments.service';
+import { assertShopProducts, syncOrderStock } from '../products/stock.service';
 import * as repo from './orders.repo';
 import { CreateOrderInput, OrderStatus, UpdateOrderInput } from './orders.schemas';
 import { assertPaidWithinTotal, computeTotals } from './totals';
@@ -63,6 +64,7 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
         });
       }
 
+      await assertShopProducts(c, shopId, totals.lines.flatMap((l) => (l.productId ? [l.productId] : [])));
       const seq = await nextSeq(c, shopId, 'order');
       const id = await repo.insertOrder(c, {
         shopId,
@@ -75,6 +77,7 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
         createdBy: userId,
       });
       await repo.replaceItems(c, id, totals.lines);
+      await syncOrderStock(c, shopId, id, userId);
       if (totals.amountPaidPaise > 0) {
         await addEntry(c, {
           shopId,
@@ -111,20 +114,23 @@ export async function updateOrder(shopId: number, userId: number, id: number, in
     // recorded as one adjustment entry; omitting it keeps the payments as they are.
     const paid = input.amountPaid ?? order.amountPaidPaise;
     const totals = computeTotals(input.items, input.discount, paid);
+    await assertShopProducts(c, shopId, totals.lines.flatMap((l) => (l.productId ? [l.productId] : [])));
     await adjustPaidTo(c, shopId, order, userId, paid, 'Adjusted while editing the order');
     await repo.updateOrderTotals(c, shopId, id, totals, input.notes, input.orderDate);
     await repo.replaceItems(c, id, totals.lines);
+    await syncOrderStock(c, shopId, id, userId, { why: 'edited' });
     await syncPaid(c, shopId, id);
   });
   // Issued invoices are never modified here; getOrder reports invoice.outdated.
   return getOrder(shopId, id);
 }
 
-/** Deletes an order with its items and every invoice revision for it. */
-export async function deleteOrder(shopId: number, id: number) {
+/** Deletes an order with its items and every invoice revision for it. Its stock goes back. */
+export async function deleteOrder(shopId: number, userId: number, id: number) {
   return withTransaction(async (c) => {
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
+    await syncOrderStock(c, shopId, id, userId, { removing: true, why: 'deleted' });
     // invoices -> orders is RESTRICT, so invoices go first (their share logs cascade).
     const inv = await c.query(`DELETE FROM invoices WHERE shop_id = $1 AND order_id = $2`, [shopId, id]);
     await c.query(`DELETE FROM orders WHERE shop_id = $1 AND id = $2`, [shopId, id]); // items cascade
@@ -143,6 +149,10 @@ export async function setStatus(
     const order = await repo.findOrder(c, shopId, id, { forUpdate: true });
     if (!order) throw notFound('Order');
     await repo.updateStatus(c, shopId, id, status);
+    // Cancelling puts the stock back; reopening takes it again (refused if it has run out).
+    if (status === 'cancelled' || order.status === 'cancelled') {
+      await syncOrderStock(c, shopId, id, userId, { why: status === 'cancelled' ? 'cancelled' : 'reopened' });
+    }
     if (status === 'cancelled') {
       await voidIssuedInvoice(c, id);
       if (refund && order.amountPaidPaise > 0) {

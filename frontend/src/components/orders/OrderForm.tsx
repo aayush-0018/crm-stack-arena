@@ -24,6 +24,7 @@ export interface OrderFormState {
 export const orderToForm = (o: Order): OrderFormState => ({
   rows: o.items.map((it) => ({
     key: `${o.id}-${it.position}`,
+    productId: it.productId,
     itemName: it.itemName,
     quantity: String(Number(it.quantity)),
     unitPrice: paiseToInput(it.unitPricePaise),
@@ -115,6 +116,7 @@ export default function OrderForm({
     try {
       await submit({
         items: rows.map((r) => ({
+          productId: r.productId ?? null,
           itemName: r.itemName.trim(),
           quantity: r.quantity.trim(),
           unitPrice: r.unitPrice.trim(),

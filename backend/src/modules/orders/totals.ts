@@ -4,6 +4,7 @@ import { LineItemInput, PaymentStatus } from './orders.schemas';
 
 export interface ComputedLine {
   position: number;
+  productId: number | null;
   itemName: string;
   quantity: string;
   unitPricePaise: number;
@@ -40,6 +41,7 @@ export function computeTotals(
 ): ComputedTotals {
   const lines = items.map((it, i) => ({
     position: i + 1,
+    productId: it.productId ?? null,
     itemName: it.itemName,
     quantity: milliToQuantity(it.quantity),
     unitPricePaise: it.unitPrice,

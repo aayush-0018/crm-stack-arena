@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Shop } from '../types';
 
-type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey'>, string>;
+type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey' | 'allowNegativeStock'>, string>;
 const toValues = (s: Shop | null): Values => ({
   name: s?.name ?? '',
   phone: s?.phone ?? '',
@@ -50,8 +50,24 @@ export default function SettingsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stockBusy, setStockBusy] = useState(false);
 
   useEffect(() => setValues(toValues(shop)), [shop]);
+
+  // Saved on its own, from the saved shop details, so unsaved edits above aren't sent with it.
+  const setNegativeStock = async (allow: boolean) => {
+    if (!shop) return;
+    setStockBusy(true);
+    try {
+      const { id: _id, logoKey: _logo, ...saved } = shop;
+      setShop(await shopApi.update({ ...saved, allowNegativeStock: allow }));
+      toast('success', allow ? 'Orders can now take stock below zero' : 'Orders can no longer take stock below zero');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Could not save');
+    } finally {
+      setStockBusy(false);
+    }
+  };
 
   const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [k]: e.target.value });
 
@@ -138,6 +154,25 @@ export default function SettingsPage() {
             Save
           </Button>
         </form>
+      </Card>
+
+      <Card title="Stock" className="mt-5">
+        <label className="flex cursor-pointer items-start gap-3 text-[14px]">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-[#171717]"
+            checked={!!shop?.allowNegativeStock}
+            disabled={stockBusy || !isOwner}
+            onChange={(e) => setNegativeStock(e.target.checked)}
+          />
+          <span>
+            <span className="text-ink">Allow selling when stock runs out</span>
+            <span className="mt-0.5 block text-[13px] text-ink-3">
+              Off: an order that needs more than is in stock is refused, so your counts stay right. On: the sale goes through, the
+              stock goes below zero and the product shows as low stock until you add stock or do a stock count.
+            </span>
+          </span>
+        </label>
       </Card>
       </div>
     </>

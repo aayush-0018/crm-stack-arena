@@ -58,7 +58,7 @@ customersRouter.delete(
     const { id } = idParam.parse(req.params);
     const { userId, shopId } = auth(req);
     await assertOwner(userId, shopId, 'delete customers');
-    res.json(await service.deleteCustomer(shopId, id, req.query.purge === 'true'));
+    res.json(await service.deleteCustomer(shopId, userId, id, req.query.purge === 'true'));
   }),
 );
 

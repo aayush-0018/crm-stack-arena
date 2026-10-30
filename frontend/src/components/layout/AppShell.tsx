@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   LogOut,
   Menu,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { dashboardApi, invoicesApi } from '../../api/endpoints';
+import { dashboardApi, invoicesApi, productsApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../ui/Avatar';
 import Popover, { MenuItem } from '../ui/Popover';
@@ -101,7 +102,7 @@ export default function AppShell() {
       return true;
     }
   }); // desktop sidebar, remembered
-  const [counts, setCounts] = useState<{ open?: number; outdated?: number }>({});
+  const [counts, setCounts] = useState<{ open?: number; outdated?: number; lowStock?: number }>({});
   const daily = useDailySummary(shop?.id);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const openSummary = () => {
@@ -113,8 +114,8 @@ export default function AppShell() {
   // Badge counts; refreshed on navigation.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([dashboardApi.summary(), invoicesApi.summary()])
-      .then(([d, i]) => !cancelled && setCounts({ open: d.openOrders, outdated: i.outdated }))
+    Promise.all([dashboardApi.summary(), invoicesApi.summary(), productsApi.lowStockCount()])
+      .then(([d, i, p]) => !cancelled && setCounts({ open: d.openOrders, outdated: i.outdated, lowStock: p.count }))
       .catch(() => undefined);
     return () => {
       cancelled = true;
@@ -181,6 +182,7 @@ export default function AppShell() {
         <NavItem to="/customers" icon={<Contact {...ICON} />} label="Customers" />
         <NavItem to="/orders" icon={<ArrowLeftRight {...ICON} />} label="Orders" count={counts.open} />
         <NavItem to="/invoices" icon={<FileText {...ICON} />} label="Invoices" count={counts.outdated} />
+        <NavItem to="/products" icon={<Package {...ICON} />} label="Products" count={counts.lowStock} />
         <NavItem to="/analytics" icon={<ChartLine {...ICON} />} label="Analytics and reports" />
 
         <SectionLabel>Shop</SectionLabel>

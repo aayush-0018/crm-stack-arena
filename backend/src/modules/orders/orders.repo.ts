@@ -88,7 +88,7 @@ export async function findOrderIdByIdempotencyKey(db: Db, shopId: number, key: s
 
 export async function findItems(db: Db, orderId: number): Promise<ComputedLine[]> {
   const { rows } = await db.query(
-    `SELECT position, item_name AS "itemName", quantity,
+    `SELECT position, product_id AS "productId", item_name AS "itemName", quantity,
        unit_price_paise AS "unitPricePaise", line_total_paise AS "lineTotalPaise"
      FROM order_items WHERE order_id = $1 ORDER BY position`,
     [orderId],
@@ -145,12 +145,12 @@ export async function replaceItems(db: Db, orderId: number, lines: ComputedLine[
   await db.query(`DELETE FROM order_items WHERE order_id = $1`, [orderId]);
   const params: unknown[] = [orderId];
   const values = lines.map((l) => {
-    params.push(l.position, l.itemName, l.quantity, l.unitPricePaise, l.lineTotalPaise);
+    params.push(l.position, l.productId, l.itemName, l.quantity, l.unitPricePaise, l.lineTotalPaise);
     const n = params.length;
-    return `($1, $${n - 4}, $${n - 3}, $${n - 2}, $${n - 1}, $${n})`;
+    return `($1, $${n - 5}, $${n - 4}, $${n - 3}, $${n - 2}, $${n - 1}, $${n})`;
   });
   await db.query(
-    `INSERT INTO order_items (order_id, position, item_name, quantity, unit_price_paise, line_total_paise)
+    `INSERT INTO order_items (order_id, position, product_id, item_name, quantity, unit_price_paise, line_total_paise)
      VALUES ${values.join(', ')}`,
     params,
   );

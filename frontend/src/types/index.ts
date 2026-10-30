@@ -31,6 +31,8 @@ export interface Shop {
   gstin: string | null;
   code: string | null;
   logoKey: string | null;
+  /** When off (default), an order that would take a product below zero is refused. */
+  allowNegativeStock: boolean;
 }
 
 export interface Branch {
@@ -112,6 +114,8 @@ export interface CustomerDetail extends Customer {
 
 export interface OrderItem {
   position: number;
+  /** Set when the line was picked from the product list. */
+  productId: number | null;
   itemName: string;
   quantity: string;
   unitPricePaise: number;
@@ -259,4 +263,45 @@ export interface DailySummary {
   /** Payments minus refunds entered in the window, on any order. */
   receivedPaise: number;
   refundedPaise: number;
+}
+
+export const PRODUCT_UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'm', 'box', 'pack', 'dozen', 'pair', 'set'] as const;
+export type ProductUnit = (typeof PRODUCT_UNITS)[number];
+
+/** Quantities are integer milli-units (1.5 kg = 1500). */
+export interface Product {
+  id: number;
+  name: string;
+  sku: string | null;
+  category: string | null;
+  unit: ProductUnit;
+  pricePaise: number;
+  costPaise: number | null;
+  trackStock: boolean;
+  lowStockMilli: number | null;
+  active: boolean;
+  stockMilli: number;
+  /** Tracked and at/below its warning level, or below zero. */
+  low: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StockMovementKind = 'opening' | 'receipt' | 'adjustment' | 'stocktake' | 'write_off' | 'sale' | 'sale_reversal';
+
+export interface StockMovement {
+  id: number;
+  kind: StockMovementKind;
+  qtyMilli: number;
+  /** Stock level right after this movement. */
+  balanceMilli: number;
+  orderId: number | null;
+  orderNumber: string | null;
+  note: string | null;
+  createdAt: string;
+  createdByName: string | null;
+}
+
+export interface ProductDetail extends Product {
+  movements: StockMovement[];
 }

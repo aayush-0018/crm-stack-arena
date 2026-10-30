@@ -70,6 +70,6 @@ ordersRouter.delete(
     const { id } = idParam.parse(req.params);
     const { userId, shopId } = auth(req);
     await assertOwner(userId, shopId, 'delete orders');
-    res.json(await service.deleteOrder(shopId, id));
+    res.json(await service.deleteOrder(shopId, userId, id));
   }),
 );

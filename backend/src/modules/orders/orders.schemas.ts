@@ -15,6 +15,8 @@ const lineItemInput = z.object({
   itemName: z.string({ required_error: 'Item name is required' }).trim().min(1, 'Item name is required').max(200),
   quantity: quantityInput.refine((m) => m <= 99_999_000, 'Quantity is too large'),
   unitPrice: moneyInput.refine((p) => p <= MAX_UNIT_PRICE_PAISE, 'Price is too large'),
+  /** Set when the line was picked from the product list; free-text lines leave it out. */
+  productId: z.coerce.number().int().positive().nullish(),
 });
 export type LineItemInput = z.infer<typeof lineItemInput>;
 

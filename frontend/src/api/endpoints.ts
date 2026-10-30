@@ -20,6 +20,9 @@ import type {
   PaymentKind,
   PaymentMethod,
   PaymentStatus,
+  Product,
+  ProductDetail,
+  ProductUnit,
   Session,
   ShareChannel,
   Shop,
@@ -46,7 +49,7 @@ export const branchesApi = {
 
 export const shopApi = {
   get: () => api.get<Shop>('/shop'),
-  update: (body: Omit<Shop, 'id' | 'logoKey'>) => api.put<Shop>('/shop', body),
+  update: (body: Omit<Shop, 'id' | 'logoKey' | 'allowNegativeStock'> & { allowNegativeStock?: boolean }) => api.put<Shop>('/shop', body),
   uploadLogo: (dataUrl: string) => api.put<Shop>('/shop/logo', { dataUrl }),
   removeLogo: () => api.delete<Shop>('/shop/logo'),
 };
@@ -79,6 +82,7 @@ export const customersApi = {
 };
 
 export interface OrderItemPayload {
+  productId?: number | null;
   itemName: string;
   quantity: string;
   unitPrice: string;
@@ -156,4 +160,29 @@ export const dashboardApi = {
   summary: () => api.get<DashboardSummary>('/dashboard/summary'),
   analytics: (days: AnalyticsDays) => api.get<Analytics>('/dashboard/analytics', { days }),
   dailySummary: (date: string) => api.get<DailySummary>('/dashboard/daily-summary', { date }),
+};
+
+export interface ProductPayload {
+  name: string;
+  sku: string | null;
+  category: string | null;
+  unit: ProductUnit;
+  price: string;
+  cost: string | null;
+  trackStock: boolean;
+  lowStockAt: string | null;
+}
+
+export const productsApi = {
+  list: (q: { search?: string; status?: 'active' | 'low' | 'archived'; page?: number; pageSize?: number }) =>
+    api.get<Paged<Product>>('/products', q),
+  lowStockCount: () => api.get<{ count: number }>('/products/low-stock-count'),
+  get: (id: number | string) => api.get<ProductDetail>(`/products/${id}`),
+  create: (body: ProductPayload & { openingStock: string | null }) => api.post<ProductDetail>('/products', body),
+  update: (id: number | string, body: ProductPayload) => api.put<ProductDetail>(`/products/${id}`, body),
+  setActive: (id: number | string, active: boolean) => api.patch<ProductDetail>(`/products/${id}/active`, { active }),
+  addStock: (
+    id: number | string,
+    body: { kind: 'receipt' | 'write_off' | 'stocktake'; qty: string; note: string | null; idempotencyKey: string },
+  ) => api.post<ProductDetail>(`/products/${id}/stock`, body),
 };

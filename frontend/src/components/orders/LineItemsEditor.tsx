@@ -1,13 +1,19 @@
 import { KeyboardEvent } from 'react';
-import { formatINR, lineTotalPaise } from '../../lib/money';
+import { formatINR, lineTotalPaise, paiseToInput } from '../../lib/money';
 import { uuid } from '../../lib/uuid';
+import { formatStock } from '../products/ProductParts';
 import Button from '../ui/Button';
+import ProductPicker from './ProductPicker';
 
 export interface ItemRow {
   key: string;
   itemName: string;
   quantity: string;
   unitPrice: string;
+  /** Set when picked from the product list; typing over the name unlinks it. */
+  productId?: number | null;
+  /** Stock info from when it was picked, for the hint under the line. */
+  stock?: { milli: number; unit: string } | null;
 }
 
 export const newRow = (): ItemRow => ({ key: uuid(), itemName: '', quantity: '1', unitPrice: '' });
@@ -65,16 +71,23 @@ export default function LineItemsEditor({
           >
             <span className="hidden pt-3 text-sm text-ink-3 md:block">{i + 1}</span>
             <div className="col-span-2 md:col-span-1">
-              <input
-                data-item-name
-                aria-label={`Item ${i + 1} name`}
-                placeholder="Item name"
-                className={input(!!err(i, 'itemName'))}
+              <ProductPicker
+                index={i}
                 value={r.itemName}
-                onChange={(e) => update(i, { itemName: e.target.value })}
-                onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                invalid={!!err(i, 'itemName')}
+                className={input(!!err(i, 'itemName'))}
+                onType={(text) => update(i, { itemName: text, productId: null, stock: null })}
+                onPick={(p) =>
+                  update(i, {
+                    itemName: p.name,
+                    unitPrice: paiseToInput(p.pricePaise),
+                    productId: p.id,
+                    stock: p.trackStock ? { milli: p.stockMilli, unit: p.unit } : null,
+                  })
+                }
               />
               {err(i, 'itemName') && <p className="mt-1 text-xs text-[#b42318]">{err(i, 'itemName')}</p>}
+              {r.productId ? <StockHint row={r} /> : null}
             </div>
             <div>
               <input
@@ -122,5 +135,17 @@ export default function LineItemsEditor({
       </Button>
       <p className="mt-2 text-[12px] text-ink-3">Tip: press Enter in the last price field to add another row.</p>
     </div>
+  );
+}
+
+/** "From products · 7 kg in stock", or a warning when the line asks for more than that. */
+function StockHint({ row }: { row: ItemRow }) {
+  if (!row.stock) return <p className="mt-1 text-[12px] text-ink-3">From products</p>;
+  const wanted = Math.round(Number(row.quantity) * 1000);
+  const short = Number.isFinite(wanted) && wanted > row.stock.milli;
+  return (
+    <p className={`mt-1 text-[12px] ${short ? 'text-[#b42318]' : 'text-ink-3'}`}>
+      From products · {formatStock(row.stock.milli, row.stock.unit)} in stock{short ? ' — not enough for this quantity' : ''}
+    </p>
   );
 }

@@ -19,6 +19,9 @@ import OrderCreatePage from './pages/orders/OrderCreatePage';
 import OrderDetailPage from './pages/orders/OrderDetailPage';
 import OrderEditPage from './pages/orders/OrderEditPage';
 import OrderListPage from './pages/orders/OrderListPage';
+import ProductDetailPage from './pages/products/ProductDetailPage';
+import { ProductCreatePage, ProductEditPage } from './pages/products/ProductFormPages';
+import ProductListPage from './pages/products/ProductListPage';
 
 export default function App() {
   return (
@@ -40,6 +43,10 @@ export default function App() {
           <Route path="orders/:id/edit" element={<OrderEditPage />} />
           <Route path="invoices" element={<InvoiceListPage />} />
           <Route path="invoices/:id" element={<InvoicePreviewPage />} />
+          <Route path="products" element={<ProductListPage />} />
+          <Route path="products/new" element={<ProductCreatePage />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="products/:id/edit" element={<ProductEditPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />

@@ -81,3 +81,25 @@ describe('008_zero_total_orders upgrade', () => {
     await assert.rejects(sql(`UPDATE orders SET payment_status = 'unpaid' WHERE id = $1`, [zeroOpen]));
   });
 });
+
+describe('009_products_inventory upgrade', () => {
+  test('existing order lines stay free-text, existing branches block negative stock, nothing else changes', async () => {
+    await resetDb(migrationFiles().filter((f) => f < '009'));
+    const [shop] = await sql(`INSERT INTO shops (name) VALUES ('S') RETURNING id`);
+    const [cust] = await sql(`INSERT INTO customers (shop_id, name, phone) VALUES ($1, 'C', '9876500002') RETURNING id`, [shop.id]);
+    const [o] = await sql(
+      `INSERT INTO orders (shop_id, customer_id, order_number, subtotal_paise, total_paise) VALUES ($1, $2, 'O1', 1000, 1000) RETURNING id`,
+      [shop.id, cust.id],
+    );
+    await sql(`INSERT INTO order_items (order_id, position, item_name, quantity, unit_price_paise, line_total_paise) VALUES ($1, 1, 'Rice', 2, 500, 1000)`, [o.id]);
+    const items = await sql(`SELECT * FROM order_items`);
+
+    await applyMigration('009_products_inventory.sql');
+
+    const after = await sql(`SELECT * FROM order_items`);
+    assert.equal(after[0].product_id, null);
+    const { product_id: _p, ...rest } = after[0];
+    assert.deepEqual(rest, items[0]);
+    assert.equal((await sql(`SELECT allow_negative_stock FROM shops`))[0].allow_negative_stock, false);
+  });
+});

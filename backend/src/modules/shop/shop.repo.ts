@@ -13,11 +13,12 @@ export interface Shop {
   gstin: string | null;
   code: string | null;
   logoKey: string | null;
+  allowNegativeStock: boolean;
 }
 
 export const SHOP_COLS = `id, name, phone, email,
   address_line1 AS "addressLine1", address_line2 AS "addressLine2",
-  city, state, pincode, gstin, code, logo_key AS "logoKey"`;
+  city, state, pincode, gstin, code, logo_key AS "logoKey", allow_negative_stock AS "allowNegativeStock"`;
 
 export async function findShop(db: Db, shopId: number): Promise<Shop | null> {
   const { rows } = await db.query(`SELECT ${SHOP_COLS} FROM shops WHERE id = $1`, [shopId]);
