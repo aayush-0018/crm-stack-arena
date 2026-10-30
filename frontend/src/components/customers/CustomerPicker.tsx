@@ -10,7 +10,8 @@ import { CustomerFields } from './CustomerForm';
 
 export type CustomerChoice =
   | { mode: 'existing'; customer: Customer | null }
-  | { mode: 'new'; values: CustomerFormValues };
+  | { mode: 'new'; values: CustomerFormValues }
+  | { mode: 'walkin' };
 
 export default function CustomerPicker({
   value,
@@ -58,6 +59,20 @@ export default function CustomerPicker({
         />
         <Button variant="ghost" size="sm" onClick={() => onChange({ mode: 'existing', customer: null })}>
           ← Pick an existing customer instead
+        </Button>
+      </div>
+    );
+  }
+
+  if (value.mode === 'walkin') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-[#fafaf8] px-4 py-3">
+        <div>
+          <p className="font-medium">Walk-in sale</p>
+          <p className="text-sm text-ink-2">No customer saved. Usually paid in full at the counter — there’s no one to collect a balance from later.</p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => onChange({ mode: 'existing', customer: null })}>
+          Choose a customer
         </Button>
       </div>
     );
@@ -133,6 +148,9 @@ export default function CustomerPicker({
         }
       >
         + Add new customer
+      </Button>
+      <Button variant="ghost" onClick={() => onChange({ mode: 'walkin' })}>
+        Walk-in sale (no customer)
       </Button>
     </div>
   );

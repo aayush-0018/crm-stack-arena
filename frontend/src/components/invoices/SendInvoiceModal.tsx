@@ -112,7 +112,8 @@ export default function SendInvoiceModal({
 
   const sendWhatsApp = () => {
     if (!c) return;
-    window.open(`https://wa.me/91${c.phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    // Walk-in sales have no number: WhatsApp then asks who to send it to.
+    window.open(`https://wa.me/${c.phone ? `91${c.phone}` : ''}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
     log('whatsapp', c.phone);
   };
 

@@ -20,7 +20,7 @@ export async function getOrder(shopId: number, id: number) {
   const order = await repo.findOrder(pool, shopId, id);
   if (!order) throw notFound('Order');
   const [customer, items, invoice, payments] = await Promise.all([
-    findCustomer(pool, shopId, order.customerId, { includeDeleted: true }),
+    order.customerId ? findCustomer(pool, shopId, order.customerId, { includeDeleted: true }) : null, // null = walk-in
     repo.findItems(pool, id),
     latestInvoiceForOrder(pool, id),
     listPayments(pool, id),
@@ -55,8 +55,10 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
   let orderId: number;
   try {
     orderId = await withTransaction(async (c) => {
-      let customerId = input.customerId;
-      if (input.newCustomer) {
+      let customerId: number | null = input.customerId ?? null;
+      if (input.walkIn) {
+        customerId = null;
+      } else if (input.newCustomer) {
         customerId = (await createCustomer(c, shopId, input.newCustomer)).id;
       } else if (!customerId || !(await findCustomer(c, shopId, customerId))) {
         throw new AppError(400, 'VALIDATION_ERROR', 'Customer not found', {
@@ -68,7 +70,7 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
       const seq = await nextSeq(c, shopId, 'order');
       const id = await repo.insertOrder(c, {
         shopId,
-        customerId: customerId!,
+        customerId,
         orderNumber: formatOrderNumber(seq, await branchCode(c, shopId)),
         totals,
         notes: input.notes,

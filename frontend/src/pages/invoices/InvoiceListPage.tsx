@@ -44,14 +44,17 @@ const COLUMNS: Column<InvoiceListItem>[] = [
   {
     key: 'customer',
     header: 'Customer',
-    cell: (i) => (
-      <CustomerHoverCard customerId={i.customerId}>
-        <span className="flex items-center gap-2.5">
-          <Avatar name={i.customerName} />
-          <span className="truncate hover:underline">{i.customerName}</span>
-        </span>
-      </CustomerHoverCard>
-    ),
+    cell: (i) =>
+      i.customerId ? (
+        <CustomerHoverCard customerId={i.customerId}>
+          <span className="flex items-center gap-2.5">
+            <Avatar name={i.customerName} />
+            <span className="truncate hover:underline">{i.customerName}</span>
+          </span>
+        </CustomerHoverCard>
+      ) : (
+        <span className="text-ink-3">Walk-in</span>
+      ),
   },
   { key: 'date', header: 'Invoice date', optional: true, hideBelow: 'sm', cell: (i) => <span className="text-ink-2">{formatDate(i.invoiceDate)}</span> },
   { key: 'amount', header: 'Bill amount', align: 'right', cell: (i) => formatINR(i.totalPaise) },

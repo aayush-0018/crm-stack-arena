@@ -5,7 +5,8 @@ import { ComputedLine, ComputedTotals } from './totals';
 
 export interface OrderRow {
   id: number;
-  customerId: number;
+  /** null = walk-in sale */
+  customerId: number | null;
   orderNumber: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -42,7 +43,8 @@ export async function listOrders(db: Db, shopId: number, q: ListOrdersQuery) {
 
   if (q.search) {
     add(
-      (i) => `(o.order_number ILIKE $${i} OR lower(cu.name) LIKE lower($${i}) OR cu.phone LIKE $${i})`,
+      (i) => `(o.order_number ILIKE $${i} OR lower(cu.name) LIKE lower($${i}) OR cu.phone LIKE $${i}
+        OR (o.customer_id IS NULL AND 'walk-in' ILIKE $${i}))`,
       `%${escapeLike(q.search)}%`,
     );
   }
@@ -54,12 +56,12 @@ export async function listOrders(db: Db, shopId: number, q: ListOrdersQuery) {
   if (q.to) add((i) => `o.order_date <= $${i}`, q.to);
 
   const whereSql = where.join(' AND ');
-  const from = `FROM orders o JOIN customers cu ON cu.id = o.customer_id`;
+  const from = `FROM orders o LEFT JOIN customers cu ON cu.id = o.customer_id`; // walk-ins have none
 
   const count = await db.query(`SELECT count(*)::int AS n ${from} WHERE ${whereSql}`, params);
   params.push(q.pageSize, (q.page - 1) * q.pageSize);
   const { rows } = await db.query(
-    `SELECT ${COLS}, cu.name AS "customerName", cu.phone AS "customerPhone",
+    `SELECT ${COLS}, COALESCE(cu.name, 'Walk-in') AS "customerName", cu.phone AS "customerPhone",
        (SELECT count(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS "itemCount"
      ${from}
      WHERE ${whereSql}
@@ -100,7 +102,7 @@ export async function insertOrder(
   db: Db,
   o: {
     shopId: number;
-    customerId: number;
+    customerId: number | null;
     orderNumber: string;
     totals: ComputedTotals;
     notes: string | null;

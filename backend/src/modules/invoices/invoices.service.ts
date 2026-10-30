@@ -48,9 +48,9 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
 
       // Sequential: a single transaction client runs one query at a time.
       const shop = await findShop(c, shopId);
-      const customer = await findCustomer(c, shopId, order.customerId, { includeDeleted: true });
+      const customer = order.customerId ? await findCustomer(c, shopId, order.customerId, { includeDeleted: true }) : null;
       const items = await findItems(c, orderId);
-      if (!shop || !customer) throw new Error('Shop or customer missing for invoice');
+      if (!shop || (order.customerId && !customer)) throw new Error('Shop or customer missing for invoice');
 
       // Only what's printed on the invoice; internal settings stay out of the snapshot.
       const { id: _shopId, allowNegativeStock: _setting, ...shopSnapshot } = shop;
@@ -62,12 +62,9 @@ export async function generateInvoice(shopId: number, userId: number, orderId: n
         orderVersion: order.version,
         invoiceDate,
         shopSnapshot,
-        customerSnapshot: {
-          name: customer.name,
-          phone: customer.phone,
-          email: customer.email,
-          address: customer.address,
-        },
+        customerSnapshot: customer
+          ? { name: customer.name, phone: customer.phone, email: customer.email, address: customer.address }
+          : { name: 'Walk-in customer', phone: null, email: null, address: null },
         orderSnapshot: {
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,

@@ -19,7 +19,7 @@ export interface InvoiceSummary {
 
 export interface Invoice extends InvoiceSummary {
   shopSnapshot: Record<string, string | null>;
-  customerSnapshot: { name: string; phone: string; email: string | null; address: string | null };
+  customerSnapshot: { name: string; phone: string | null; email: string | null; address: string | null }; // phone null = walk-in
   orderSnapshot: { orderNumber: string; orderDate: string; status: OrderStatus; notes: string | null };
   itemsSnapshot: ComputedLine[];
   subtotalPaise: number;

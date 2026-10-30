@@ -33,7 +33,8 @@ export default function OrderCreatePage() {
   if (loadingPreset) return <LoadingState />;
 
   const validateCustomer = (): Record<string, string> => {
-    if (choice.mode === 'existing') return choice.customer ? {} : { customerId: 'Select a customer or add a new one' };
+    if (choice.mode === 'walkin') return {};
+    if (choice.mode === 'existing') return choice.customer ? {} : { customerId: 'Select a customer, add a new one, or choose walk-in' };
     const { errors } = parseCustomer(choice.values);
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(errors ?? {})) out[`newCustomer.${k}`] = v;
@@ -53,9 +54,11 @@ export default function OrderCreatePage() {
         onCancel={() => navigate(-1)}
         submit={async (payload) => {
           const customerPart =
-            choice.mode === 'existing'
-              ? { customerId: choice.customer!.id }
-              : { newCustomer: parseCustomer(choice.values).payload! };
+            choice.mode === 'walkin'
+              ? { walkIn: true }
+              : choice.mode === 'existing'
+                ? { customerId: choice.customer!.id }
+                : { newCustomer: parseCustomer(choice.values).payload! };
           const order = await ordersApi.create({ ...payload, ...customerPart, idempotencyKey: idempotencyKey.current });
           toast('success', `Order ${order.orderNumber} saved`);
           navigate(`/orders/${order.id}`, { replace: true, state: { justCreated: true } });

@@ -103,6 +103,8 @@ export interface OrderCreatePayload extends OrderPayload {
   idempotencyKey: string;
   customerId?: number;
   newCustomer?: CustomerPayload;
+  /** Counter sale with no customer. */
+  walkIn?: boolean;
 }
 
 export interface OrderListQuery {

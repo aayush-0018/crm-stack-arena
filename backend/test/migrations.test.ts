@@ -103,3 +103,18 @@ describe('009_products_inventory upgrade', () => {
     assert.equal((await sql(`SELECT allow_negative_stock FROM shops`))[0].allow_negative_stock, false);
   });
 });
+
+describe('010_walk_in_orders upgrade', () => {
+  test('existing orders keep their customer; new orders may have none', async () => {
+    await resetDb(migrationFiles().filter((f) => f < '010'));
+    const [shop] = await sql(`INSERT INTO shops (name) VALUES ('S') RETURNING id`);
+    const [cust] = await sql(`INSERT INTO customers (shop_id, name, phone) VALUES ($1, 'C', '9876500003') RETURNING id`, [shop.id]);
+    await sql(`INSERT INTO orders (shop_id, customer_id, order_number, subtotal_paise, total_paise) VALUES ($1, $2, 'O1', 100, 100)`, [shop.id, cust.id]);
+    await assert.rejects(sql(`INSERT INTO orders (shop_id, order_number, subtotal_paise, total_paise) VALUES ($1, 'O2', 100, 100)`, [shop.id]));
+
+    await applyMigration('010_walk_in_orders.sql');
+
+    assert.equal((await sql(`SELECT customer_id FROM orders WHERE order_number = 'O1'`))[0].customer_id, cust.id);
+    await sql(`INSERT INTO orders (shop_id, order_number, subtotal_paise, total_paise) VALUES ($1, 'O2', 100, 100)`, [shop.id]);
+  });
+});

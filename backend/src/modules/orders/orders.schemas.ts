@@ -36,9 +36,11 @@ export const createOrderSchema = z
     amountPaid: moneyInput.default(0),
     /** How the amount paid at creation was paid. Omitted -> recorded as 'unrecorded'. */
     paymentMethod: paymentMethodInput.optional(),
+    /** Counter sale with no customer. */
+    walkIn: z.boolean().optional(),
   })
-  .refine((o) => Boolean(o.customerId) !== Boolean(o.newCustomer), {
-    message: 'Select an existing customer or add a new one',
+  .refine((o) => [Boolean(o.customerId), Boolean(o.newCustomer), o.walkIn === true].filter(Boolean).length === 1, {
+    message: 'Select a customer, add a new one, or choose walk-in',
     path: ['customerId'],
   });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

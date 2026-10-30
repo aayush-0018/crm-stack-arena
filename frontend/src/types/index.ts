@@ -82,7 +82,8 @@ export interface CustomersSummary {
 export interface InvoiceListItem {
   id: number;
   orderId: number;
-  customerId: number;
+  /** null = walk-in sale */
+  customerId: number | null;
   invoiceNumber: string;
   revision: number;
   status: InvoiceStatus;
@@ -92,7 +93,7 @@ export interface InvoiceListItem {
   orderDuePaise: number;
   orderPaymentStatus: PaymentStatus;
   customerName: string;
-  customerPhone: string;
+  customerPhone: string | null;
   orderNumber: string;
   outdated: boolean;
 }
@@ -124,7 +125,8 @@ export interface OrderItem {
 
 export interface OrderBase {
   id: number;
-  customerId: number;
+  /** null = walk-in sale */
+  customerId: number | null;
   orderNumber: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -141,7 +143,7 @@ export interface OrderBase {
 
 export interface OrderListItem extends OrderBase {
   customerName: string;
-  customerPhone: string;
+  customerPhone: string | null;
   itemCount: number;
 }
 
@@ -190,7 +192,7 @@ export interface Invoice {
   issuedAt: string;
   invoiceDate: string;
   shopSnapshot: Omit<Shop, 'id'>;
-  customerSnapshot: { name: string; phone: string; email: string | null; address: string | null };
+  customerSnapshot: { name: string; phone: string | null; email: string | null; address: string | null };
   orderSnapshot: { orderNumber: string; orderDate: string; status: OrderStatus; notes: string | null };
   itemsSnapshot: OrderItem[];
   subtotalPaise: number;

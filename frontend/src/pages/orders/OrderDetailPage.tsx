@@ -264,7 +264,7 @@ export default function OrderDetailPage() {
                 )}
               </>
             ) : (
-              <p className="text-[13px] text-ink-3">Unknown customer</p>
+              <p className="text-[13px] text-ink-3">{o.customerId ? 'Unknown customer' : 'Walk-in sale — no customer saved.'}</p>
             )}
           </div>
 

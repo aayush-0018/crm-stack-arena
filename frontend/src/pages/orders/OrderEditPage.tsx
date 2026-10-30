@@ -51,7 +51,9 @@ export default function OrderEditPage() {
               </Link>
               <p className="text-ink-2">{o.customer.phone}</p>
             </div>
-          ) : null
+          ) : (
+            <p className="text-sm text-ink-2">Walk-in sale — no customer saved.</p>
+          )
         }
         submitLabel="Save changes"
         onCancel={() => navigate(`/orders/${o.id}`)}

@@ -26,14 +26,17 @@ export function orderColumns(showCustomer: boolean, filters: Record<string, Colu
           {
             key: 'customer',
             header: 'Customer',
-            cell: (o: OrderListItem) => (
-              <CustomerHoverCard customerId={o.customerId}>
-                <span className="flex items-center gap-2.5">
-                  <Avatar name={o.customerName} />
-                  <span className="truncate hover:underline">{o.customerName}</span>
-                </span>
-              </CustomerHoverCard>
-            ),
+            cell: (o: OrderListItem) =>
+              o.customerId ? (
+                <CustomerHoverCard customerId={o.customerId}>
+                  <span className="flex items-center gap-2.5">
+                    <Avatar name={o.customerName} />
+                    <span className="truncate hover:underline">{o.customerName}</span>
+                  </span>
+                </CustomerHoverCard>
+              ) : (
+                <span className="text-ink-3">Walk-in</span>
+              ),
           } as Column<OrderListItem>,
         ]
       : []),

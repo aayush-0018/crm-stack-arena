@@ -109,7 +109,7 @@ export async function customersSummary(db: Db, shopId: number) {
     db.query(
       `SELECT COALESCE(avg(gap), 0)::float AS "avgGapDays" FROM (
          SELECT order_date - lag(order_date) OVER (PARTITION BY customer_id ORDER BY order_date) AS gap
-         FROM orders WHERE shop_id = $1 AND status <> 'cancelled'
+         FROM orders WHERE shop_id = $1 AND status <> 'cancelled' AND customer_id IS NOT NULL
        ) g WHERE gap IS NOT NULL`,
       [shopId],
     ),
