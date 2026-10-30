@@ -175,13 +175,15 @@ export async function updateCustomer(
 
 export async function customerStats(db: Db, shopId: number, id: number) {
   const { rows } = await db.query(
-    `SELECT count(*)::int AS "orderCount",
+    `SELECT count(*) FILTER (WHERE status <> 'cancelled')::int AS "orderCount",
+       count(*)::int AS "allOrderCount",
        COALESCE(sum(total_paise) FILTER (WHERE status <> 'cancelled'), 0)::bigint AS "totalSpentPaise",
        COALESCE(sum(total_paise - amount_paid_paise) FILTER (WHERE status <> 'cancelled'), 0)::bigint AS "outstandingPaise"
      FROM orders WHERE shop_id = $1 AND customer_id = $2`,
     [shopId, id],
   );
-  return rows[0] as { orderCount: number; totalSpentPaise: number; outstandingPaise: number };
+  // orderCount matches the list and totals (cancelled excluded); allOrderCount is what deleting affects.
+  return rows[0] as { orderCount: number; allOrderCount: number; totalSpentPaise: number; outstandingPaise: number };
 }
 
 export async function countOrders(db: Db, shopId: number, id: number): Promise<number> {

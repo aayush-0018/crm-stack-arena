@@ -40,10 +40,24 @@ describe('customers', () => {
     const o2 = await newOrder(api, { customerId: o1.customerId });
     await api.patch(`/orders/${o2.id}/status`, { status: 'cancelled' });
     const c = (await api.get(`/customers/${o1.customerId}`)).body;
+    assert.equal(c.stats.orderCount, 1, 'customer page order count matches the list');
     assert.equal(c.stats.totalSpentPaise, 10000);
     assert.equal(c.stats.outstandingPaise, 8000);
     const row = (await api.get('/customers')).body.data[0];
     assert.equal(row.orderCount, 1);
     assert.equal(row.totalSpentPaise, 10000);
+  });
+});
+
+describe('customer with only cancelled orders', () => {
+  test('shows 0 orders, but deleting still archives (the cancelled order is kept)', async () => {
+    const { api } = await newShop();
+    const o = await newOrder(api);
+    await api.patch(`/orders/${o.id}/status`, { status: 'cancelled' });
+    const c = (await api.get(`/customers/${o.customerId}`)).body;
+    assert.equal(c.stats.orderCount, 0);
+    assert.equal(c.stats.allOrderCount, 1);
+    assert.equal((await api.del(`/customers/${o.customerId}`)).body.deleted, 'soft');
+    assert.equal((await api.get(`/orders/${o.id}`)).status, 200);
   });
 });

@@ -107,7 +107,7 @@ export interface InvoicesSummary {
 }
 
 export interface CustomerDetail extends Customer {
-  stats: { orderCount: number; totalSpentPaise: number; outstandingPaise: number };
+  stats: { orderCount: number; allOrderCount: number; totalSpentPaise: number; outstandingPaise: number };
 }
 
 export interface OrderItem {

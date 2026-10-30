@@ -52,7 +52,7 @@ export default function CustomerDetailPage() {
       const r = await customersApi.remove(id, purge);
       toast(
         'success',
-        purge ? `${c.name} and their ${c.stats.orderCount} orders deleted` : r.deleted === 'hard' ? `${c.name} deleted` : `${c.name} archived. Order history kept.`,
+        purge ? `${c.name} and their ${c.stats.allOrderCount} orders deleted` : r.deleted === 'hard' ? `${c.name} deleted` : `${c.name} archived. Order history kept.`,
       );
       navigate('/customers', { replace: true });
     } catch (err) {
@@ -145,21 +145,21 @@ export default function CustomerDetailPage() {
         open={confirmDelete}
         title="Delete customer?"
         danger
-        confirmLabel={purge ? 'Delete everything' : c.stats.orderCount ? 'Archive customer' : 'Delete'}
+        confirmLabel={purge ? 'Delete everything' : c.stats.allOrderCount ? 'Archive customer' : 'Delete'}
         onClose={() => {
           setConfirmDelete(false);
           setPurge(false);
         }}
         onConfirm={doDelete}
         message={
-          c.stats.orderCount ? (
+          c.stats.allOrderCount ? (
             <>
-              <strong className="text-ink">{c.name}</strong> has {c.stats.orderCount} order{c.stats.orderCount > 1 ? 's' : ''}. By default the customer
+              <strong className="text-ink">{c.name}</strong> has {c.stats.allOrderCount} order{c.stats.allOrderCount > 1 ? 's' : ''}. By default the customer
               is archived and hidden from lists, and their orders and invoices are kept.
               <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#f2cdc8] bg-[#fdf3f2] px-3 py-2.5 text-[13.5px] text-[#93291a]">
                 <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-[#b42318]" />
                 <span>
-                  Also delete their {c.stats.orderCount} order{c.stats.orderCount > 1 ? 's' : ''} and all their invoices permanently. This can't be undone.
+                  Also delete their {c.stats.allOrderCount} order{c.stats.allOrderCount > 1 ? 's' : ''} and all their invoices permanently. This can't be undone.
                 </span>
               </label>
             </>
