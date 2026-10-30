@@ -315,6 +315,7 @@ The runner skips files already applied, so it's safe to run any time.
 | `007_payments.sql` | `payments` table (payment ledger), plus one "opening" entry for every order that already has money paid. No existing value changes | Payments, refunds, analytics — **run before pushing**: order pages and analytics read this table |
 | `008_zero_total_orders.sql` | ₹0 orders count as Paid (data repair + updated `orders_payment_ck` rule) | Run with 007 |
 | `009_products_inventory.sql` | `products`, `stock_movements`, `order_items.product_id`, `shops.allow_negative_stock` | Products & stock — **run before pushing**: login returns the shop's stock setting |
+| `010_walk_in_orders.sql` | `orders.customer_id` may be empty (walk-in sales). Existing orders unchanged | Walk-in sales — run before pushing that code |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 

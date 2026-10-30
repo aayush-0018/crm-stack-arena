@@ -158,3 +158,22 @@ Per `00_START_HERE` and checklists `07`–`09`, these must not be built until yo
 | F11, F13, F14, F15–F17, 08, 09 | Not changed: declined for now or need a decision |
 
 Details: `CRM_IMPLEMENTATION_LOG.md`. Evidence: `CRM_TEST_RESULTS.md`.
+
+---
+
+## 6. Second audit: `12_POS_AND_COUNTER_BILLING.md` and `15_BUSINESS_RULES_AND_DATA_VALIDATION.md` (30 Oct 2026)
+
+Suspected defects were probed with tests that expect the correct behaviour (`backend/test/rules.test.ts`). **All failed on the code as it was**, which confirms each finding.
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| R1 | An impossible date (31 Feb, month 13) in an order, payment, list filter or the 10 pm summary caused a **500 server error**, not a validation message | Confirmed → fixed | Probe: expected 400, got 500 (4 endpoints). Inputs only checked the `YYYY-MM-DD` shape |
+| R2 | A **future-dated order counted in "last N days"** sales, orders, payment status, top customers and items, so the KPI disagreed with the daily chart | Confirmed → fixed | Probe: 30-day sales ₹200 vs daily total ₹100. Windows had no upper bound |
+| R3 | Money taken when entering a future-dated order was recorded **as received in the future**, getting around the "no future payment date" rule | Confirmed → fixed | Probe: payment dated today+5 |
+| R4 | An order total too large to add up exactly (above 2^53 paise) was **accepted** | Confirmed → fixed | Probe: 201 instead of 400 |
+| R5 | There was no single written definition of statuses and figures (15's acceptance criterion) | Confirmed → fixed | `BUSINESS_RULES.md` added |
+| R6 | Payment states initiated/failed/reversed | Not applicable | Payments are recorded by hand after the fact; there's no gateway |
+| R7 | "Active" means two things (F11) | Still open | Your decision (rename the tab) |
+| P1 | POS: walk-in sale without a customer | Missing → **built** (approved) | Every order needed a customer with a valid mobile |
+| P2 | POS: duplicate submit, cart kept after a failure, concurrency-safe stock, refund trail | Already present | Idempotency keys, form state kept on error, row locks, payment ledger |
+| P3 | POS: barcode scanning, split payment at checkout, counter receipt printing, cash-drawer shifts, offline mode | Not built | Declined for now (barcode/split/receipt) or out of scope (drawer, offline) |

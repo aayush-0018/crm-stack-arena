@@ -330,3 +330,55 @@ See `CRM_TEST_RESULTS.md`.
 - Suppliers, expenses and profit; GST and FY invoice numbering (needs an accountant).
 - Lint setup.
 - Production deployment: **you** run migrations 006–009 on Supabase, then push (see `DEPLOYMENT.md`).
+
+---
+
+## Round 2 — files 12 (POS) and 15 (business rules), 30 Oct 2026
+
+**Decision received:** POS scope = **walk-in sales only**. Barcode scanning, split payment at checkout and receipts were not chosen.
+
+### Module A — Rule and validation fixes (R1–R4)
+
+- **R1:** one `dateInput` validator (a real calendar date, year ≥ 1900) is now used for the order date, payment date, order and invoice list filters, and the 10 pm summary date. An invalid date gives 400 "Not a valid date".
+- **R2:** every "last N days" query ends today. A future-dated order counts from its own date, the same as the daily chart.
+- **R3:** money entered with a new order is dated the order date if that's in the past, otherwise today.
+- **R4:** the subtotal must stay an exact integer (`Number.isSafeInteger`); otherwise 400 "This order total is too large".
+- **Files:**
+  - `backend/src/lib/validation.ts`
+  - `backend/src/modules/{orders/orders.schemas,orders/orders.service,orders/totals,payments/payments.schemas,invoices/invoices.routes,dashboard/dashboard.routes}.ts`
+- **Database:** none.
+- **Tests:** `rules.test.ts`, 7 tests. All 7 **failed before** the fixes (showing 500s, ₹200 vs ₹100, a future payment date, and 201 instead of 400) and pass after.
+- **Docs:** `BUSINESS_RULES.md` holds every money rule, status and transition, customer label, reported figure (definition and date basis), stock rule and validation, each with where it's enforced and which test covers it.
+
+### Module B — Walk-in sales (approved)
+
+- **Database:** `010_walk_in_orders.sql` makes an order's customer optional. Additive; existing orders unchanged.
+- **API:**
+  - Create accepts `walkIn: true` (exactly one of: existing customer, new customer, walk-in).
+  - Order lists show "Walk-in" and the search finds "walk".
+  - The invoice snapshot is "Walk-in customer" with no phone. The PDF works.
+  - Payments, refunds, edits, stock and auto-complete all work.
+  - Walk-ins count as sales but never as a customer (active customers, top customers, visit gap: the gap query was fixed to skip them).
+- **Screens:**
+  - "Walk-in sale (no customer)" in the order form's customer box, with a note that walk-ins are usually paid in full.
+  - "Walk-in" in the order and invoice lists (no hover card).
+  - "Walk-in sale — no customer saved" on the order and edit pages.
+  - Send invoice by WhatsApp opens WhatsApp's own contact chooser when there's no number. Before, it would have built a link to `91null`.
+- **Files:**
+  - Backend: `db/migrations/010_walk_in_orders.sql`, `src/modules/{orders/*,invoices/invoices.service,invoices/invoices.repo,customers/customers.repo}.ts`
+  - Frontend: `components/customers/CustomerPicker.tsx`, `pages/orders/{OrderCreatePage,OrderDetailPage,OrderEditPage}.tsx`, `components/orders/OrdersTable.tsx`, `pages/invoices/InvoiceListPage.tsx`, `components/invoices/SendInvoiceModal.tsx`, `api/endpoints.ts`, `types/index.ts`
+- **Tests:**
+  - `walkin.test.ts`: 6 tests covering create, the exactly-one rule, list/search/due list, invoice/PDF/payments/refund/edit, "sales but not a customer", and stock.
+  - The 010 upgrade test.
+  - Browser walk-in script 9/9.
+- **Typecheck findings fixed along the way:** the invoice type assumed every customer has a phone, and two list cells assumed a customer id.
+
+### Recheck (both modules)
+
+1. **Justification:** R1–R4 confirmed by failing probes; walk-in approved.
+2. **Files and database objects:** listed above; the only schema change is the nullable `orders.customer_id`.
+3. **Tests:** backend **80/80**.
+4. **UI vs data:** the browser walk-in flow was checked against API values. The **all-pages sweep was re-run on a freshly seeded shop: 38/38** (desktop and phone, no errors, no failed calls, no horizontal scroll).
+5. **Adjacent workflows:** invoices, sending, payments, stock, dashboard, customers summary, seed script.
+6. **Unresolved:** the "Active" tab wording (R7); the other POS items were declined.
+7. **Safe to proceed:** yes. Run migration **010** on Supabase before pushing this code.

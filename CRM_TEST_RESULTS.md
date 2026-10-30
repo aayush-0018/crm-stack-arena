@@ -76,3 +76,17 @@ On a seeded throwaway shop (100 customers, 388 orders, 319 invoices), the 30-day
 - Screen-reader walkthrough (labels and roles checked automatically, not with a real screen reader).
 - Load beyond about 400 orders per shop.
 - The stock-hint on an **edited** order's line doesn't count stock that order already holds, so it can warn too early. The server's check is correct.
+
+---
+
+## Round 2 — POS (12) and business rules (15), 30 Oct 2026
+
+| Command / check | Result |
+|---|---|
+| `backend: npm run typecheck` | Pass |
+| `backend: npm test` | **80/80 pass** (adds `rules.test.ts` 7, `walkin.test.ts` 6, 010 upgrade test 1) |
+| `backend: npm run build`, `frontend: tsc --noEmit`, `npm run build` | Pass |
+| Rule probes before the fix | 7/7 **failed** on the old code: impossible dates gave 500 on 4 endpoints; future order counted in 30-day sales (₹200 vs ₹100 daily); future-dated payment; oversized total accepted |
+| Browser: walk-in sale | 9/9: choose walk-in, save with UPI, order page / orders list / invoice / invoice list show walk-in, still asks to choose when nothing is picked, 390px layout, no page errors |
+| Browser: all-pages sweep (fresh seeded shop) | **38/38** desktop and phone |
+| `crm_dev` (your data) | Not touched: still on migration 006, 390 orders, no test accounts |
