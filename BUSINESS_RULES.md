@@ -156,14 +156,17 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 
 | Rule | Detail |
 |---|---|
-| Floor plan | One per branch: tables (rows with a stable id and QR token) plus walls, counter, kitchen, entrance, windows, plants, areas and text. Owners draw, save and lock it; while locked nothing can be changed. Table names are unique per branch |
-| QR codes | Each table has a random token. Moving or renaming a table keeps it. "Replace QR code" issues a new one and the printed old one stops. Removing a table stops its QR; its past orders keep the table name |
+| Floors | A branch has one or more floors (e.g. Ground floor, Rooftop), each with its own size, tables and blocks (walls, counter, kitchen, entrance, windows, plants, areas, text). Owners draw, save and lock the whole plan; while locked nothing can be changed. Floor names and table names are unique across the branch |
+| QR codes | Each table has a random token. Moving, renaming or moving it to another floor keeps it. "Replace QR code" issues a new one and the printed old one stops. Removing a table (or its floor) stops its QR; past orders keep the table name |
+| Guest sign-in | Name, mobile (10-digit Indian) and email are required. A 6-digit code is emailed (works 10 minutes, 5 tries; one code per email every 30 seconds, 5 per 10 minutes; 10 per address). Only after the code is confirmed does the menu open. The session lasts 12 hours on that phone |
+| Customer record | The guest is linked to the branch's customer with that mobile number, or a new customer is created (name, mobile, email). An existing customer's saved name and email are never changed; the verified email is kept on the session and used for the bill |
+| First-order discount | 15% off the subtotal (rounded to the paisa) when the guest has no earlier order (other than cancelled) at this branch under that mobile number or email. Shown as a welcome message after confirming the email, applied to their first order only (claimed once, even with two quick orders), and printed on the order and bill as the order discount |
 | Guest menu | Active products that can be sold now (in stock, or not stock-tracked), with price. Never cost or stock levels |
-| Guest order | Becomes an ordinary walk-in order: prices come from the product list (never from the phone), stock is taken, numbering as usual. Marked with the table, guest name and note, and sent to the kitchen as New. Limits: 50 lines, 50 of each, 20 orders per table and 30 per address in 10 minutes; retries of the same submission return the same order |
+| Guest order | An ordinary order under the guest's customer record: prices come from the product list (never from the phone), stock is taken, numbering as usual. Marked with the table, guest name and note, and sent to the kitchen as New. Placed orders can't be changed by the guest; they can place more orders, and see their earlier ones (read-only) on the menu. Limits: 50 lines, 50 of each, 20 orders per table and 30 per address in 10 minutes; retries of the same submission return the same order |
 | Payment (test) | No payment gateway yet. "I have paid" records the full amount as a UPI payment (with a receipt). Otherwise staff mark it paid from Live tables, choosing the method |
-| Kitchen | New → Preparing → Ready → Served, and back one step to undo. Shows unserved orders oldest first, plus 30 minutes of served ones. Cancelled orders disappear |
-| Done | Served **and** fully paid → the order is completed automatically. A table is busy while any of its orders is unserved or unpaid |
-| Guest tracking | The guest's own link shows that one order's progress, items and payment, and nothing else |
+| Kitchen | New → Preparing → Ready → Served, and back one step to undo. Shows unserved orders oldest first (with floor and table), plus 30 minutes of served ones. Cancelled orders disappear |
+| Done and bill | Served **and** fully paid → the order is completed, its invoice issued and a link to the bill PDF emailed to the guest (once; retried on the next completion if sending failed). The guest's order page then offers Download and a WhatsApp share. Automatic WhatsApp sending needs a WhatsApp Business API provider and isn't connected |
+| Guest tracking | The guest's own link shows that one order's progress, items, discount, payment and bill, and nothing else |
 
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
