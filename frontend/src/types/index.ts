@@ -676,18 +676,7 @@ export interface GuestBooking {
   endsAt: string;
   status: ReservationStatus;
   notes: string | null;
-  /** Table names, e.g. ['T4']. */
-  tables: string[];
   canCancel: boolean;
-}
-
-/** One floor as a guest sees it for a chosen time: free tables can be picked. */
-export interface BookingFloor {
-  name: string;
-  width: number;
-  height: number;
-  decor: DecorBlock[];
-  tables: (Omit<DiningTable, 'qrToken'> & { id: number; state: 'free' | 'booked' | 'small' })[];
 }
 
 export type LiveFloor = FloorPlan & { orders: KitchenOrder[]; reservations: Reservation[] };

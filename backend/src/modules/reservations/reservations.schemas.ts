@@ -43,7 +43,6 @@ export const dayQuery = z.object({ date: dateInput });
 // ---------------------------------------------------------------------------------------------
 
 export const slotsQuery = z.object({ date: dateInput, party: z.coerce.number().int().min(1).max(50) });
-export const floorQuery = slotsQuery.extend({ time });
 
 export const bookingCodeSchema = z.object({
   name: z.string({ required_error: 'Name is required' }).trim().min(1, 'Name is required').max(60),
@@ -57,8 +56,6 @@ export const bookingConfirmSchema = z.object({
   date: dateInput,
   time,
   partySize: z.number().int().min(1).max(50),
-  /** The table the guest picked on the floor plan; missing = the best free one. */
-  tableId: z.number().int().positive().nullish(),
   notes: optionalText(300),
 });
 export type BookingConfirm = z.infer<typeof bookingConfirmSchema>;

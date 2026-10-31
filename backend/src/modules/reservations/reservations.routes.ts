@@ -10,7 +10,7 @@ import { idParam } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
 import { emailCode } from '../dinein/guest.service';
 import * as repo from './reservations.repo';
-import { bookingCodeSchema, bookingConfirmSchema, dayQuery, floorQuery, reservationSchema, settingsSchema, slotsQuery, statusSchema } from './reservations.schemas';
+import { bookingCodeSchema, bookingConfirmSchema, dayQuery, reservationSchema, settingsSchema, slotsQuery, statusSchema } from './reservations.schemas';
 import * as service from './reservations.service';
 
 const newToken = () => randomBytes(18).toString('base64url');
@@ -92,8 +92,7 @@ reservationsRouter.post(
 export const publicBookingRouter = Router();
 
 const tokenParam = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/) });
-// The booking page refreshes times and the floor plan while open, so this is generous.
-const lookupsByIp = createLimiter(600, 10 * 60_000);
+const lookupsByIp = createLimiter(300, 10 * 60_000);
 const confirmsByIp = createLimiter(30, 10 * 60_000);
 
 const noStore = (res: Response) => {
@@ -131,18 +130,6 @@ publicBookingRouter.get(
     const { date, party } = slotsQuery.parse(req.query);
     noStore(res);
     res.json(await service.availableTimes(s.shopId, s, date, party));
-  }),
-);
-
-/** The floor plan for one time: which tables the guest can pick. The page refreshes it every few seconds. */
-publicBookingRouter.get(
-  '/bookings/:token/floor',
-  ah(async (req, res) => {
-    throttle(lookupsByIp, req);
-    const s = await bookingPage(req);
-    const { date, time, party } = floorQuery.parse(req.query);
-    noStore(res);
-    res.json(await service.floorForTime(s.shopId, s, date, time, party));
   }),
 );
 

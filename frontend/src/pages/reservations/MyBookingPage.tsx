@@ -1,4 +1,4 @@
-import { Armchair, CalendarCheck, CalendarDays, CalendarX, Clock, Phone, Users } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarX, Clock, Phone, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -85,11 +85,6 @@ export default function MyBookingPage() {
             <li className="flex items-center gap-3">
               <Users size={18} className="text-[#8a8276]" /> {people(b.partySize)}
             </li>
-            {b.tables.length > 0 && (
-              <li className="flex items-center gap-3">
-                <Armchair size={18} className="text-[#8a8276]" /> Table {b.tables.join(' + ')}
-              </li>
-            )}
           </ul>
           {b.notes && <p className="mt-3 rounded-xl bg-[#f8f5ef] px-3.5 py-2.5 text-[14px] text-[#5e574c]">“{b.notes}”</p>}
         </div>

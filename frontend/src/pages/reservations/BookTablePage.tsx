@@ -1,10 +1,9 @@
-import { Armchair, CalendarDays, Clock, Mail, Minus, Phone, Plus, Users } from 'lucide-react';
+import { CalendarDays, Clock, Mail, Minus, Phone, Plus, Users } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { bookingApi } from '../../api/endpoints';
 import { addDays, DAY_LONG, DAY_SHORT, durationLabel, people, timeLabel, weekdayOf } from '../../components/reservations/reservations';
-import TablePicker from '../../components/reservations/TablePicker';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import type { BookingPage, BookingTimes } from '../../types';
@@ -35,7 +34,6 @@ export default function BookTablePage() {
   const [party, setParty] = useState(2);
   const [date, setDate] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
-  const [table, setTable] = useState<{ id: number; label: string } | null>(null);
   const [times, setTimes] = useState<BookingTimes | null>(null);
   const [notes, setNotes] = useState('');
   const [form, setForm] = useState(readDetails);
@@ -77,22 +75,6 @@ export default function BookTablePage() {
       live = false;
     };
   }, [token, date, party, page]);
-
-  // A table is picked for one party size and time.
-  useEffect(() => setTable(null), [date, time, party]);
-
-  // Keep the times current while the guest is choosing (others may be booking too).
-  useEffect(() => {
-    if (step !== 'pick' || !date || !page?.maxParty) return;
-    const t = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      bookingApi.times(token, date, party).then((x) => {
-        setTimes(x);
-        setTime((cur) => (cur && x.times.some((y) => y.time === cur && y.available) ? cur : null));
-      }, () => undefined);
-    }, 30_000);
-    return () => clearInterval(t);
-  }, [step, token, date, party, page]);
 
   useEffect(() => {
     if (step !== 'code') return;
@@ -161,14 +143,10 @@ export default function BookTablePage() {
     setBusy(true);
     setError(null);
     try {
-      const r = await bookingApi.confirm(token, { challenge: sent.challenge, code, date, time, partySize: party, tableId: table?.id ?? null, notes: notes.trim() || null });
+      const r = await bookingApi.confirm(token, { challenge: sent.challenge, code, date, time, partySize: party, notes: notes.trim() || null });
       navigate(`/b/${r.manageToken}`, { replace: true });
     } catch (e2) {
-      if (e2 instanceof ApiError && e2.code === 'TABLE_TAKEN') {
-        // Same time, another table: the map shows what's still free.
-        setStep('pick');
-        setTable(null);
-      } else if (e2 instanceof ApiError && (e2.code === 'SLOT_TAKEN' || e2.code === 'ALREADY_BOOKED' || e2.code === 'TOO_MANY_BOOKINGS')) {
+      if (e2 instanceof ApiError && (e2.code === 'SLOT_TAKEN' || e2.code === 'ALREADY_BOOKED' || e2.code === 'TOO_MANY_BOOKINGS')) {
         // Back to the times; the code still works for another time if it was only the slot.
         setStep('pick');
         setTime(null);
@@ -193,11 +171,6 @@ export default function BookTablePage() {
       <span className="inline-flex items-center gap-1.5">
         <Clock size={15} /> {timeLabel(time)}
       </span>
-      {table && (
-        <span className="inline-flex items-center gap-1.5">
-          <Armchair size={15} /> Table {table.label}
-        </span>
-      )}
       <button type="button" className="ml-auto text-[13px] text-[#8c2f1b]" onClick={() => setStep('pick')}>
         Change
       </button>
@@ -306,13 +279,6 @@ export default function BookTablePage() {
               <p className="mt-3 text-[12.5px] text-[#8a8276]">Your table is kept for {durationLabel(page.durationMinutes)}.</p>
             </div>
 
-            {date && time && (
-              <div className={card}>
-                <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">Choose your table</p>
-                <TablePicker token={token} date={date} time={time} party={party} value={table?.id ?? null} onChange={setTable} />
-              </div>
-            )}
-
             <div className={card}>
               <label className="block">
                 <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">Anything we should know?</span>
@@ -336,7 +302,7 @@ export default function BookTablePage() {
               }}
               className={`${primary} mt-5`}
             >
-              {time ? `Continue · ${timeLabel(time)}${table ? ` · ${table.label}` : ''}` : 'Pick a time'}
+              {time ? `Continue · ${timeLabel(time)}` : 'Pick a time'}
             </button>
           </>
         ) : step === 'details' ? (
