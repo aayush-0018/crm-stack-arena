@@ -1,4 +1,4 @@
-import { Check, ChefHat, CookingPot, HandPlatter, Receipt } from 'lucide-react';
+import { Check, ChefHat, CookingPot, Download, HandPlatter, MessageCircle, Receipt } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -22,7 +22,8 @@ export default function GuestOrderPage() {
   const { guestToken = '' } = useParams();
   const [o, setO] = useState<GuestOrderView | null>(null);
   const [missing, setMissing] = useState(false);
-  const done = o && (o.status === 'cancelled' || (o.kitchenStatus === 'served' && o.paymentStatus === 'paid'));
+  // Stop refreshing once it's over: cancelled, or served, paid and the bill sent.
+  const done = o && (o.status === 'cancelled' || (o.kitchenStatus === 'served' && o.paymentStatus === 'paid' && !!o.billToken));
 
   const load = useCallback(() => {
     if (done) return;
@@ -119,6 +120,26 @@ export default function GuestOrderPage() {
             {o.paymentStatus === 'paid' ? 'Paid · thank you!' : `${formatINR(owed)} to pay at the counter`}
           </p>
         </div>
+
+        {o.billToken && (
+          <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <p className="text-[15px] font-medium">Your bill is ready</p>
+            <p className="mt-0.5 text-[13.5px] text-[#8a8276]">We've emailed it to you. Keep a copy here too:</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a href={`/bill/${o.billToken}`} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
+                <Download size={16} /> Download
+              </a>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`My bill from ${o.shopName} (${o.orderNumber}): ${window.location.origin}/bill/${o.billToken}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1f1b16] text-[14px] font-medium"
+              >
+                <MessageCircle size={16} /> WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
 
         <p className="mt-3 text-center text-[12px] text-[#a39a8c]">Placed {formatDateTime(o.createdAt)} · this page updates by itself</p>
 

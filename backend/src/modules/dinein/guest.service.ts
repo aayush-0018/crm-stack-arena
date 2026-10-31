@@ -265,6 +265,7 @@ const GUEST_ORDER_COLS = `o.order_number AS "orderNumber", o.table_label AS "tab
   o.status, o.kitchen_status AS "kitchenStatus", o.created_at AS "createdAt", o.subtotal_paise AS "subtotalPaise",
   o.discount_paise AS "discountPaise", o.total_paise AS "totalPaise", o.amount_paid_paise AS "amountPaidPaise",
   o.payment_status AS "paymentStatus", o.guest_token AS "guestToken",
+  CASE WHEN o.bill_sent_at IS NOT NULL THEN (SELECT i.share_token FROM invoices i WHERE i.order_id = o.id AND i.status = 'issued') END AS "billToken",
   COALESCE((SELECT json_agg(json_build_object('itemName', oi.item_name, 'quantity', oi.quantity, 'unitPricePaise', oi.unit_price_paise,
             'lineTotalPaise', oi.line_total_paise) ORDER BY oi.position) FROM order_items oi WHERE oi.order_id = o.id), '[]') AS items`;
 

@@ -80,7 +80,7 @@ export async function voidIssuedInvoice(db: Db, orderId: number) {
 
 export async function insertInvoice(
   db: Db,
-  inv: Omit<Invoice, 'id' | 'status' | 'issuedAt' | 'shareToken'> & { shopId: number; createdBy: number },
+  inv: Omit<Invoice, 'id' | 'status' | 'issuedAt' | 'shareToken'> & { shopId: number; createdBy: number | null },
 ): Promise<number> {
   const { rows } = await db.query(
     `INSERT INTO invoices (shop_id, order_id, invoice_number, revision, order_version, invoice_date,
@@ -200,7 +200,7 @@ export async function findInvoiceByShareToken(db: Db, token: string): Promise<In
 
 export async function logShare(
   db: Db,
-  s: { shopId: number; invoiceId: number; channel: ShareChannel; recipient: string | null; userId: number },
+  s: { shopId: number; invoiceId: number; channel: ShareChannel; recipient: string | null; userId: number | null },
 ) {
   await db.query(
     `INSERT INTO invoice_shares (shop_id, invoice_id, channel, recipient, shared_by) VALUES ($1, $2, $3, $4, $5)`,

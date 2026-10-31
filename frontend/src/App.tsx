@@ -27,6 +27,7 @@ import ProductDetailPage from './pages/products/ProductDetailPage';
 import { ProductCreatePage, ProductEditPage } from './pages/products/ProductFormPages';
 import ProductListPage from './pages/products/ProductListPage';
 import PublicCataloguePage from './pages/catalogue/PublicCataloguePage';
+import BillPage from './pages/BillPage';
 
 // Dine-in pages load on demand: they bring the QR code library and the floor editor.
 const GuestMenuPage = lazy(() => import('./pages/tables/GuestMenuPage'));
@@ -47,6 +48,7 @@ export default function App() {
       {/* Public: a table's QR code, and the guest's order progress. */}
       <Route path="/t/:token" element={later(<GuestMenuPage />)} />
       <Route path="/o/:guestToken" element={later(<GuestOrderPage />)} />
+      <Route path="/bill/:token" element={<BillPage />} />
       <Route element={<ProtectedRoute />}>
         {/* Full screen, no app menu: runs on the kitchen's tablet or TV. */}
         <Route path="kitchen" element={later(<KitchenPage />)} />

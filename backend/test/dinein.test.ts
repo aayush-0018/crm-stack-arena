@@ -4,7 +4,11 @@ import { after, before, describe, test } from 'node:test';
 import { apiBase, client, newShop, nextPhone, sql, start, stop } from './helpers';
 
 before(start);
-after(stop);
+after(async () => {
+  const { billsSettled } = await import('../src/modules/dinein/bills');
+  await billsSettled();
+  await stop();
+});
 
 // Emails go to the console mailer in tests; keep them here so codes and bills can be read.
 const mails: string[] = [];
@@ -147,7 +151,7 @@ describe('guest email code', () => {
 });
 
 describe('ordering from a table', () => {
-  test('first order gets 15% off once; later orders show as read-only history; kitchen, paid, served -> completed', async () => {
+  test('first order gets 15% off once; later orders show as read-only history; kitchen, paid, served -> bill emailed', async () => {
     const { api, coffee, cake, t1 } = await cafe();
     const g = await verifiedGuest(t1.qrToken, { name: 'Asha Rao' });
     assert.equal(g.verify.discountPct, 15);
@@ -163,6 +167,7 @@ describe('ordering from a table', () => {
     assert.equal(view.subtotalPaise, 42050);
     assert.equal(view.discountPaise, 6308);
     assert.equal(view.totalPaise, 35742);
+    assert.equal(view.billToken, null);
 
     // A second order in the same visit: no discount. Both listed for the guest, newest first.
     const second = await g.order([{ productId: coffee.id, quantity: 1 }], { paid: true });
@@ -184,10 +189,20 @@ describe('ordering from a table', () => {
     assert.equal(full.discountPaise, 6308);
     assert.equal((await api.get(`/products/${cake.id}`)).body.stockMilli, 2000);
 
-    // Serve, then pay -> completed.
+    // Serve, then pay -> completed and the bill goes to the verified email.
     await api.patch(`/kitchen/${firstK.id}`, { status: 'served' });
+    assert.equal(lastMailTo(g.email).includes('Your bill'), false);
     await api.post(`/kitchen/${firstK.id}/paid`, { method: 'cash' });
+    const { billsSettled } = await import('../src/modules/dinein/bills');
+    await billsSettled();
+    const bill = lastMailTo(g.email);
+    assert.match(bill, /Your bill from Cafe \d+ — INV-/);
+    assert.match(bill, /Discount: −Rs\. 63\.08/);
+    assert.match(bill, /\/bill\/[A-Za-z0-9_-]{24}/);
     assert.equal((await api.get(`/orders/${firstK.id}`)).body.status, 'completed');
+    const after = (await client().get(`/public/table-orders/${first.body.guestToken}`)).body;
+    assert.ok(after.billToken);
+    assert.equal((await client().get(`/public/invoices/${after.billToken}/pdf`)).status, 200);
 
     // A new visit by the same person (later, so the resend limit doesn't apply): not first time any more.
     await sql(`UPDATE guest_otps SET created_at = created_at - interval '1 hour' WHERE email = $1`, [g.email]);
@@ -195,7 +210,7 @@ describe('ordering from a table', () => {
     assert.equal(again.verify.discountPct, 0);
   });
 
-  test('paid at the table + served -> completed; retries do not double-order or double-discount', async () => {
+  test('paid at the table + served -> completed with bill; retries do not double-order or double-discount', async () => {
     const { api, coffee, t1 } = await cafe();
     const g = await verifiedGuest(t1.qrToken);
     const key = randomUUID();
@@ -207,7 +222,10 @@ describe('ordering from a table', () => {
     assert.equal(k.length, 1);
     assert.equal(k[0].paymentStatus, 'paid');
     await api.patch(`/kitchen/${k[0].id}`, { status: 'served' });
+    const { billsSettled } = await import('../src/modules/dinein/bills');
+    await billsSettled();
     assert.equal((await api.get(`/orders/${k[0].id}`)).body.status, 'completed');
+    assert.match(lastMailTo(g.email), /Your bill/);
   });
 
   test('refused: archived product, not enough stock, other shop product, too many', async () => {

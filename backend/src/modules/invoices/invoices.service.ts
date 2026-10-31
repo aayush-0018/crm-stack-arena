@@ -16,7 +16,7 @@ import * as repo from './invoices.repo';
  * - issued & order changed, reissue   -> supersede old, revision+1, same number
  * - only superseded/void revisions    -> revision+1, same number
  */
-export async function generateInvoice(shopId: number, userId: number, orderId: number, reissue: boolean) {
+export async function generateInvoice(shopId: number, userId: number | null, orderId: number, reissue: boolean) {
   try {
     return await withTransaction(async (c) => {
       const order = await findOrder(c, shopId, orderId, { forUpdate: true });

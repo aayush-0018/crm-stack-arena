@@ -4,6 +4,7 @@ import { withTransaction } from '../../db/tx';
 import { AppError, notFound } from '../../lib/errors';
 import { PaymentMethod } from '../payments/payments.schemas';
 import { recordEntry } from '../payments/payments.service';
+import { queueBill } from './bills';
 import { FloorPlanInput, KitchenStatus } from './dinein.schemas';
 
 export const newToken = () => randomBytes(18).toString('base64url');
@@ -178,13 +179,17 @@ export async function liveFloor(shopId: number) {
   return { ...plan, orders: rows as KitchenOrder[] };
 }
 
-/** Served and fully paid: the order is done. Never touches cancelled or already completed orders. */
+/**
+ * Served and fully paid: the order is done, and its bill is emailed to the guest. Never touches
+ * cancelled or already completed orders.
+ */
 async function completeIfDone(db: Db, shopId: number, orderId: number) {
-  await db.query(
+  const { rowCount } = await db.query(
     `UPDATE orders SET status = 'completed', updated_at = now()
      WHERE shop_id = $1 AND id = $2 AND status = 'open' AND kitchen_status = 'served' AND payment_status = 'paid'`,
     [shopId, orderId],
   );
+  if (rowCount) queueBill(shopId, orderId);
 }
 
 async function findKitchenOrder(db: Db, shopId: number, orderId: number) {

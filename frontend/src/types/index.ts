@@ -603,6 +603,8 @@ export interface GuestOrder {
   amountPaidPaise: number;
   paymentStatus: PaymentStatus;
   guestToken: string;
+  /** Set once the bill has been emailed: opens the invoice PDF. */
+  billToken: string | null;
   items: { itemName: string; quantity: string; unitPricePaise: number; lineTotalPaise: number }[];
 }
 
