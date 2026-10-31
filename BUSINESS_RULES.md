@@ -168,6 +168,21 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 | Done and bill | Served **and** fully paid → the order is completed, its invoice issued and a link to the bill PDF emailed to the guest (once; retried on the next completion if sending failed). The guest's order page then offers Download and a WhatsApp share. Automatic WhatsApp sending needs a WhatsApp Business API provider and isn't connected |
 | Guest tracking | The guest's own link shows that one order's progress, items, discount, payment and bill, and nothing else |
 
+## 6c. Table reservations
+
+All booking times are India time (+05:30).
+
+| Rule | Detail |
+|---|---|
+| Holding a table | A booking holds its tables from its start time for the "table held for" length (default 1 h 30 min) while it is Booked or Seated. Two such bookings can never share a table at overlapping times; back-to-back is fine. Checked on the server, one booking change at a time per branch |
+| Staff bookings | Anyone in the branch can book (name, 10-digit mobile, party size, date, time and length required; email and note optional). Tables are optional: with none picked, the smallest free table that seats the party is given; if none fits, the booking is kept without a table to be given one later. Several tables can be picked for a big group (a warning shows if they seat fewer people). The guest is linked to the branch's customer with that mobile number (their saved details are kept), or a new customer is created |
+| Statuses | Booked → Seated → Finished, or Booked → Cancelled / No-show. Seated can go back to Booked (a mistaken tap). Finishing early frees the table from that moment. Finished, cancelled and no-show bookings can't be changed |
+| Emails | With an email, the guest is sent a confirmation (with a link to see or cancel), an update when staff move the time, and a note when staff cancel. Sent in the background with the existing mail setup |
+| Online booking | Off until an owner turns it on, which creates a link (and QR code). Owners set opening and closing times, closed days, how often times are offered (15, 30 or 60 min), how long a table is held, the largest group, how many days ahead and how early guests must book. Times run from opening until the last one that ends by closing. "New link" stops the old one; "Turn off" stops booking online |
+| Booking online | The guest picks party size, day and time; only times with a free table that seats the whole party are offered (one table per online booking; the largest table caps the party size). Bookings without a table count against the free tables. Name, mobile and email are required and the email is confirmed with the same 6-digit code as table ordering. The table is given at the moment of confirming; if the time was taken meanwhile nothing is saved and the code still works for another time. One email can't hold two bookings at overlapping times or more than 3 upcoming online bookings |
+| Guest's booking page | Shows the shop, date, time, party size, note and status, and nothing else. The guest can cancel it until its start time |
+| Live tables | A table with no open orders shows as Reserved when a booking on it starts within 2 hours (or is up to an hour late), or its party is seated. Staff can seat the party, mark a no-show once the time has passed, or free the table when they leave |
+
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
 | Field | Rule |

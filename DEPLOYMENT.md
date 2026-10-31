@@ -321,6 +321,7 @@ The runner skips files already applied, so it's safe to run any time.
 | `013_catalogues.sql` | `catalogues` table (one per branch: link token, design, title, tagline, options) | Product catalogue — run before deploying: the Catalogue button and `/c/…` links read it. Nothing else depends on it |
 | `014_dine_in.sql` | `floor_plans`, `dining_tables`; on `orders`: `source`, `table_id`, `table_label`, `guest_name`, `kitchen_status`, `kitchen_updated_at`, `guest_token` | Tables, QR ordering and kitchen screen — **run before deploying**: the order list and order pages read the new columns |
 | `015_floors_and_guests.sql` | `floors` (each saved plan becomes "Ground floor"), `dining_tables.floor_id`, `guest_otps`, `guest_sessions`, `orders.guest_session_id`, `orders.bill_sent_at` | Floors, guest email codes, first-order discount, emailed bills — **run before deploying**: the floor plan, guest menu and kitchen read them |
+| `016_reservations.sql` | `reservation_settings` (one per branch: hours, rules, booking link), `reservations` | Table bookings — **run before deploying**: Live tables reads bookings, so the floor view fails without it |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -329,13 +330,15 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
 psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 ```
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items`, `catalogues`, `floor_plans`, `dining_tables`, `floors`, `guest_otps` and `guest_sessions` too.
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items`, `catalogues`, `floor_plans`, `dining_tables`, `floors`, `guest_otps`, `guest_sessions`, `reservation_settings` and `reservations` too.
 
 **011–012 (receipts, returns):** additive; existing rows keep their values (`returned_paise` starts at 0). Rehearsed by the upgrade test in `migrations.test.ts`. Rollback: redeploy the previous code; don't drop the tables (they hold receipt and return history).
 
 **013 (catalogues):** additive, a new table only. Rollback: redeploy the previous code; links already sent simply stop opening.
 
 **015 (floors, guests):** additive; existing plans move to a "Ground floor" with the same tables and QR codes (`floor_plans` keeps only the lock). Rehearsed by the upgrade test in `migrations.test.ts`. Guest codes and bills are emailed with the existing `MAIL_PROVIDER`; bill links use `APP_URL`, so check both are set on Render. Rollback: redeploy the previous code; don't drop `floors` (tables point at it).
+
+**016 (reservations):** additive, two new tables only. Booking emails use the existing `MAIL_PROVIDER`, and the links in them use `APP_URL`. Rollback: redeploy the previous code; keep the tables (they hold the bookings).
 
 **014 (dine-in):** additive; existing orders get `source = 'staff'` and nulls. Rollback: redeploy the previous code (it ignores the new columns); keep the tables, since table orders point at them.
 
