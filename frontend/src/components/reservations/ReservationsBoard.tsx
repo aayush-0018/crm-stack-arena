@@ -11,7 +11,7 @@ import { Pill } from '../ui/Badge';
 import Button from '../ui/Button';
 import { controlClass } from '../ui/Field';
 import { ConfirmDialog } from '../ui/Modal';
-import { EmptyState, ErrorState, LoadingState } from '../ui/States';
+import { Alert, EmptyState, ErrorState, LoadingState } from '../ui/States';
 import BookingSettingsModal from './BookingSettingsModal';
 import ReservationForm from './ReservationForm';
 import { addDays, clock, dayTitle, hhmm, holdsTable, minutesOf, people, STATUS_LABEL, STATUS_TONE } from './reservations';
@@ -37,6 +37,8 @@ const DONE: Partial<Record<ReservationStatus, string>> = { seated: 'Seated', fin
 function Row({ r, now, busy, onAct, onEdit }: { r: Reservation; now: number; busy: boolean; onAct: (s: ReservationStatus) => void; onEdit: () => void }) {
   const open = holdsTable(r);
   const late = r.status === 'booked' && new Date(r.startsAt).getTime() < now - 15 * 60_000;
+  // Online bookings arrive without a table: the owner gives one.
+  const needsTable = open && !r.tables.length;
   return (
     <li className={`flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center ${open ? '' : 'opacity-60'}`}>
       <div className="w-24 shrink-0">
@@ -72,8 +74,13 @@ function Row({ r, now, busy, onAct, onEdit }: { r: Reservation; now: number; bus
       </div>
       {open && (
         <div className="flex flex-wrap gap-1.5">
+          {needsTable && (
+            <Button size="sm" disabled={busy} onClick={onEdit}>
+              Give table
+            </Button>
+          )}
           {ACTIONS[r.status].map((a) => (
-            <Button key={a.status} size="sm" variant={a.primary ? 'primary' : 'secondary'} disabled={busy} onClick={() => onAct(a.status)}>
+            <Button key={a.status} size="sm" variant={a.primary && !needsTable ? 'primary' : 'secondary'} disabled={busy} onClick={() => onAct(a.status)}>
               {a.label}
             </Button>
           ))}
@@ -327,6 +334,14 @@ export default function ReservationsBoard({ plan }: { plan: FloorPlan | null }) 
         </div>
       </div>
 
+      {list && list.some((r) => holdsTable(r) && !r.tables.length) && (
+        <Alert tone="warning">
+          {(() => {
+            const n = list.filter((r) => holdsTable(r) && !r.tables.length).length;
+            return `${n} ${n === 1 ? 'booking needs' : 'bookings need'} a table. Use “Give table” to choose one.`;
+          })()}
+        </Alert>
+      )}
       {error && !list ? (
         <ErrorState error={error} onRetry={load} />
       ) : !list ? (

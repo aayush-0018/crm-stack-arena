@@ -135,7 +135,7 @@ export default function BookingSettingsModal({ open, onClose, onChange }: { open
         <div className="space-y-5 pb-1">
           {s.bookingToken ? (
             <div className="space-y-2">
-              <p className="text-[13.5px] text-ink-2">Guests pick a day, time and party size, confirm their email and get a table straight away. You'll see the booking here.</p>
+              <p className="text-[13.5px] text-ink-2">Guests pick a day, time and party size and confirm their email. Their booking shows up here without a table: you choose which table to give them.</p>
               <LinkBox url={bookingLink(s.bookingToken)} shopName={shop?.name ?? ''} />
               {isOwner && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
@@ -156,7 +156,7 @@ export default function BookingSettingsModal({ open, onClose, onChange }: { open
           ) : (
             <div className="rounded-xl border border-dashed border-line-strong p-4">
               <p className="text-[14px] font-medium text-ink">Let guests book a table themselves</p>
-              <p className="mt-1 text-[13px] text-ink-3">You get a link and QR code to share. Each booking gets the smallest free table that fits, and the guest is emailed a confirmation.</p>
+              <p className="mt-1 text-[13px] text-ink-3">You get a link and QR code to share. Guests only see times when a table that fits is free; you choose the actual table. The guest is emailed a confirmation.</p>
               {isOwner ? (
                 <Button className="mt-3" loading={busy === 'on'} onClick={() => run('on', reservationsApi.newLink, 'Online booking is on')}>
                   Turn on online booking

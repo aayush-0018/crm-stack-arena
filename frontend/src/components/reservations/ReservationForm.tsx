@@ -154,7 +154,7 @@ export default function ReservationForm({
   return (
     <Modal
       open={open}
-      title={existing ? 'Change booking' : 'New booking'}
+      title={existing ? (existing.tableIds.length ? 'Change booking' : 'Give a table') : 'New booking'}
       onClose={onClose}
       size="lg"
       footer={

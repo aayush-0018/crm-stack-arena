@@ -265,7 +265,7 @@ describe('online booking', () => {
     assert.equal((await pub.get(`/public/bookings/${token}/times?date=${DAY}&party=2`)).body.reason, 'closed');
   });
 
-  test('email code -> booked on a free table, confirmation emailed, guest can cancel', async () => {
+  test('email code -> booked without a table for the owner to give, confirmation emailed, guest can cancel', async () => {
     const { api, token, pub, ids } = await bookingLink();
     const g = await code(token);
 
@@ -279,7 +279,7 @@ describe('online booking', () => {
     assert.equal(r.source, 'online');
     assert.equal(r.email, g.email);
     assert.equal(r.phone, g.phone);
-    assert.deepEqual(r.table_ids.map(Number), [ids.T2]);
+    assert.deepEqual(r.table_ids, []);
     assert.ok(r.customer_id);
 
     await settled();
@@ -299,6 +299,10 @@ describe('online booking', () => {
 
     const day = (await api.get(`/reservations?date=${DAY}`)).body;
     assert.equal(day[0].notes, 'Birthday');
+    // The owner gives the table.
+    const given = await api.put(`/reservations/${day[0].id}`, { name: r.name, phone: r.phone, email: r.email, partySize: 4, date: DAY, time: '19:00', durationMinutes: 90, tableIds: [ids.T3], notes: 'Birthday' });
+    assert.equal(given.status, 200, JSON.stringify(given.body));
+    assert.deepEqual(given.body.tableIds, [ids.T3]);
 
     const cancelled = await pub.post(`/public/reservations/${ok.body.manageToken}/cancel`);
     assert.equal(cancelled.body.status, 'cancelled');
@@ -315,6 +319,11 @@ describe('online booking', () => {
     assert.equal(taken.body.error.code, 'SLOT_TAKEN');
     const other = await pub.post(`/public/bookings/${token}/confirm`, { challenge: g.challenge, code: g.code, date: DAY, time: '20:30', partySize: 6 });
     assert.equal(other.status, 201, JSON.stringify(other.body));
+    // That booking has no table yet but still needs T4 (the only 6-seater), so 8:30 pm is now full for six.
+    const g3 = await code(token);
+    const full = await pub.post(`/public/bookings/${token}/confirm`, { challenge: g3.challenge, code: g3.code, date: DAY, time: '20:30', partySize: 6 });
+    assert.equal(full.body.error.code, 'SLOT_TAKEN');
+    assert.equal((await pub.get(`/public/bookings/${token}/times?date=${DAY}&party=6`)).body.times.find((t: { time: string }) => t.time === '20:30').available, false);
     // Times off the half-hour grid or outside the hours are refused.
     const g2 = await code(token);
     assert.equal((await pub.post(`/public/bookings/${token}/confirm`, { challenge: g2.challenge, code: g2.code, date: DAY, time: '19:10', partySize: 2 })).status, 409);

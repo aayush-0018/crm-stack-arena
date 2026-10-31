@@ -225,7 +225,7 @@ export async function availableTimes(shopId: number, s: ReservationSettings, dat
 const MAX_UPCOMING = 3;
 
 /**
- * Checks the emailed code and books the best free table in one go. If the time was taken
+ * Checks the emailed code and saves the booking without a table (the owner gives one). If the time was taken
  * meanwhile, nothing is saved (the code stays usable for another time).
  */
 export async function bookOnline(s: ReservationSettings & { shopId: number }, input: BookingConfirm) {
@@ -248,16 +248,18 @@ export async function bookOnline(s: ReservationSettings & { shopId: number }, in
     if (mine[0].clash) throw new AppError(409, 'ALREADY_BOOKED', 'You already have a booking at this time. Check your email for it.');
     if (mine[0].n >= MAX_UPCOMING) throw new AppError(409, 'TOO_MANY_BOOKINGS', `You already have ${MAX_UPCOMING} upcoming bookings here. Please call us to book more.`);
 
+    // The owner gives the actual table later; here we only make sure one that fits will be free.
     const tables = await activeTables(c, s.shopId);
-    const table = pickTable(tables, await holds(c, s.shopId, start, end, null), input.partySize);
-    if (!table) throw new AppError(409, 'SLOT_TAKEN', 'Sorry, that time was just taken. Please pick another time.');
+    if (!pickTable(tables, await holds(c, s.shopId, start, end, null), input.partySize)) {
+      throw new AppError(409, 'SLOT_TAKEN', 'Sorry, that time was just taken. Please pick another time.');
+    }
 
     const customerId = await customerFor(c, s.shopId, otp, 'Added from an online table booking');
     const manageToken = newToken();
     const { rows } = await c.query(
       `INSERT INTO reservations (shop_id, customer_id, name, phone, email, party_size, starts_at, ends_at, table_ids, source, notes, manage_token)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'online', $10, $11) RETURNING id`,
-      [s.shopId, customerId, otp.name, otp.phone, otp.email, input.partySize, start, end, [table.id], input.notes, manageToken],
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}', 'online', $9, $10) RETURNING id`,
+      [s.shopId, customerId, otp.name, otp.phone, otp.email, input.partySize, start, end, input.notes, manageToken],
     );
     return { id: Number(rows[0].id), manageToken };
   });
