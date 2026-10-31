@@ -319,6 +319,7 @@ The runner skips files already applied, so it's safe to run any time.
 | `011_receipts.sql` | `receipts` table, `payments.receipt_id`, receipt and refund counters | Receipts — **run before deploying**: every new payment writes a receipt, so recording payments fails without it |
 | `012_returns.sql` | `order_returns`, `order_return_items`, `orders.returned_paise` (total rule now `subtotal − discount − returned`), `payments.return_id`, the `return` stock movement | Returns — **run before deploying**: every order page reads returns |
 | `013_catalogues.sql` | `catalogues` table (one per branch: link token, design, title, tagline, options) | Product catalogue — run before deploying: the Catalogue button and `/c/…` links read it. Nothing else depends on it |
+| `014_dine_in.sql` | `floor_plans`, `dining_tables`; on `orders`: `source`, `table_id`, `table_label`, `guest_name`, `kitchen_status`, `kitchen_updated_at`, `guest_token` | Tables, QR ordering and kitchen screen — **run before deploying**: the order list and order pages read the new columns |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -327,11 +328,13 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
 psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 ```
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items` and `catalogues` too.
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items`, `catalogues`, `floor_plans` and `dining_tables` too.
 
 **011–012 (receipts, returns):** additive; existing rows keep their values (`returned_paise` starts at 0). Rehearsed by the upgrade test in `migrations.test.ts`. Rollback: redeploy the previous code; don't drop the tables (they hold receipt and return history).
 
 **013 (catalogues):** additive, a new table only. Rollback: redeploy the previous code; links already sent simply stop opening.
+
+**014 (dine-in):** additive; existing orders get `source = 'staff'` and nulls. Rollback: redeploy the previous code (it ignores the new columns); keep the tables, since table orders point at them.
 
 **"Needs reissue" check (read-only):** `DATABASE_URL="<session-pooler-string>" ALLOW_REMOTE_DB=true DATABASE_SSL=true npm run check-reissue` lists invoices flagged only by old payments vs. ones with a real change. It changes nothing.
 

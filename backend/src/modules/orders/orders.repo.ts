@@ -27,7 +27,8 @@ const COLS = `o.id, o.customer_id AS "customerId", o.order_number AS "orderNumbe
   o.payment_status AS "paymentStatus", o.subtotal_paise AS "subtotalPaise",
   o.discount_paise AS "discountPaise", o.total_paise AS "totalPaise", o.returned_paise AS "returnedPaise",
   o.amount_paid_paise AS "amountPaidPaise", o.notes, o.order_date AS "orderDate",
-  o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt"`;
+  o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
+  o.table_label AS "tableLabel", o.guest_name AS "guestName", o.kitchen_status AS "kitchenStatus"`;
 
 const ORDER_SORTS: Record<ListOrdersQuery['sort'], (dir: string) => string> = {
   date: (d) => `o.order_date ${d}, o.id ${d}`,
@@ -110,7 +111,7 @@ export async function insertOrder(
     notes: string | null;
     orderDate?: string;
     idempotencyKey?: string;
-    createdBy: number;
+    createdBy: number | null;
   },
 ): Promise<number> {
   const t = o.totals;

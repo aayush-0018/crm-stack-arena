@@ -37,7 +37,7 @@ export async function addEntry(
   e: {
     shopId: number;
     orderId: number;
-    userId: number;
+    userId: number | null;
     kind: PaymentKind;
     amountPaise: number;
     method: PaymentMethod;

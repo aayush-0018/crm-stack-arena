@@ -275,7 +275,7 @@ export default function OrderDetailPage() {
                 )}
               </>
             ) : (
-              <p className="text-[13px] text-ink-3">{o.customerId ? 'Unknown customer' : 'Walk-in sale — no customer saved.'}</p>
+              <p className="text-[13px] text-ink-3">{o.customerId ? 'Unknown customer' : o.tableLabel ? `Ordered at table ${o.tableLabel} from its QR code${o.guestName ? ` by ${o.guestName}` : ''}.` : 'Walk-in sale — no customer saved.'}</p>
             )}
           </div>
 

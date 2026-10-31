@@ -61,7 +61,7 @@ export async function insertPayment(
     reference?: string | null;
     note?: string | null;
     idempotencyKey?: string;
-    userId: number;
+    userId: number | null;
     receiptId: number;
     returnId?: number;
   },

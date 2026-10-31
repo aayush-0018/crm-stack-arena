@@ -46,7 +46,15 @@ export async function getOrder(shopId: number, id: number) {
   };
 }
 
-export async function createOrder(shopId: number, userId: number, input: CreateOrderInput) {
+/** Set when a guest orders from a table's QR code: the order also goes to the kitchen screen. */
+export interface DineInExtra {
+  tableId: number;
+  tableLabel: string;
+  guestName: string | null;
+  guestToken: string;
+}
+
+export async function createOrder(shopId: number, userId: number | null, input: CreateOrderInput, dineIn?: DineInExtra) {
   // Retry of an already-saved submission -> return the same order.
   if (input.idempotencyKey) {
     const existing = await repo.findOrderIdByIdempotencyKey(pool, shopId, input.idempotencyKey);
@@ -82,6 +90,14 @@ export async function createOrder(shopId: number, userId: number, input: CreateO
         createdBy: userId,
       });
       await repo.replaceItems(c, id, totals.lines);
+      if (dineIn) {
+        await c.query(
+          `UPDATE orders SET source = 'table', table_id = $2, table_label = $3, guest_name = $4, guest_token = $5,
+             kitchen_status = 'new', kitchen_updated_at = now()
+           WHERE id = $1`,
+          [id, dineIn.tableId, dineIn.tableLabel, dineIn.guestName, dineIn.guestToken],
+        );
+      }
       await syncOrderStock(c, shopId, id, userId);
       if (totals.amountPaidPaise > 0) {
         const today = await todayIST(c);

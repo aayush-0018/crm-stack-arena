@@ -152,6 +152,19 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 | Size | Up to 2,000 products are shown |
 | Designs | One design (Classic) for now; the design is stored per catalogue so more can be added |
 
+## 6b. Tables, QR ordering and the kitchen screen (dine-in)
+
+| Rule | Detail |
+|---|---|
+| Floor plan | One per branch: tables (rows with a stable id and QR token) plus walls, counter, kitchen, entrance, windows, plants, areas and text. Owners draw, save and lock it; while locked nothing can be changed. Table names are unique per branch |
+| QR codes | Each table has a random token. Moving or renaming a table keeps it. "Replace QR code" issues a new one and the printed old one stops. Removing a table stops its QR; its past orders keep the table name |
+| Guest menu | Active products that can be sold now (in stock, or not stock-tracked), with price. Never cost or stock levels |
+| Guest order | Becomes an ordinary walk-in order: prices come from the product list (never from the phone), stock is taken, numbering as usual. Marked with the table, guest name and note, and sent to the kitchen as New. Limits: 50 lines, 50 of each, 20 orders per table and 30 per address in 10 minutes; retries of the same submission return the same order |
+| Payment (test) | No payment gateway yet. "I have paid" records the full amount as a UPI payment (with a receipt). Otherwise staff mark it paid from Live tables, choosing the method |
+| Kitchen | New → Preparing → Ready → Served, and back one step to undo. Shows unserved orders oldest first, plus 30 minutes of served ones. Cancelled orders disappear |
+| Done | Served **and** fully paid → the order is completed automatically. A table is busy while any of its orders is unserved or unpaid |
+| Guest tracking | The guest's own link shows that one order's progress, items and payment, and nothing else |
+
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
 | Field | Rule |

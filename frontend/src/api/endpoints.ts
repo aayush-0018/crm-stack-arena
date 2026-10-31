@@ -11,6 +11,11 @@ import type {
   Analytics,
   Branch,
   CatalogueSettings,
+  FloorPlan,
+  GuestOrderView,
+  KitchenOrder,
+  KitchenStatus,
+  TableMenu,
   PublicCatalogue,
   AnalyticsDays,
   Customer,
@@ -218,6 +223,29 @@ export const catalogueApi = {
   turnOff: () => api.delete<CatalogueSettings>('/catalogue/link'),
   /** No login: the token is the permission. */
   publicGet: (token: string) => api.get<PublicCatalogue>(`/public/catalogues/${encodeURIComponent(token)}`),
+};
+
+export const floorPlanApi = {
+  get: () => api.get<FloorPlan>('/floor-plan'),
+  save: (body: { width: number; height: number; decor: FloorPlan['decor']; tables: (Omit<FloorPlan['tables'][number], 'id' | 'qrToken'> & { id?: number })[] }) =>
+    api.put<FloorPlan>('/floor-plan', body),
+  setLocked: (locked: boolean) => api.put<FloorPlan>('/floor-plan/lock', { locked }),
+  newQr: (tableId: number) => api.post<FloorPlan>(`/floor-plan/tables/${tableId}/new-qr`),
+  live: () => api.get<FloorPlan & { orders: KitchenOrder[] }>('/floor-plan/live'),
+};
+
+export const kitchenApi = {
+  list: () => api.get<KitchenOrder[]>('/kitchen'),
+  setStatus: (id: number, status: KitchenStatus) => api.patch<KitchenOrder[]>(`/kitchen/${id}`, { status }),
+  markPaid: (id: number, method: Exclude<PaymentMethod, 'unrecorded'>) => api.post<FloorPlan & { orders: KitchenOrder[] }>(`/kitchen/${id}/paid`, { method }),
+};
+
+/** No login: the table's QR token is the permission. */
+export const tableGuestApi = {
+  menu: (token: string) => api.get<TableMenu>(`/public/tables/${encodeURIComponent(token)}`),
+  order: (token: string, body: { items: { productId: number; quantity: number }[]; name: string | null; note: string | null; paid: boolean; idempotencyKey: string }) =>
+    api.post<{ guestToken: string }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
+  view: (guestToken: string) => api.get<GuestOrderView>(`/public/table-orders/${encodeURIComponent(guestToken)}`),
 };
 
 export interface SettlePayload {

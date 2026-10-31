@@ -121,7 +121,7 @@ export async function listMovements(db: Db, shopId: number, productId: number, l
 
 export async function insertMovement(
   db: Db,
-  m: { shopId: number; productId: number; kind: string; qtyMilli: number; orderId?: number | null; note?: string | null; idempotencyKey?: string; userId: number },
+  m: { shopId: number; productId: number; kind: string; qtyMilli: number; orderId?: number | null; note?: string | null; idempotencyKey?: string; userId: number | null },
 ) {
   await db.query(
     `INSERT INTO stock_movements (shop_id, product_id, kind, qty_milli, order_id, note, idempotency_key, created_by)

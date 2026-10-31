@@ -53,7 +53,7 @@ export async function issueReceipt(
     reference?: string | null;
     note?: string | null;
     allocations: ReceiptAllocation[];
-    userId: number;
+    userId: number | null;
     idempotencyKey?: string;
   },
 ): Promise<{ id: number; receiptNumber: string }> {

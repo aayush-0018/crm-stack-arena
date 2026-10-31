@@ -141,6 +141,10 @@ export interface OrderBase {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** Placed from a table's QR code (dine-in). */
+  tableLabel?: string | null;
+  guestName?: string | null;
+  kitchenStatus?: KitchenStatus | null;
 }
 
 export interface OrderListItem extends OrderBase {
@@ -503,4 +507,84 @@ export interface PublicCatalogue {
   products: { id: number; name: string; sku: string | null; category: string | null; unit: string; pricePaise: number | null; available: boolean }[];
   truncated: boolean;
   generatedAt: string;
+}
+
+export type TableShape = 'square' | 'round' | 'rect';
+export type DecorKind = 'wall' | 'counter' | 'kitchen' | 'door' | 'window' | 'plant' | 'zone' | 'text';
+export type Rotation = 0 | 90 | 180 | 270;
+
+export interface DiningTable {
+  /** Missing until the plan is saved. */
+  id?: number;
+  label: string;
+  seats: number;
+  shape: TableShape;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: Rotation;
+  qrToken?: string;
+}
+
+export interface DecorBlock {
+  id: string;
+  kind: DecorKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: Rotation;
+  label: string | null;
+}
+
+export interface FloorPlan {
+  width: number;
+  height: number;
+  decor: DecorBlock[];
+  tables: (DiningTable & { id: number; qrToken: string })[];
+  locked: boolean;
+  updatedAt: string | null;
+}
+
+export type KitchenStatus = 'new' | 'preparing' | 'ready' | 'served';
+
+export interface KitchenOrder {
+  id: number;
+  orderNumber: string;
+  tableId: number | null;
+  tableLabel: string | null;
+  guestName: string | null;
+  notes: string | null;
+  kitchenStatus: KitchenStatus;
+  kitchenUpdatedAt: string;
+  createdAt: string;
+  totalPaise: number;
+  amountPaidPaise: number;
+  paymentStatus: PaymentStatus;
+  items: { itemName: string; quantity: string | number }[];
+}
+
+/** What a guest sees after scanning a table's QR code. */
+export interface TableMenu {
+  shop: { name: string; logoKey: string | null; phone: string | null };
+  table: { label: string };
+  products: { id: number; name: string; category: string | null; unit: string; pricePaise: number }[];
+}
+
+export interface GuestOrderView {
+  orderNumber: string;
+  tableLabel: string | null;
+  guestName: string | null;
+  notes: string | null;
+  status: OrderStatus;
+  kitchenStatus: KitchenStatus;
+  createdAt: string;
+  totalPaise: number;
+  amountPaidPaise: number;
+  paymentStatus: PaymentStatus;
+  shopName: string;
+  logoKey: string | null;
+  tableToken: string | null;
+  items: { itemName: string; quantity: string; unitPricePaise: number; lineTotalPaise: number }[];
 }

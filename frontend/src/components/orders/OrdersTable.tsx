@@ -35,7 +35,7 @@ export function orderColumns(showCustomer: boolean, filters: Record<string, Colu
                   </span>
                 </CustomerHoverCard>
               ) : (
-                <span className="text-ink-3">Walk-in</span>
+                <span className="text-ink-3">{o.tableLabel ? `Table ${o.tableLabel}${o.guestName ? ` · ${o.guestName}` : ''}` : 'Walk-in'}</span>
               ),
           } as Column<OrderListItem>,
         ]

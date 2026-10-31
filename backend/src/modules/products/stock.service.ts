@@ -28,7 +28,7 @@ const insufficient = (items: Shortage[]) =>
  * product lines need now and what has already been taken. Covers create, edit, cancel (needs
  * nothing), reopen and delete (`removing`). Call inside the order's transaction.
  */
-export async function syncOrderStock(c: Db, shopId: number, orderId: number, userId: number, { removing = false, why = '' } = {}) {
+export async function syncOrderStock(c: Db, shopId: number, orderId: number, userId: number | null, { removing = false, why = '' } = {}) {
   const { rows: ord } = await c.query(`SELECT status, order_number AS "orderNumber" FROM orders WHERE shop_id = $1 AND id = $2`, [shopId, orderId]);
   if (!ord[0]) throw notFound('Order');
   const needsStock = !removing && ord[0].status !== 'cancelled';

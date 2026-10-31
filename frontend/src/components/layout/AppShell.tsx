@@ -1,6 +1,8 @@
 import {
   ArrowLeftRight,
+  Armchair,
   Bell,
+  ChefHat,
   ChartLine,
   Contact,
   FileText,
@@ -209,6 +211,8 @@ export default function AppShell() {
         <NavItem to="/orders" icon={<ArrowLeftRight {...ICON} />} label="Orders" count={counts.open} />
         <NavItem to="/invoices" icon={<FileText {...ICON} />} label="Invoices" count={counts.outdated} />
         <NavItem to="/products" icon={<Package {...ICON} />} label="Products" count={counts.lowStock} />
+        <NavItem to="/tables" icon={<Armchair {...ICON} />} label="Tables" />
+        <NavItem to="/kitchen" icon={<ChefHat {...ICON} />} label="Kitchen screen" />
         <NavItem to="/analytics" icon={<ChartLine {...ICON} />} label="Analytics and reports" />
         <NavItem to="/reports" icon={<Wallet {...ICON} />} label="Dues and collections" />
 

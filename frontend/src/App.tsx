@@ -1,4 +1,6 @@
+import { lazy, ReactNode, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { LoadingState } from './components/ui/States';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import DashboardPage from './pages/DashboardPage';
@@ -26,6 +28,13 @@ import { ProductCreatePage, ProductEditPage } from './pages/products/ProductForm
 import ProductListPage from './pages/products/ProductListPage';
 import PublicCataloguePage from './pages/catalogue/PublicCataloguePage';
 
+// Dine-in pages load on demand: they bring the QR code library and the floor editor.
+const GuestMenuPage = lazy(() => import('./pages/tables/GuestMenuPage'));
+const GuestOrderPage = lazy(() => import('./pages/tables/GuestOrderPage'));
+const KitchenPage = lazy(() => import('./pages/tables/KitchenPage'));
+const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
+const later = (page: ReactNode) => <Suspense fallback={<LoadingState />}>{page}</Suspense>;
+
 export default function App() {
   return (
     <Routes>
@@ -35,7 +44,12 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       {/* Public: the link shops send to customers. */}
       <Route path="/c/:token" element={<PublicCataloguePage />} />
+      {/* Public: a table's QR code, and the guest's order progress. */}
+      <Route path="/t/:token" element={later(<GuestMenuPage />)} />
+      <Route path="/o/:guestToken" element={later(<GuestOrderPage />)} />
       <Route element={<ProtectedRoute />}>
+        {/* Full screen, no app menu: runs on the kitchen's tablet or TV. */}
+        <Route path="kitchen" element={later(<KitchenPage />)} />
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="customers" element={<CustomerListPage />} />
@@ -52,6 +66,7 @@ export default function App() {
           <Route path="products/new" element={<ProductCreatePage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="products/:id/edit" element={<ProductEditPage />} />
+          <Route path="tables" element={later(<TablesPage />)} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="receipts/:id" element={<ReceiptPage />} />
