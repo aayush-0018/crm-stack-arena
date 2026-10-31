@@ -1,20 +1,16 @@
-import { Copy, Lock, RotateCw, Trash2, Unlock, Wand2 } from 'lucide-react';
+import { Copy, Lock, Plus, RotateCw, Trash2, Unlock, Wand2 } from 'lucide-react';
 import { PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { floorPlanApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
-import type { DecorBlock, DecorKind, DiningTable, FloorPlan, Rotation, TableShape } from '../../types';
+import type { DecorBlock, DecorKind, DiningTable, Floor, FloorPlan, Rotation, TableShape } from '../../types';
 import Button from '../ui/Button';
 import { controlClass } from '../ui/Field';
 import { Alert } from '../ui/States';
 import FloorCanvas, { chairs, DECOR_LOOK, GRID, ItemKey } from './FloorCanvas';
 
-interface Draft {
-  width: number;
-  height: number;
-  tables: DiningTable[];
-  decor: DecorBlock[];
-}
+/** One floor being edited. */
+type Draft = Floor;
 
 type Preset =
   | { type: 'table'; name: string; shape: TableShape; seats: number; w: number; h: number }
@@ -70,7 +66,7 @@ function freeSpot(d: Draft, w: number, h: number) {
 }
 
 /** A ready-made café: N four-seat tables in rows, with a kitchen, counter, entrance and plants. */
-function quickLayout(count: number): Draft {
+function quickLayout(count: number): Pick<Draft, 'width' | 'height' | 'tables' | 'decor'> {
   const cols = 6;
   const rows = Math.ceil(count / cols);
   const height = Math.max(800, 60 + rows * 140 + 160);
@@ -95,25 +91,44 @@ function quickLayout(count: number): Draft {
   return { width: 1200, height, tables, decor };
 }
 
-const fromPlan = (p: FloorPlan): Draft => ({ width: p.width, height: p.height, tables: p.tables.map((t) => ({ ...t })), decor: p.decor.map((d) => ({ ...d })) });
+const fromPlan = (p: FloorPlan): Draft[] =>
+  p.floors.map((f) => ({ id: f.id, name: f.name, width: f.width, height: f.height, tables: f.tables.map((t) => ({ ...t })), decor: f.decor.map((d) => ({ ...d })) }));
+
+const emptyFloor = (name: string): Draft => ({ name, width: 1200, height: 800, tables: [], decor: [] });
+
+/** "First floor", "Second floor"… avoiding names already used. */
+function nextFloorName(floors: Draft[]) {
+  const names = ['Ground floor', 'First floor', 'Second floor', 'Third floor', 'Rooftop', 'Terrace', 'Basement'];
+  const used = new Set(floors.map((f) => f.name.toLowerCase()));
+  return names.find((n) => !used.has(n.toLowerCase())) ?? `Floor ${floors.length + 1}`;
+}
 
 /** Drawing and arranging the café. Owners only; saved as a whole, then locked. */
 export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; onSaved: (p: FloorPlan) => void }) {
   const toast = useToast();
-  const [draft, setDraft] = useState<Draft>(() => fromPlan(plan));
+  const [floors, setFloors] = useState<Draft[]>(() => fromPlan(plan));
+  const [active, setActive] = useState(0);
   const [saved, setSaved] = useState(() => JSON.stringify(fromPlan(plan)));
+  const draft = floors[Math.min(active, floors.length - 1)];
+  // Edits apply to the floor on screen.
+  const setDraft = useCallback(
+    (u: Draft | ((d: Draft) => Draft)) => setFloors((fs) => fs.map((f, i) => (i === Math.min(active, fs.length - 1) ? (typeof u === 'function' ? u(f) : u) : f))),
+    [active],
+  );
+  const allTables = floors.flatMap((f) => f.tables);
   const [selected, setSelected] = useState<ItemKey | null>(null);
   const [busy, setBusy] = useState<'save' | 'lock' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quickCount, setQuickCount] = useState('20');
   const [ghost, setGhost] = useState<{ x: number; y: number; preset: Preset } | null>(null);
   const canvas = useRef<{ el: HTMLDivElement | null; scale: number }>({ el: null, scale: 1 });
-  const dirty = JSON.stringify(draft) !== saved;
+  const dirty = JSON.stringify(floors) !== saved;
   const locked = plan.locked;
 
   useEffect(() => {
-    setDraft(fromPlan(plan));
+    setFloors(fromPlan(plan));
     setSaved(JSON.stringify(fromPlan(plan)));
+    setActive((a) => Math.min(a, plan.floors.length - 1));
   }, [plan]);
 
   // Warn before closing the tab with unsaved changes.
@@ -157,15 +172,17 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
       const id = key.slice(1);
       return { ...d, decor: d.decor.map((x) => (x.id === id ? ({ ...x, ...patch } as DecorBlock) : x)) };
     });
-  }, []);
+  }, [setDraft]);
 
   const add = (preset: Preset, at?: { x: number; y: number }) => {
+    // Table names are unique across every floor.
+    const label = nextLabel(allTables);
     setDraft((d) => {
       const pos = at
         ? { x: clamp(snap(at.x - preset.w / 2), 0, d.width - preset.w), y: clamp(snap(at.y - preset.h / 2), 0, d.height - preset.h) }
         : freeSpot(d, preset.w, preset.h);
       if (preset.type === 'table') {
-        const t: DiningTable = { label: nextLabel(d.tables), seats: preset.seats, shape: preset.shape, w: preset.w, h: preset.h, rotation: 0, ...pos };
+        const t: DiningTable = { label, seats: preset.seats, shape: preset.shape, w: preset.w, h: preset.h, rotation: 0, ...pos };
         setSelected(`t${d.tables.length}`);
         return { ...d, tables: [...d.tables, t] };
       }
@@ -286,12 +303,7 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
     setBusy('save');
     setError(null);
     try {
-      const p = await floorPlanApi.save({
-        width: draft.width,
-        height: draft.height,
-        decor: draft.decor,
-        tables: draft.tables.map(({ qrToken: _q, ...t }) => t),
-      });
+      const p = await floorPlanApi.save(floors.map((f) => ({ ...f, tables: f.tables.map(({ qrToken: _q, ...t }) => t) })));
       onSaved(p);
       toast('success', 'Floor plan saved');
       return p;
@@ -317,7 +329,37 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
     }
   };
 
-  const seats = draft.tables.reduce((s, t) => s + t.seats, 0);
+  const seats = allTables.reduce((s, t) => s + t.seats, 0);
+
+  const switchFloor = (i: number) => {
+    setActive(i);
+    setSelected(null);
+  };
+  const addFloor = () => {
+    setFloors((fs) => [...fs, emptyFloor(nextFloorName(fs))]);
+    switchFloor(floors.length);
+  };
+  const removeFloor = () => {
+    if (floors.length < 2) return toast('error', 'A café needs at least one floor.');
+    const n = draft.tables.length;
+    if (n && !window.confirm(`Delete “${draft.name}” and its ${n} ${n === 1 ? 'table' : 'tables'}? Their QR codes stop working once you save.`)) return;
+    setFloors((fs) => fs.filter((_, i) => i !== active));
+    switchFloor(Math.max(0, active - 1));
+  };
+  /** Moves the selected table to another floor, keeping its QR code. */
+  const moveToFloor = (target: number) => {
+    if (!sel || sel.kind !== 'table' || target === active) return;
+    const t = sel.item;
+    setFloors((fs) =>
+      fs.map((f, i) => {
+        if (i === active) return { ...f, tables: f.tables.filter((_, j) => j !== sel.index) };
+        if (i === target) return { ...f, tables: [...f.tables, { ...t, ...freeSpot(f, t.w, t.h) }] };
+        return f;
+      }),
+    );
+    setActive(target);
+    setSelected(`t${floors[target].tables.length}`);
+  };
   const paletteBtn = 'flex h-[58px] flex-col items-center justify-center gap-1 rounded-lg border border-line bg-surface text-[11.5px] text-ink-2 hover:border-ink-4 hover:text-ink touch-none';
 
   return (
@@ -326,12 +368,16 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
 
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto text-[13.5px] text-ink-2">
-          {draft.tables.length} tables · {seats} seats
+          {floors.length > 1 ? `${floors.length} floors · ` : ''}
+          {allTables.length} tables · {seats} seats
           {clashing.size > 0 && <span className="ml-2 text-danger-text">· {clashing.size} tables overlap</span>}
           {dirty && <span className="ml-2 text-warn-text">· Unsaved changes</span>}
         </p>
         {!locked && dirty && (
-          <Button size="sm" variant="ghost" onClick={() => setDraft(JSON.parse(saved))}>
+          <Button size="sm" variant="ghost" onClick={() => {
+              setFloors(JSON.parse(saved));
+              setSelected(null);
+            }}>
             Discard
           </Button>
         )}
@@ -343,6 +389,28 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
         <Button size="sm" variant={locked ? 'secondary' : 'primary'} onClick={toggleLock} loading={busy === 'lock'}>
           {locked ? <Unlock size={14} /> : <Lock size={14} />} {locked ? 'Unlock to edit' : dirty ? 'Save and lock' : 'Lock layout'}
         </Button>
+      </div>
+
+      {/* Floors */}
+      <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Floors">
+        {floors.map((f, i) => (
+          <button
+            key={f.id ?? `new-${i}`}
+            type="button"
+            role="tab"
+            aria-selected={i === active}
+            onClick={() => switchFloor(i)}
+            className={`h-8 rounded-lg border px-3 text-[13px] ${i === active ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink-2 hover:bg-hover hover:text-ink'}`}
+          >
+            {f.name || 'Untitled'}
+            <span className={`ml-1.5 tabular-nums ${i === active ? 'opacity-70' : 'text-ink-4'}`}>{f.tables.length}</span>
+          </button>
+        ))}
+        {!locked && floors.length < 20 && (
+          <button type="button" onClick={addFloor} className="inline-flex h-8 items-center gap-1 rounded-lg border border-dashed border-line-strong px-3 text-[13px] text-ink-2 hover:bg-hover hover:text-ink">
+            <Plus size={14} /> Add floor
+          </button>
+        )}
       </div>
 
       {locked && (
@@ -400,7 +468,10 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
                   size="sm"
                   onClick={() => {
                     const n = clamp(Number(quickCount) || 0, 1, 60);
-                    setDraft(quickLayout(n));
+                    // Numbering continues after tables on other floors.
+                    const first = Number(nextLabel(allTables).slice(1)) - 1;
+                    const layout = quickLayout(n);
+                    setDraft((d) => ({ ...d, ...layout, tables: layout.tables.map((t, i) => ({ ...t, label: `T${first + i + 1}` })) }));
                     setSelected(null);
                   }}
                 >
@@ -475,6 +546,18 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
                         </select>
                       </label>
                     </div>
+                    {floors.length > 1 && (
+                      <label className="block">
+                        <span className="mb-1 block text-[12.5px] text-ink-2">Floor</span>
+                        <select className={controlClass(false, 'h-9')} value={active} onChange={(e) => moveToFloor(Number(e.target.value))}>
+                          {floors.map((f, i) => (
+                            <option key={i} value={i}>
+                              {f.name || 'Untitled'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </>
                 ) : (
                   sel.item.kind !== 'wall' &&
@@ -506,7 +589,11 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
             )}
 
             <div className="space-y-2 rounded-xl border border-line p-3.5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">Floor size</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3">This floor</p>
+              <label className="block">
+                <span className="mb-1 block text-[12.5px] text-ink-2">Name</span>
+                <input className={controlClass(false, 'h-9')} maxLength={40} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
+              </label>
               <div className="grid grid-cols-2 gap-2">
                 {(['width', 'height'] as const).map((k) => (
                   <label key={k} className="block">
@@ -519,7 +606,7 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
                         const items = [...draft.tables, ...draft.decor];
                         const needed = Math.max(0, ...items.map((it) => (k === 'width' ? it.x + it.w : it.y + it.h)));
                         if (v < needed) return toast('error', `Move things ${k === 'width' ? 'left' : 'up'} first: something sits beyond ${v}.`);
-                        setDraft({ ...draft, [k]: v });
+                        setDraft((d) => ({ ...d, [k]: v }));
                       }}
                     >
                       {Array.from({ length: 27 }, (_, i) => 400 + i * 100).map((v) => (
@@ -538,12 +625,17 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
                 className="text-[12.5px] text-ink-3 underline-offset-2 hover:text-danger-text hover:underline"
                 onClick={() => {
                   if (window.confirm('Clear the whole floor? Tables already saved lose their QR codes once you save.')) {
-                    setDraft({ ...draft, tables: [], decor: [] });
+                    setDraft((d) => ({ ...d, tables: [], decor: [] }));
                     setSelected(null);
                   }
                 }}
               >
                 Clear floor
+              </button>
+            )}
+            {floors.length > 1 && (
+              <button type="button" className="block text-[12.5px] text-ink-3 underline-offset-2 hover:text-danger-text hover:underline" onClick={removeFloor}>
+                Delete this floor
               </button>
             )}
           </div>

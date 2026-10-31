@@ -32,24 +32,39 @@ const tableItem = z.object({
   rotation,
 });
 
-export const floorPlanSchema = z
+const floorItem = z
   .object({
+    /** Missing = a new floor. */
+    id: z.number().int().positive().optional(),
+    name: z.string().trim().min(1, 'Every floor needs a name').max(40, 'Floor names are at most 40 characters'),
     width: z.number().int().min(400).max(4000),
     height: z.number().int().min(300).max(4000),
-    decor: z.array(decorItem).max(400, 'Too many blocks (max 400)'),
-    tables: z.array(tableItem).max(200, 'Too many tables (max 200)'),
+    decor: z.array(decorItem).max(400, 'Too many blocks on one floor (max 400)'),
+    tables: z.array(tableItem).max(200, 'Too many tables on one floor (max 200)'),
   })
-  .superRefine((p, ctx) => {
-    const seen = new Set<string>();
-    for (const t of p.tables) {
-      const key = t.label.toLowerCase();
-      if (seen.has(key)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tables'], message: `Two tables are called “${t.label}”` });
-      seen.add(key);
-    }
-    for (const it of [...p.tables, ...p.decor]) {
-      if (it.x + it.w > p.width || it.y + it.h > p.height) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tables'], message: 'Something is outside the floor area' });
+  .superRefine((f, ctx) => {
+    for (const it of [...f.tables, ...f.decor]) {
+      if (it.x + it.w > f.width || it.y + it.h > f.height) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tables'], message: `Something on “${f.name}” is outside the floor area` });
         break;
+      }
+    }
+  });
+
+export const floorPlanSchema = z
+  .object({ floors: z.array(floorItem).min(1, 'Keep at least one floor').max(20, 'At most 20 floors') })
+  .superRefine((p, ctx) => {
+    const names = new Set<string>();
+    const labels = new Set<string>();
+    for (const f of p.floors) {
+      const n = f.name.toLowerCase();
+      if (names.has(n)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['floors'], message: `Two floors are called “${f.name}”` });
+      names.add(n);
+      // Table names are unique across the whole café: the kitchen shows only the table name.
+      for (const t of f.tables) {
+        const key = t.label.toLowerCase();
+        if (labels.has(key)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tables'], message: `Two tables are called “${t.label}”` });
+        labels.add(key);
       }
     }
   });

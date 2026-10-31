@@ -78,7 +78,9 @@ function TablePanel({ label, orders, onClose, onChange }: { label: string; order
                 </ul>
                 {(o.guestName || o.notes) && <p className="mt-1.5 text-[12.5px] text-ink-3">{[o.guestName, o.notes].filter(Boolean).join(' · ')}</p>}
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  <span className="mr-auto font-medium tabular-nums text-ink">{formatINR(o.totalPaise)}</span>
+                  <span className="mr-auto font-medium tabular-nums text-ink">
+                    {formatINR(o.totalPaise)}
+                  </span>
                   {next && (
                     <Button size="sm" variant="secondary" loading={busy === o.id} onClick={() => act(o.id, () => kitchenApi.setStatus(o.id, next), `Marked ${KITCHEN_LABEL[next].toLowerCase()}`)}>
                       Mark {KITCHEN_LABEL[next].toLowerCase()}
@@ -115,6 +117,7 @@ function LiveFloor() {
   const [live, setLive] = useState<Live | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [floorIdx, setFloorIdx] = useState(0);
   const now = useNow();
   const load = useCallback(
     () =>
@@ -137,16 +140,18 @@ function LiveFloor() {
 
   if (error && !live) return <ErrorState error={error} onRetry={load} />;
   if (!live) return <LoadingState />;
-  if (!live.tables.length) {
+  const allTables = live.floors.flatMap((f) => f.tables);
+  if (!allTables.length) {
     return <EmptyState title="No tables yet" description="Draw your floor plan first: add your tables, then print their QR codes." action={<ButtonLink to="/tables?tab=plan">Draw floor plan</ButtonLink>} />;
   }
 
-  const counts = live.tables.reduce<Record<string, number>>((acc, t) => {
+  const counts = allTables.reduce<Record<string, number>>((acc, t) => {
     const s = tableState(byTable.get(t.id) ?? []);
     acc[s] = (acc[s] ?? 0) + 1;
     return acc;
   }, {});
-  const sel = live.tables.find((t) => t.id === selected);
+  const floor = live.floors[Math.min(floorIdx, live.floors.length - 1)];
+  const sel = floor.tables.find((t) => t.id === selected);
 
   return (
     <div className="space-y-4">
@@ -161,13 +166,40 @@ function LiveFloor() {
           <RefreshCw size={12} /> Updates every few seconds
         </span>
       </div>
+      {live.floors.length > 1 && (
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Floors">
+          {live.floors.map((f, i) => {
+            const busy = f.tables.filter((t) => (byTable.get(t.id)?.length ?? 0) > 0).length;
+            const ready = f.tables.some((t) => tableState(byTable.get(t.id) ?? []) === 'ready');
+            return (
+              <button
+                key={f.id ?? i}
+                type="button"
+                role="tab"
+                aria-selected={f === floor}
+                onClick={() => {
+                  setFloorIdx(i);
+                  setSelected(null);
+                }}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[13px] ${f === floor ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink-2 hover:bg-hover hover:text-ink'}`}
+              >
+                {ready && <span className="h-2 w-2 rounded-full bg-success-strong" title="An order is ready to serve here" />}
+                {f.name}
+                <span className={`tabular-nums ${f === floor ? 'opacity-70' : 'text-ink-4'}`}>
+                  {busy}/{f.tables.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className={`grid gap-4 ${sel ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <FloorCanvas
-          width={live.width}
-          height={live.height}
-          decor={live.decor}
-          tables={live.tables}
-          selected={sel ? (`t${live.tables.indexOf(sel)}` as const) : null}
+          width={floor.width}
+          height={floor.height}
+          decor={floor.decor}
+          tables={floor.tables}
+          selected={sel ? (`t${floor.tables.indexOf(sel)}` as const) : null}
           tableTone={(t) => TABLE_STATE[tableState(byTable.get(t.id!) ?? [])].tone}
           tableBadge={(t) => {
             const orders = byTable.get(t.id!) ?? [];
@@ -222,7 +254,7 @@ function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan)
   const toast = useToast();
   const [confirm, setConfirm] = useState<number | null>(null);
   const localOnly = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-  if (!plan.tables.length) {
+  if (!plan.floors.some((f) => f.tables.length)) {
     return <EmptyState title="No tables yet" description="Each table you add to the floor plan gets its own QR code." action={<ButtonLink to="/tables?tab=plan">Draw floor plan</ButtonLink>} />;
   }
   const replace = async (id: number) => {
@@ -250,8 +282,11 @@ function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan)
           <Alert tone="info">You're running locally, so these codes only open on this computer. Print them after the app is deployed.</Alert>
         </div>
       )}
+      {plan.floors.filter((f) => f.tables.length).map((f) => (
+      <section key={f.id} className="space-y-3">
+      {plan.floors.length > 1 && <h3 className="text-[13px] font-medium uppercase tracking-[0.06em] text-ink-3 print:hidden">{f.name}</h3>}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4 print:grid-cols-3">
-        {plan.tables.map((t) => (
+        {f.tables.map((t) => (
           <div key={t.id} className="break-inside-avoid">
             <QrCard shopName={shop?.name ?? ''} logoKey={shop?.logoKey ?? null} label={t.label} token={t.qrToken} />
             {user?.role === 'owner' && (
@@ -262,6 +297,8 @@ function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan)
           </div>
         ))}
       </div>
+      </section>
+      ))}
     </div>
   );
 }
@@ -307,10 +344,15 @@ export default function TablesPage() {
         ) : tab === 'plan' ? (
           isOwner ? (
             <FloorPlanEditor plan={plan} onSaved={setPlan} />
-          ) : plan.tables.length || plan.decor.length ? (
+          ) : plan.floors.some((f) => f.tables.length || f.decor.length) ? (
             <div className="space-y-3">
               <Alert tone="info">Only an owner can change the floor plan.</Alert>
-              <FloorCanvas width={plan.width} height={plan.height} decor={plan.decor} tables={plan.tables} />
+              {plan.floors.map((f) => (
+                <div key={f.id} className="space-y-2">
+                  {plan.floors.length > 1 && <p className="text-[13px] font-medium text-ink-2">{f.name}</p>}
+                  <FloorCanvas width={f.width} height={f.height} decor={f.decor} tables={f.tables} />
+                </div>
+              ))}
             </div>
           ) : (
             <EmptyState title="No floor plan yet" description="Ask an owner of this branch to draw it." />

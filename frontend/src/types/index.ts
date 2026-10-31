@@ -538,13 +538,23 @@ export interface DecorBlock {
   label: string | null;
 }
 
-export interface FloorPlan {
+export interface Floor {
+  /** Missing until the plan is saved. */
+  id?: number;
+  name: string;
   width: number;
   height: number;
   decor: DecorBlock[];
-  tables: (DiningTable & { id: number; qrToken: string })[];
+  tables: DiningTable[];
+}
+
+export type SavedTable = DiningTable & { id: number; qrToken: string; floorId?: number | null };
+
+/** Every floor of the branch, in order, and whether the layout is locked. */
+export interface FloorPlan {
   locked: boolean;
   updatedAt: string | null;
+  floors: (Omit<Floor, 'tables'> & { tables: SavedTable[] })[];
 }
 
 export type KitchenStatus = 'new' | 'preparing' | 'ready' | 'served';
@@ -554,6 +564,7 @@ export interface KitchenOrder {
   orderNumber: string;
   tableId: number | null;
   tableLabel: string | null;
+  floorName: string | null;
   guestName: string | null;
   notes: string | null;
   kitchenStatus: KitchenStatus;

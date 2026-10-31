@@ -70,6 +70,7 @@ function Ticket({
           <p className="truncate text-[26px] font-semibold leading-none text-white">{o.tableLabel ? `Table ${o.tableLabel}` : 'Counter'}</p>
           <p className="mt-1.5 truncate text-[12.5px] text-zinc-400">
             {o.orderNumber}
+            {o.floorName ? ` · ${o.floorName}` : ''}
             {o.guestName ? ` · ${o.guestName}` : ''}
           </p>
         </div>

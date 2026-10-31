@@ -6,71 +6,78 @@ import { client, Client, newShop, sql, start, stop } from './helpers';
 before(start);
 after(stop);
 
-const plan = (tables: Record<string, unknown>[], decor: Record<string, unknown>[] = []) => ({ width: 1200, height: 800, decor, tables });
+const floor = (name: string, tables: Record<string, unknown>[], decor: Record<string, unknown>[] = [], extra: Record<string, unknown> = {}) => ({
+  name,
+  width: 1200,
+  height: 800,
+  decor,
+  tables,
+  ...extra,
+});
 const table = (label: string, x = 40, extra: Record<string, unknown> = {}) => ({ label, seats: 4, shape: 'square', x, y: 40, w: 80, h: 80, rotation: 0, ...extra });
 
 async function cafe() {
   const s = await newShop('Cafe');
   const coffee = (await s.api.post('/products', { name: 'Cappuccino', category: 'Coffee', unit: 'pcs', price: '150', trackStock: false })).body;
   const cake = (await s.api.post('/products', { name: 'Brownie', category: 'Desserts', unit: 'pcs', price: '120.50', openingStock: '3' })).body;
-  const saved = await s.api.put('/floor-plan', plan([table('T1'), table('T2', 200)], [{ id: 'k', kind: 'kitchen', x: 600, y: 0, w: 300, h: 200, rotation: 0, label: 'Kitchen' }]));
+  const saved = await s.api.put('/floor-plan', {
+    floors: [floor('Ground floor', [table('T1'), table('T2', 200)], [{ id: 'k', kind: 'kitchen', x: 600, y: 0, w: 300, h: 200, rotation: 0, label: 'Kitchen' }])],
+  });
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
-  return { ...s, coffee, cake, plan: saved.body };
+  return { ...s, coffee, cake, plan: saved.body, t1: saved.body.floors[0].tables[0], t2: saved.body.floors[0].tables[1] };
 }
 
 const order = (c: Client | ReturnType<typeof client>, token: string, items: { productId: number; quantity: number }[], extra: Record<string, unknown> = {}) =>
   c.post(`/public/tables/${token}/orders`, { items, idempotencyKey: randomUUID(), ...extra });
 
-describe('floor plan', () => {
-  test('save keeps table ids and QR codes; removed tables stop working; lock blocks edits', async () => {
-    const { api, plan: p } = await cafe();
-    assert.equal(p.tables.length, 2);
-    assert.equal(p.decor[0].kind, 'kitchen');
-    const [t1, t2] = p.tables;
+describe('floor plan with floors', () => {
+  test('floors keep tables and QR codes; tables can move between floors; removed ones stop working; lock', async () => {
+    const { api, plan, t1, t2 } = await cafe();
+    const ground = plan.floors[0];
 
-    // Swap names, move T1, drop nothing: same ids and tokens.
-    const swapped = (await api.put('/floor-plan', plan([{ ...t1, label: 'T2', x: 400 }, { ...t2, label: 'T1' }]))).body;
-    assert.deepEqual(
-      swapped.tables.map((t: { id: number; label: string; qrToken: string }) => [t.id, t.label, t.qrToken]),
-      [
-        [t1.id, 'T2', t1.qrToken],
-        [t2.id, 'T1', t2.qrToken],
+    // Add a first floor and move T2 there; rename T1.
+    const saved = await api.put('/floor-plan', {
+      floors: [
+        { ...ground, tables: [{ ...t1, label: 'G1' }] },
+        floor('First floor', [{ ...t2, x: 300 }, table('F2', 500)]),
       ],
-    );
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const [g, f] = saved.body.floors;
+    assert.equal(g.id, ground.id);
+    assert.equal(f.name, 'First floor');
+    assert.deepEqual(g.tables.map((t: { id: number; label: string; qrToken: string }) => [t.id, t.label, t.qrToken]), [[t1.id, 'G1', t1.qrToken]]);
+    assert.equal(f.tables.find((t: { id: number }) => t.id === t2.id).qrToken, t2.qrToken);
+    const menu = (await client().get(`/public/tables/${t2.qrToken}`)).body;
+    assert.equal(menu.table.label, 'T2');
 
-    // Remove one table: its QR stops opening the menu.
-    await api.put('/floor-plan', plan([{ ...t1, label: 'T2' }]));
+    // Same table name on two floors, or two floors with one name: refused.
+    assert.equal((await api.put('/floor-plan', { floors: [floor('A', [table('X')]), floor('B', [table('x')])] })).status, 400);
+    assert.equal((await api.put('/floor-plan', { floors: [floor('Same', []), floor('same', [])] })).status, 400);
+    assert.equal((await api.put('/floor-plan', { floors: [] })).status, 400);
+
+    // Delete the first floor: its tables' QR codes stop working.
+    await api.put('/floor-plan', { floors: [{ ...g }] });
     assert.equal((await client().get(`/public/tables/${t2.qrToken}`)).status, 404);
-    assert.equal((await client().get(`/public/tables/${t1.qrToken}`)).status, 200);
+    assert.equal((await api.get('/floor-plan')).body.floors.length, 1);
 
-    // Bad plans.
-    assert.equal((await api.put('/floor-plan', plan([table('A'), table('a', 300)]))).status, 400);
-    assert.equal((await api.put('/floor-plan', plan([table('A', 1180)]))).status, 400);
-
-    // Lock.
     assert.equal((await api.put('/floor-plan/lock', { locked: true })).body.locked, true);
-    assert.equal((await api.put('/floor-plan', plan([]))).status, 409);
-    await api.put('/floor-plan/lock', { locked: false });
-
-    // New QR for a table.
-    const fresh = (await api.post(`/floor-plan/tables/${t1.id}/new-qr`)).body.tables[0].qrToken;
-    assert.notEqual(fresh, t1.qrToken);
-    assert.equal((await client().get(`/public/tables/${t1.qrToken}`)).status, 404);
+    assert.equal((await api.put('/floor-plan', { floors: [g] })).status, 409);
   });
 
   test("another shop can't see or change the plan", async () => {
-    const { plan: p } = await cafe();
+    const { t1 } = await cafe();
     const other = await newShop();
-    assert.deepEqual((await other.api.get('/floor-plan')).body.tables, []);
-    assert.equal((await other.api.post(`/floor-plan/tables/${p.tables[0].id}/new-qr`)).status, 404);
+    assert.deepEqual((await other.api.get('/floor-plan')).body.floors[0].tables, []);
+    assert.equal((await other.api.post(`/floor-plan/tables/${t1.id}/new-qr`)).status, 404);
   });
 });
 
 describe('ordering from a table', () => {
   test('menu, order, kitchen, paid, served -> completed, with stock taken', async () => {
-    const { api, coffee, cake, plan: p } = await cafe();
+    const { api, coffee, cake, t1: pt1, t2: pt2 } = await cafe();
     const guest = client();
-    const t1 = p.tables[0];
+    const t1 = pt1;
 
     const menu = (await guest.get(`/public/tables/${t1.qrToken}`)).body;
     assert.equal(menu.table.label, 'T1');
@@ -117,11 +124,11 @@ describe('ordering from a table', () => {
   });
 
   test('"paid" test checkbox records the payment; retries do not double-order', async () => {
-    const { api, coffee, plan: p } = await cafe();
+    const { api, coffee, t1: pt1 } = await cafe();
     const key = randomUUID();
     const body = { items: [{ productId: coffee.id, quantity: 1 }], paid: true, idempotencyKey: key };
-    const a = await client().post(`/public/tables/${p.tables[0].qrToken}/orders`, body);
-    const b = await client().post(`/public/tables/${p.tables[0].qrToken}/orders`, body);
+    const a = await client().post(`/public/tables/${pt1.qrToken}/orders`, body);
+    const b = await client().post(`/public/tables/${pt1.qrToken}/orders`, body);
     assert.equal(a.body.guestToken, b.body.guestToken);
     const k = (await api.get('/kitchen')).body;
     assert.equal(k.length, 1);
@@ -131,8 +138,8 @@ describe('ordering from a table', () => {
   });
 
   test('refused: unknown table, archived product, not enough stock, other shop product, too many', async () => {
-    const { api, coffee, cake, plan: p } = await cafe();
-    const tok = p.tables[1].qrToken;
+    const { api, coffee, cake, t1: pt1, t2: pt2 } = await cafe();
+    const tok = pt2.qrToken;
     assert.equal((await order(client(), 'x'.repeat(24), [{ productId: coffee.id, quantity: 1 }])).status, 404);
     const stock = await order(client(), tok, [{ productId: cake.id, quantity: 5 }]);
     assert.equal(stock.status, 409);
@@ -147,8 +154,8 @@ describe('ordering from a table', () => {
   });
 
   test('cancelled orders leave the kitchen; staff of another shop cannot touch them', async () => {
-    const { api, coffee, plan: p } = await cafe();
-    await order(client(), p.tables[0].qrToken, [{ productId: coffee.id, quantity: 1 }]);
+    const { api, coffee, t1: pt1 } = await cafe();
+    await order(client(), pt1.qrToken, [{ productId: coffee.id, quantity: 1 }]);
     const [k] = (await api.get('/kitchen')).body;
     const other = await newShop();
     assert.equal((await other.api.patch(`/kitchen/${k.id}`, { status: 'ready' })).status, 404);

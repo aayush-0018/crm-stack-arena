@@ -12,6 +12,7 @@ import type {
   Branch,
   CatalogueSettings,
   FloorPlan,
+  Floor,
   GuestOrderView,
   KitchenOrder,
   KitchenStatus,
@@ -227,8 +228,7 @@ export const catalogueApi = {
 
 export const floorPlanApi = {
   get: () => api.get<FloorPlan>('/floor-plan'),
-  save: (body: { width: number; height: number; decor: FloorPlan['decor']; tables: (Omit<FloorPlan['tables'][number], 'id' | 'qrToken'> & { id?: number })[] }) =>
-    api.put<FloorPlan>('/floor-plan', body),
+  save: (floors: Floor[]) => api.put<FloorPlan>('/floor-plan', { floors }),
   setLocked: (locked: boolean) => api.put<FloorPlan>('/floor-plan/lock', { locked }),
   newQr: (tableId: number) => api.post<FloorPlan>(`/floor-plan/tables/${tableId}/new-qr`),
   live: () => api.get<FloorPlan & { orders: KitchenOrder[] }>('/floor-plan/live'),

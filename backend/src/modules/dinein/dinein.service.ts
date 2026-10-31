@@ -11,6 +11,7 @@ export const newToken = () => randomBytes(18).toString('base64url');
 
 export interface DiningTable {
   id: number;
+  floorId: number | null;
   label: string;
   seats: number;
   shape: 'square' | 'round' | 'rect';
@@ -22,30 +23,32 @@ export interface DiningTable {
   qrToken: string;
 }
 
-const TABLE_COLS = `id, label, seats, shape, x, y, w, h, rotation, qr_token AS "qrToken"`;
+const TABLE_COLS = `id, floor_id AS "floorId", label, seats, shape, x, y, w, h, rotation, qr_token AS "qrToken"`;
 
-/** The branch's floor plan; an empty unlocked one if it was never saved. */
+/** The branch's floors in order, each with its tables, plus the lock. One empty floor if none was saved yet. */
 export async function getFloorPlan(db: Db, shopId: number) {
-  const [{ rows: plan }, { rows: tables }] = await Promise.all([
-    db.query(`SELECT width, height, decor, locked, updated_at AS "updatedAt" FROM floor_plans WHERE shop_id = $1`, [shopId]),
+  const [{ rows: plan }, { rows: floors }, { rows: tables }] = await Promise.all([
+    db.query(`SELECT locked, updated_at AS "updatedAt" FROM floor_plans WHERE shop_id = $1`, [shopId]),
+    db.query(`SELECT id, name, width, height, decor FROM floors WHERE shop_id = $1 ORDER BY position, id`, [shopId]),
     db.query(`SELECT ${TABLE_COLS} FROM dining_tables WHERE shop_id = $1 AND active ORDER BY id`, [shopId]),
   ]);
+  const all = tables as DiningTable[];
   return {
-    width: 1200,
-    height: 800,
-    decor: [],
-    locked: false,
-    updatedAt: null,
-    ...plan[0],
-    tables: tables as DiningTable[],
+    locked: plan[0]?.locked ?? false,
+    updatedAt: plan[0]?.updatedAt ?? null,
+    floors: floors.length
+      ? floors.map((f: { id: number }) => ({ ...f, id: Number(f.id), tables: all.filter((t) => Number(t.floorId) === Number(f.id)) }))
+      : [{ name: 'Ground floor', width: 1200, height: 800, decor: [], tables: [] }],
   };
 }
 
 const locked = () => new AppError(409, 'PLAN_LOCKED', 'The floor plan is locked. Unlock it to make changes.');
+const gone = (what: string) => new AppError(409, 'PLAN_CHANGED', `A ${what} on this plan was removed meanwhile. Reload and try again.`);
 
 /**
- * Saves the whole plan. Tables keep their id (and so their QR code) when moved or renamed; tables
- * left out are removed: kept for their orders, but their QR code stops working.
+ * Saves every floor at once. Floors and tables keep their ids (so tables keep their QR codes) when
+ * moved, renamed or moved to another floor. Tables left out are removed: kept for their orders, but
+ * their QR code stops working. Floors left out are deleted along with their blocks.
  */
 export async function saveFloorPlan(shopId: number, userId: number, p: FloorPlanInput) {
   await withTransaction(async (c) => {
@@ -53,40 +56,48 @@ export async function saveFloorPlan(shopId: number, userId: number, p: FloorPlan
     const { rows } = await c.query(`SELECT locked FROM floor_plans WHERE shop_id = $1 FOR UPDATE`, [shopId]);
     if (rows[0].locked) throw locked();
 
-    const { rows: current } = await c.query(`SELECT id FROM dining_tables WHERE shop_id = $1 AND active`, [shopId]);
-    const currentIds = new Set(current.map((r: { id: number }) => Number(r.id)));
-    for (const t of p.tables) {
-      if (t.id && !currentIds.has(t.id)) throw new AppError(409, 'TABLE_GONE', 'A table on this plan was removed meanwhile. Reload and try again.');
-    }
-    const keep = p.tables.flatMap((t) => (t.id ? [t.id] : []));
+    const ids = async (sql: string) => new Set((await c.query(sql, [shopId])).rows.map((r: { id: number }) => Number(r.id)));
+    const floorIds = await ids(`SELECT id FROM floors WHERE shop_id = $1`);
+    const tableIds = await ids(`SELECT id FROM dining_tables WHERE shop_id = $1 AND active`);
+    const tables = p.floors.flatMap((f) => f.tables);
+    if (p.floors.some((f) => f.id && !floorIds.has(f.id))) throw gone('floor');
+    if (tables.some((t) => t.id && !tableIds.has(t.id))) throw gone('table');
+
+    const keepTables = tables.flatMap((t) => (t.id ? [t.id] : []));
     await c.query(`UPDATE dining_tables SET active = false, updated_at = now() WHERE shop_id = $1 AND active AND NOT (id = ANY($2::bigint[]))`, [
       shopId,
-      keep,
+      keepTables,
     ]);
     // Free every kept label first, so swapping two tables' names doesn't trip the unique index.
-    await c.query(`UPDATE dining_tables SET label = '~' || id WHERE shop_id = $1 AND id = ANY($2::bigint[])`, [shopId, keep]);
-    for (const t of p.tables) {
-      const values = [shopId, t.label, t.seats, t.shape, t.x, t.y, t.w, t.h, t.rotation];
-      if (t.id) {
-        await c.query(
-          `UPDATE dining_tables SET label = $2, seats = $3, shape = $4, x = $5, y = $6, w = $7, h = $8, rotation = $9, updated_at = now()
-           WHERE shop_id = $1 AND id = $10`,
-          [...values, t.id],
-        );
-      } else {
-        await c.query(
-          `INSERT INTO dining_tables (shop_id, label, seats, shape, x, y, w, h, rotation, qr_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [...values, newToken()],
-        );
+    await c.query(`UPDATE dining_tables SET label = '~' || id WHERE shop_id = $1 AND id = ANY($2::bigint[])`, [shopId, keepTables]);
+    const keepFloors = p.floors.flatMap((f) => (f.id ? [f.id] : []));
+    await c.query(`DELETE FROM floors WHERE shop_id = $1 AND NOT (id = ANY($2::bigint[]))`, [shopId, keepFloors]);
+    // Same for floor names.
+    await c.query(`UPDATE floors SET name = '~' || id WHERE shop_id = $1`, [shopId]);
+
+    for (const [position, f] of p.floors.entries()) {
+      const values = [shopId, f.name, position, f.width, f.height, JSON.stringify(f.decor)];
+      const floorId = f.id
+        ? (await c.query(`UPDATE floors SET name = $2, position = $3, width = $4, height = $5, decor = $6, updated_at = now() WHERE shop_id = $1 AND id = $7 RETURNING id`, [...values, f.id])).rows[0].id
+        : (await c.query(`INSERT INTO floors (shop_id, name, position, width, height, decor) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, values)).rows[0].id;
+      for (const t of f.tables) {
+        const tv = [shopId, t.label, t.seats, t.shape, t.x, t.y, t.w, t.h, t.rotation, floorId];
+        if (t.id) {
+          await c.query(
+            `UPDATE dining_tables SET label = $2, seats = $3, shape = $4, x = $5, y = $6, w = $7, h = $8, rotation = $9, floor_id = $10, updated_at = now()
+             WHERE shop_id = $1 AND id = $11`,
+            [...tv, t.id],
+          );
+        } else {
+          await c.query(
+            `INSERT INTO dining_tables (shop_id, label, seats, shape, x, y, w, h, rotation, floor_id, qr_token)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [...tv, newToken()],
+          );
+        }
       }
     }
-    await c.query(`UPDATE floor_plans SET width = $2, height = $3, decor = $4, updated_by = $5, updated_at = now() WHERE shop_id = $1`, [
-      shopId,
-      p.width,
-      p.height,
-      JSON.stringify(p.decor),
-      userId,
-    ]);
+    await c.query(`UPDATE floor_plans SET updated_by = $2, updated_at = now() WHERE shop_id = $1`, [shopId, userId]);
   });
   return getFloorPlan(pool, shopId);
 }
@@ -122,6 +133,7 @@ export interface KitchenOrder {
   orderNumber: string;
   tableId: number | null;
   tableLabel: string | null;
+  floorName: string | null;
   guestName: string | null;
   notes: string | null;
   kitchenStatus: KitchenStatus;
@@ -134,7 +146,8 @@ export interface KitchenOrder {
 }
 
 const KITCHEN_COLS = `o.id, o.order_number AS "orderNumber", o.table_id AS "tableId", o.table_label AS "tableLabel",
-  o.guest_name AS "guestName", o.notes, o.kitchen_status AS "kitchenStatus", o.kitchen_updated_at AS "kitchenUpdatedAt",
+  o.guest_name AS "guestName", o.notes,
+  (SELECT f.name FROM dining_tables dt JOIN floors f ON f.id = dt.floor_id WHERE dt.id = o.table_id) AS "floorName", o.kitchen_status AS "kitchenStatus", o.kitchen_updated_at AS "kitchenUpdatedAt",
   o.created_at AS "createdAt", o.total_paise AS "totalPaise", o.amount_paid_paise AS "amountPaidPaise", o.payment_status AS "paymentStatus",
   COALESCE((SELECT json_agg(json_build_object('itemName', oi.item_name, 'quantity', oi.quantity) ORDER BY oi.position)
             FROM order_items oi WHERE oi.order_id = o.id), '[]') AS items`;

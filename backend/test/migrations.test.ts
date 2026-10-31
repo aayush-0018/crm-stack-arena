@@ -156,3 +156,28 @@ describe('011_receipts and 012_returns upgrade', () => {
     await sql(`INSERT INTO stock_movements (shop_id, product_id, kind, qty_milli) VALUES ($1, $2, 'return', 1000)`, [shop.id, prod.id]);
   });
 });
+
+describe('015_floors_and_guests upgrade', () => {
+  test('a saved floor plan becomes its "Ground floor" with the same tables, size and blocks', async () => {
+    await resetDb(migrationFiles().filter((f) => f < '015'));
+    const [shop] = await sql(`INSERT INTO shops (name) VALUES ('Cafe') RETURNING id`);
+    const decor = [{ id: 'k', kind: 'kitchen', x: 0, y: 0, w: 100, h: 100, rotation: 0, label: 'Kitchen' }];
+    await sql(`INSERT INTO floor_plans (shop_id, width, height, decor, locked) VALUES ($1, 1500, 900, $2, true)`, [shop.id, JSON.stringify(decor)]);
+    const [t] = await sql(
+      `INSERT INTO dining_tables (shop_id, label, x, y, w, h, qr_token) VALUES ($1, 'T1', 10, 10, 80, 80, 'tok_aaaaaaaaaaaaaaaaaaaa') RETURNING *`,
+      [shop.id],
+    );
+    const [o] = await sql(`INSERT INTO orders (shop_id, order_number, subtotal_paise, total_paise, table_id) VALUES ($1, 'O1', 100, 100, $2) RETURNING *`, [shop.id, t.id]);
+
+    await applyMigration('015_floors_and_guests.sql');
+
+    const [f] = await sql(`SELECT * FROM floors WHERE shop_id = $1`, [shop.id]);
+    assert.deepEqual([f.name, f.width, f.height, f.decor], ['Ground floor', 1500, 900, decor]);
+    const [tAfter] = await sql(`SELECT * FROM dining_tables WHERE id = $1`, [t.id]);
+    assert.equal(Number(tAfter.floor_id), Number(f.id));
+    assert.equal(tAfter.qr_token, t.qr_token);
+    const [oAfter] = await sql(`SELECT guest_session_id, bill_sent_at FROM orders WHERE id = $1`, [o.id]);
+    assert.deepEqual(oAfter, { guest_session_id: null, bill_sent_at: null });
+    assert.equal((await sql(`SELECT locked FROM floor_plans WHERE shop_id = $1`, [shop.id]))[0].locked, true);
+  });
+});
