@@ -63,11 +63,17 @@ async function holds(db: Db, shopId: number, from: Date, to: Date, exceptId: num
  * The smallest free table that seats the party, or null. Bookings without a table still need one,
  * so there must be more free tables than those.
  */
-function pickTable(tables: Table[], overlapping: Hold[], party: number): Table | null {
+function pickTable(tables: Table[], overlapping: Hold[], party: number, wanted?: number): Table | null {
+  const free = freeTables(tables, overlapping, party);
+  return wanted === undefined ? free[0] ?? null : free.find((t) => t.id === wanted) ?? null;
+}
+
+/** Tables a party could take now: big enough, not held, and not needed by bookings still without a table. */
+function freeTables(tables: Table[], overlapping: Hold[], party: number): Table[] {
   const busy = new Set(overlapping.flatMap((h) => h.tableIds));
   const waiting = overlapping.filter((h) => !h.tableIds.length).length;
   const free = tables.filter((t) => t.seats >= party && !busy.has(t.id));
-  return free.length > waiting ? free[0] : null;
+  return free.length > waiting ? free : [];
 }
 
 /** The tables the booking will hold: the ones chosen (if free), or the best free one, or none. */
@@ -221,6 +227,36 @@ export async function availableTimes(shopId: number, s: ReservationSettings, dat
   return { times, reason: (times.some((t) => t.available) ? null : 'full') as NoTimesReason };
 }
 
+export type SeatState = 'free' | 'booked' | 'small';
+
+/**
+ * The floor plan as a guest sees it for one time: every table with whether they can pick it.
+ * Only drawing details go out (never QR codes or other bookings' details).
+ */
+export async function floorForTime(shopId: number, s: ReservationSettings, date: string, time: string, party: number) {
+  const { start, end } = span(date, time, s.durationMinutes);
+  const [{ rows: floors }, { rows: drawn }, tables, overlapping] = await Promise.all([
+    pool.query(`SELECT id, name, width, height, decor FROM floors WHERE shop_id = $1 ORDER BY position, id`, [shopId]),
+    pool.query(`SELECT id, floor_id AS "floorId", label, seats, shape, x, y, w, h, rotation FROM dining_tables WHERE shop_id = $1 AND active ORDER BY id`, [shopId]),
+    activeTables(pool, shopId),
+    holds(pool, shopId, start, end, null),
+  ]);
+  const busy = new Set(overlapping.flatMap((h) => h.tableIds));
+  const free = new Set(freeTables(tables, overlapping, party).map((t) => t.id));
+  const state = (t: { id: number; seats: number }): SeatState => (free.has(t.id) ? 'free' : busy.has(t.id) || t.seats >= party ? 'booked' : 'small');
+  return floors
+    .map((f: { id: string | number; name: string; width: number; height: number; decor: unknown[] }) => ({
+      name: f.name,
+      width: f.width,
+      height: f.height,
+      decor: f.decor,
+      tables: drawn
+        .filter((t: { floorId: string | number | null }) => Number(t.floorId) === Number(f.id))
+        .map(({ floorId: _, ...t }: { floorId: unknown; id: string | number; seats: number }) => ({ ...t, id: Number(t.id), state: state({ id: Number(t.id), seats: t.seats }) })),
+    }))
+    .filter((f: { tables: unknown[] }) => f.tables.length);
+}
+
 /** At most this many upcoming online bookings per email, so one person can't hold every table. */
 const MAX_UPCOMING = 3;
 
@@ -249,7 +285,8 @@ export async function bookOnline(s: ReservationSettings & { shopId: number }, in
     if (mine[0].n >= MAX_UPCOMING) throw new AppError(409, 'TOO_MANY_BOOKINGS', `You already have ${MAX_UPCOMING} upcoming bookings here. Please call us to book more.`);
 
     const tables = await activeTables(c, s.shopId);
-    const table = pickTable(tables, await holds(c, s.shopId, start, end, null), input.partySize);
+    const table = pickTable(tables, await holds(c, s.shopId, start, end, null), input.partySize, input.tableId ?? undefined);
+    if (!table && input.tableId) throw new AppError(409, 'TABLE_TAKEN', 'Sorry, that table was just booked. Please pick another one.');
     if (!table) throw new AppError(409, 'SLOT_TAKEN', 'Sorry, that time was just taken. Please pick another time.');
 
     const customerId = await customerFor(c, s.shopId, otp, 'Added from an online table booking');
@@ -278,6 +315,7 @@ export async function guestView(token: string) {
     endsAt: r.endsAt,
     status: r.status,
     notes: r.notes,
+    tables: r.tables.map((t) => t.label),
     canCancel: r.status === 'booked' && new Date(r.startsAt).getTime() > Date.now(),
   };
 }

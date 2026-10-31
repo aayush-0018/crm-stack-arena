@@ -1,4 +1,5 @@
 import type {
+  BookingFloor,
   BookingPage,
   BookingTimes,
   GuestBooking,
@@ -295,7 +296,10 @@ export const bookingApi = {
   times: (token: string, date: string, party: number) => api.get<BookingTimes>(`/public/bookings/${encodeURIComponent(token)}/times?date=${date}&party=${party}`),
   requestCode: (token: string, body: { name: string; phone: string; email: string }) =>
     api.post<{ challenge: string; sentTo: string; expiresInMinutes: number }>(`/public/bookings/${encodeURIComponent(token)}/code`, body),
-  confirm: (token: string, body: { challenge: string; code: string; date: string; time: string; partySize: number; notes: string | null }) =>
+  /** Which tables are free at that time, drawn on the floor plan. */
+  floor: (token: string, date: string, time: string, party: number) =>
+    api.get<BookingFloor[]>(`/public/bookings/${encodeURIComponent(token)}/floor?date=${date}&time=${time}&party=${party}`),
+  confirm: (token: string, body: { challenge: string; code: string; date: string; time: string; partySize: number; tableId: number | null; notes: string | null }) =>
     api.post<{ manageToken: string }>(`/public/bookings/${encodeURIComponent(token)}/confirm`, body),
   view: (manageToken: string) => api.get<GuestBooking>(`/public/reservations/${encodeURIComponent(manageToken)}`),
   cancel: (manageToken: string) => api.post<GuestBooking>(`/public/reservations/${encodeURIComponent(manageToken)}/cancel`),

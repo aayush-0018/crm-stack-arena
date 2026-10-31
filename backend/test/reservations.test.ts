@@ -332,6 +332,40 @@ describe('online booking', () => {
     assert.equal(dup.body.error.code, 'ALREADY_BOOKED');
   });
 
+  test('the floor plan shows which tables are booked at a time, without QR codes', async () => {
+    const { api, token, pub, ids } = await bookingLink();
+    await api.post('/reservations', booking({ tableIds: [ids.T2], time: '19:00' }));
+    const floor = await pub.get(`/public/bookings/${token}/floor?date=${DAY}&time=19:30&party=3`);
+    assert.equal(floor.status, 200, JSON.stringify(floor.body));
+    assert.equal(floor.body.length, 1);
+    const state = Object.fromEntries(floor.body[0].tables.map((t: { label: string; state: string }) => [t.label, t.state]));
+    assert.deepEqual(state, { T1: 'small', T2: 'booked', T3: 'free', T4: 'free' });
+    assert.ok(floor.body[0].tables.every((t: Record<string, unknown>) => !('qrToken' in t) && !('qr_token' in t) && typeof t.x === 'number'));
+    assert.ok(!JSON.stringify(floor.body).includes('Kavya'));
+    // Later that evening T2 is free again.
+    const later = await pub.get(`/public/bookings/${token}/floor?date=${DAY}&time=20:30&party=3`);
+    assert.equal(later.body[0].tables.find((t: { label: string }) => t.label === 'T2').state, 'free');
+  });
+
+  test('a guest can pick their table; a booked or too-small one is refused', async () => {
+    const { api, token, pub, ids } = await bookingLink();
+    await api.post('/reservations', booking({ tableIds: [ids.T3], time: '19:00' }));
+    const g = await code(token);
+    const confirm = (tableId: number) => pub.post(`/public/bookings/${token}/confirm`, { challenge: g.challenge, code: g.code, date: DAY, time: '19:00', partySize: 2, tableId });
+    const taken = await confirm(ids.T3);
+    assert.equal(taken.status, 409);
+    assert.equal(taken.body.error.code, 'TABLE_TAKEN');
+    const big = await confirm(ids.T4);
+    assert.equal(big.status, 201, JSON.stringify(big.body));
+    const [r] = await sql(`SELECT table_ids FROM reservations WHERE manage_token = $1`, [big.body.manageToken]);
+    assert.deepEqual(r.table_ids.map(Number), [ids.T4]);
+    assert.deepEqual((await pub.get(`/public/reservations/${big.body.manageToken}`)).body.tables, ['T4']);
+
+    const g2 = await code(token);
+    const small = await pub.post(`/public/bookings/${token}/confirm`, { challenge: g2.challenge, code: g2.code, date: DAY, time: '20:30', partySize: 4, tableId: ids.T1 });
+    assert.equal(small.body.error.code, 'TABLE_TAKEN');
+  });
+
   test('unknown or switched-off links show nothing', async () => {
     assert.equal((await client().get(`/public/bookings/${'x'.repeat(24)}`)).status, 404);
     assert.equal((await client().get(`/public/reservations/${'x'.repeat(24)}`)).status, 404);
