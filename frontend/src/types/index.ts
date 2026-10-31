@@ -467,3 +467,40 @@ export interface ImportResult {
   failed: number;
   rows: ImportRowResult[];
 }
+
+export type CatalogueTemplate = 'classic';
+
+/** The current branch's catalogue. token null = the public link is turned off. */
+export interface CatalogueSettings {
+  token: string | null;
+  template: CatalogueTemplate;
+  title: string | null;
+  tagline: string | null;
+  showPrices: boolean;
+  hideOutOfStock: boolean;
+  showBranches: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogueAddress {
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+}
+
+/** What the public catalogue link shows: live products, never cost or stock levels. */
+export interface PublicCatalogue {
+  template: CatalogueTemplate;
+  title: string | null;
+  tagline: string | null;
+  showPrices: boolean;
+  shop: CatalogueAddress & { name: string; email: string | null; logoKey: string | null };
+  branches: (CatalogueAddress & { id: number; name: string })[];
+  products: { id: number; name: string; sku: string | null; category: string | null; unit: string; pricePaise: number | null; available: boolean }[];
+  truncated: boolean;
+  generatedAt: string;
+}

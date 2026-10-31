@@ -139,6 +139,19 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 | Low stock | At or below the product's warning level, or below zero |
 | History | Past orders keep their own item name and price; editing or archiving a product changes nothing in the past |
 
+## 6a. Product catalogue (shareable link)
+
+| Rule | Detail |
+|---|---|
+| One per branch | Each branch has its own catalogue of its own products. Owners create it, change it, reset or turn off the link; staff can share an existing link |
+| Live | The link always shows current active products and prices; there is nothing to regenerate. Archived products never show |
+| What customers see | Name, code (SKU), category, unit and price (or “Price on request” if prices are hidden). Never cost price, stock quantities, GSTIN or anything else in the shop |
+| Out of stock | Hidden by default (tracked products at zero or below). If shown, marked “Out of stock”. Products without stock tracking always show |
+| Stores | This branch's address and phone, plus the other branches run by the same owner(s) that have an address, city or phone. Can be switched off |
+| Link | Random token; anyone holding it can view. Reset gives a new link and the old one stops; turning it off stops it until turned on again (with a new link). Not indexed by search engines |
+| Size | Up to 2,000 products are shown |
+| Designs | One design (Classic) for now; the design is stored per catalogue so more can be added |
+
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
 | Field | Rule |

@@ -6,6 +6,7 @@ import { ah } from './lib/asyncHandler';
 import { requireAuth } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
+import { catalogueRouter, publicCatalogueRouter } from './modules/catalogue/catalogue.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoices.routes';
@@ -45,6 +46,7 @@ app.get(
 app.use('/api/auth', authRouter);
 app.use('/api/public', publicInvoicesRouter);
 app.use('/api/public', publicLogoRouter);
+app.use('/api/public', publicCatalogueRouter);
 
 app.use('/api', requireAuth);
 app.use('/api/shop', shopRouter);
@@ -53,6 +55,7 @@ app.use('/api/customers', customersRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/orders', paymentsRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/catalogue', catalogueRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/receipts', receiptsRouter);

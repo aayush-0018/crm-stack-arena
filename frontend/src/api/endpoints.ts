@@ -10,6 +10,8 @@ import type {
   SettlePreview,
   Analytics,
   Branch,
+  CatalogueSettings,
+  PublicCatalogue,
   AnalyticsDays,
   Customer,
   CustomerDetail,
@@ -203,6 +205,19 @@ export const productsApi = {
     id: number | string,
     body: { kind: 'receipt' | 'write_off' | 'stocktake'; qty: string; note: string | null; idempotencyKey: string },
   ) => api.post<ProductDetail>(`/products/${id}/stock`, body),
+};
+
+export type CatalogueSettingsPayload = Pick<CatalogueSettings, 'template' | 'title' | 'tagline' | 'showPrices' | 'hideOutOfStock' | 'showBranches'>;
+
+export const catalogueApi = {
+  get: () => api.get<CatalogueSettings | null>('/catalogue'),
+  /** Creates the catalogue, or turns its link back on. */
+  enable: () => api.post<CatalogueSettings>('/catalogue'),
+  update: (body: CatalogueSettingsPayload) => api.put<CatalogueSettings>('/catalogue', body),
+  resetLink: () => api.post<CatalogueSettings>('/catalogue/reset-link'),
+  turnOff: () => api.delete<CatalogueSettings>('/catalogue/link'),
+  /** No login: the token is the permission. */
+  publicGet: (token: string) => api.get<PublicCatalogue>(`/public/catalogues/${encodeURIComponent(token)}`),
 };
 
 export interface SettlePayload {

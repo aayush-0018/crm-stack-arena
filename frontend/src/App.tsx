@@ -24,6 +24,7 @@ import OrderListPage from './pages/orders/OrderListPage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
 import { ProductCreatePage, ProductEditPage } from './pages/products/ProductFormPages';
 import ProductListPage from './pages/products/ProductListPage';
+import PublicCataloguePage from './pages/catalogue/PublicCataloguePage';
 
 export default function App() {
   return (
@@ -32,6 +33,8 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Public: the link shops send to customers. */}
+      <Route path="/c/:token" element={<PublicCataloguePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />

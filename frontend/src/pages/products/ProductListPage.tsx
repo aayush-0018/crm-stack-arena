@@ -1,12 +1,13 @@
-import { Upload } from 'lucide-react';
+import { BookOpen, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { productsApi } from '../../api/endpoints';
+import CatalogueModal from '../../components/catalogue/CatalogueModal';
 import DataTable, { Column } from '../../components/data/DataTable';
 import ImportCsvModal from '../../components/data/ImportCsvModal';
 import { SearchBox, Toolbar } from '../../components/data/Toolbar';
 import { formatStock, StockBadge } from '../../components/products/ProductParts';
-import { ButtonLink } from '../../components/ui/Button';
+import Button, { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
@@ -75,6 +76,7 @@ export default function ProductListPage() {
   const list = useAsync(() => productsApi.list({ status, search: search || undefined, page, pageSize: PAGE_SIZE }), [status, search, page]);
   const lowCount = useAsync(() => productsApi.lowStockCount(), []);
   const [importing, setImporting] = useState(false);
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
   const rows = list.data?.data ?? [];
 
   return (
@@ -87,7 +89,14 @@ export default function ProductListPage() {
         ]}
         value={status}
         onChange={(k) => update({ status: k === 'active' ? undefined : k })}
-        actions={<ButtonLink to="/products/new">Add product</ButtonLink>}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setCatalogueOpen(true)}>
+              <BookOpen size={15} /> Catalogue
+            </Button>
+            <ButtonLink to="/products/new">Add product</ButtonLink>
+          </>
+        }
       />
       <Toolbar
         right={
@@ -123,6 +132,11 @@ export default function ProductListPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={list.data!.total} onChange={(p) => update({ page: String(p) })} />
         </>
       )}
+      <CatalogueModal
+        open={catalogueOpen}
+        onClose={() => setCatalogueOpen(false)}
+        productCount={status === 'active' && !search ? (list.data?.total ?? null) : null}
+      />
       <ImportCsvModal
         open={importing}
         onClose={() => setImporting(false)}
