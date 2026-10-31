@@ -65,9 +65,9 @@ function buildUrl(path: string, query?: Query) {
   return `${API_BASE}/api${path}${s ? `?${s}` : ''}`;
 }
 
-async function send(method: string, path: string, opts: { body?: unknown; query?: Query } = {}) {
+async function send(method: string, path: string, opts: { body?: unknown; query?: Query; headers?: Record<string, string> } = {}) {
   const token = tokenStore.get();
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -100,13 +100,18 @@ async function send(method: string, path: string, opts: { body?: unknown; query?
   return res;
 }
 
-async function json<T>(method: string, path: string, opts?: { body?: unknown; query?: Query }): Promise<T> {
+async function json<T>(method: string, path: string, opts?: { body?: unknown; query?: Query; headers?: Record<string, string> }): Promise<T> {
   const res = await send(method, path, opts);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
 export const api = {
+  /** Same calls with extra request headers (e.g. a guest's session on public pages). */
+  with: (headers: Record<string, string>) => ({
+    get: <T>(path: string) => json<T>('GET', path, { headers }),
+    post: <T>(path: string, body?: unknown) => json<T>('POST', path, { body: body ?? {}, headers }),
+  }),
   get: <T>(path: string, query?: Query) => json<T>('GET', path, { query }),
   post: <T>(path: string, body?: unknown, query?: Query) => json<T>('POST', path, { body: body ?? {}, query }),
   put: <T>(path: string, body: unknown) => json<T>('PUT', path, { body }),

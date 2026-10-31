@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
@@ -9,7 +9,8 @@ import { idParam } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
 import { catalogueProducts } from '../catalogue/catalogue.repo';
 import { findShop } from '../shop/shop.repo';
-import { floorPlanSchema, guestOrderSchema, kitchenStatusSchema, markPaidSchema } from './dinein.schemas';
+import { floorPlanSchema, guestOrderSchema, guestOtpRequestSchema, guestOtpVerifySchema, kitchenStatusSchema, markPaidSchema } from './dinein.schemas';
+import * as guests from './guest.service';
 import * as service from './dinein.service';
 
 /** Mounted at /api/floor-plan. Anyone in the branch can see it; owners draw and lock it. */
@@ -91,36 +92,71 @@ kitchenRouter.post(
 );
 
 // ---------------------------------------------------------------------------------------------
-// Public: guests at a table. The QR token opens that table's menu and ordering only.
+// Public: guests at a table. The QR token opens that table's menu and ordering only; the guest's
+// session (after confirming their email) is sent in the X-Guest-Session header.
 // ---------------------------------------------------------------------------------------------
 export const publicTablesRouter = Router();
 
 const tokenParam = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/) });
+const session = (req: Request) => req.get('x-guest-session') ?? undefined;
 // Guests share café Wi-Fi, so the per-address limit is generous; the per-table one stops a runaway script.
 const ordersByIp = createLimiter(30, 10 * 60_000);
 const ordersByTable = createLimiter(20, 10 * 60_000);
+const verifyByIp = createLimiter(30, 10 * 60_000);
+
+const noStore = (res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+};
 
 publicTablesRouter.get(
   '/tables/:token',
   ah(async (req, res) => {
     const { token } = tokenParam.parse(req.params);
-    const table = await service.findTableByToken(pool, token);
-    const shop = table && (await findShop(pool, table.shopId));
-    if (!table || !shop) throw notFound('Table');
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    const { table, session: s, discountPct } = await guests.tableMenu(token, session(req));
+    const shop = await findShop(pool, table.shopId);
+    if (!shop) throw notFound('Table');
+    noStore(res);
     res.json({
       shop: { name: shop.name, logoKey: shop.logoKey, phone: shop.phone },
-      table: { label: table.label },
-      // Only what can be ordered now: active and in stock (or not stock-tracked).
-      products: (await catalogueProducts(pool, table.shopId, true)).map(({ id, name, category, unit, pricePaise }) => ({
-        id,
-        name,
-        category,
-        unit,
-        pricePaise,
-      })),
+      table: { label: table.label, floorName: table.floorName },
+      firstOrderDiscountPct: guests.FIRST_ORDER_DISCOUNT_PCT,
+      // The menu opens only after the guest has confirmed their email.
+      guest: s ? { name: s.name, phone: s.phone, email: s.email, discountPct } : null,
+      products: s
+        ? (await catalogueProducts(pool, table.shopId, true)).map(({ id, name, category, unit, pricePaise }) => ({ id, name, category, unit, pricePaise }))
+        : [],
     });
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/code',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    res.status(201).json(await guests.requestCode(token, guestOtpRequestSchema.parse(req.body), req.ip ?? 'unknown'));
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/verify',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    const ip = req.ip ?? 'unknown';
+    if (verifyByIp.retryAfter(ip) > 0) throw new AppError(429, 'TOO_MANY_TRIES', 'Too many tries. Please wait a few minutes.');
+    verifyByIp.hit(ip);
+    const { challenge, code } = guestOtpVerifySchema.parse(req.body);
+    noStore(res);
+    res.json(await guests.verifyCode(token, challenge, code));
+  }),
+);
+
+publicTablesRouter.get(
+  '/tables/:token/my-orders',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    noStore(res);
+    res.json(await guests.myOrders(token, session(req)));
   }),
 );
 
@@ -137,8 +173,7 @@ publicTablesRouter.post(
     const input = guestOrderSchema.parse(req.body);
     ordersByIp.hit(ip);
     ordersByTable.hit(token);
-    const guestToken = await service.placeGuestOrder(token, input);
-    res.status(201).json({ guestToken });
+    res.status(201).json(await guests.placeGuestOrder(token, session(req), input));
   }),
 );
 
@@ -146,8 +181,7 @@ publicTablesRouter.get(
   '/table-orders/:token',
   ah(async (req, res) => {
     const { token } = tokenParam.parse(req.params);
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    res.json(await service.guestOrderView(token));
+    noStore(res);
+    res.json(await guests.guestOrderView(token));
   }),
 );

@@ -2,7 +2,6 @@ import { randomBytes } from 'crypto';
 import { Db, pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, notFound } from '../../lib/errors';
-import { createOrder } from '../orders/orders.service';
 import { PaymentMethod } from '../payments/payments.schemas';
 import { recordEntry } from '../payments/payments.service';
 import { FloorPlanInput, KitchenStatus } from './dinein.schemas';
@@ -135,6 +134,7 @@ export interface KitchenOrder {
   tableLabel: string | null;
   floorName: string | null;
   guestName: string | null;
+  discountPaise: number;
   notes: string | null;
   kitchenStatus: KitchenStatus;
   kitchenUpdatedAt: string;
@@ -147,7 +147,8 @@ export interface KitchenOrder {
 
 const KITCHEN_COLS = `o.id, o.order_number AS "orderNumber", o.table_id AS "tableId", o.table_label AS "tableLabel",
   o.guest_name AS "guestName", o.notes,
-  (SELECT f.name FROM dining_tables dt JOIN floors f ON f.id = dt.floor_id WHERE dt.id = o.table_id) AS "floorName", o.kitchen_status AS "kitchenStatus", o.kitchen_updated_at AS "kitchenUpdatedAt",
+  (SELECT f.name FROM dining_tables dt JOIN floors f ON f.id = dt.floor_id WHERE dt.id = o.table_id) AS "floorName",
+  o.discount_paise AS "discountPaise", o.kitchen_status AS "kitchenStatus", o.kitchen_updated_at AS "kitchenUpdatedAt",
   o.created_at AS "createdAt", o.total_paise AS "totalPaise", o.amount_paid_paise AS "amountPaidPaise", o.payment_status AS "paymentStatus",
   COALESCE((SELECT json_agg(json_build_object('itemName', oi.item_name, 'quantity', oi.quantity) ORDER BY oi.position)
             FROM order_items oi WHERE oi.order_id = o.id), '[]') AS items`;
@@ -211,81 +212,4 @@ export async function markPaid(shopId: number, userId: number, orderId: number, 
     await recordEntry(shopId, userId, orderId, { kind: 'payment', amount: due, method, reference: null, note: 'Paid at the table' });
   }
   await completeIfDone(pool, shopId, orderId);
-}
-
-// ---------------------------------------------------------------------------------------------
-// Guests (public, by QR token)
-// ---------------------------------------------------------------------------------------------
-
-export async function findTableByToken(db: Db, token: string) {
-  const { rows } = await db.query(
-    `SELECT t.id, t.shop_id AS "shopId", t.label FROM dining_tables t WHERE t.qr_token = $1 AND t.active`,
-    [token],
-  );
-  return (rows[0] as { id: number; shopId: number; label: string } | undefined) ?? null;
-}
-
-export async function placeGuestOrder(
-  token: string,
-  input: { items: { productId: number; quantity: number }[]; name: string | null; note: string | null; paid: boolean; idempotencyKey: string },
-) {
-  const table = await findTableByToken(pool, token);
-  if (!table) throw notFound('Table');
-
-  // Same item twice -> one line.
-  const qty = new Map<number, number>();
-  for (const it of input.items) qty.set(it.productId, (qty.get(it.productId) ?? 0) + it.quantity);
-  const { rows: products } = await pool.query(
-    `SELECT id, name, price_paise AS "pricePaise" FROM products WHERE shop_id = $1 AND active AND id = ANY($2::bigint[])`,
-    [table.shopId, [...qty.keys()]],
-  );
-  if (products.length !== qty.size) {
-    throw new AppError(409, 'ITEM_UNAVAILABLE', 'Some items in your order are no longer on the menu. Please refresh and try again.');
-  }
-  const items = products.map((p: { id: number; name: string; pricePaise: number }) => ({
-    itemName: p.name,
-    quantity: qty.get(Number(p.id))! * 1000,
-    unitPrice: Number(p.pricePaise),
-    productId: Number(p.id),
-  }));
-  const total = items.reduce((s, l) => s + l.quantity / 1000 * l.unitPrice, 0);
-
-  const guestToken = newToken();
-  const { order, created } = await createOrder(
-    table.shopId,
-    null,
-    {
-      walkIn: true,
-      items,
-      discount: 0,
-      notes: input.note,
-      amountPaid: input.paid ? total : 0,
-      paymentMethod: 'upi',
-      idempotencyKey: input.idempotencyKey,
-    },
-    { tableId: table.id, tableLabel: table.label, guestName: input.name, guestToken },
-  );
-  // A retried submission returns the order placed the first time (with its own token).
-  if (!created) {
-    const { rows } = await pool.query(`SELECT guest_token AS t FROM orders WHERE id = $1`, [order.id]);
-    return rows[0].t as string;
-  }
-  return guestToken;
-}
-
-export async function guestOrderView(guestToken: string) {
-  const { rows } = await pool.query(
-    `SELECT ${KITCHEN_COLS}, o.status, s.name AS "shopName", s.logo_key AS "logoKey", t.qr_token AS "tableToken"
-     FROM orders o JOIN shops s ON s.id = o.shop_id LEFT JOIN dining_tables t ON t.id = o.table_id AND t.active
-     WHERE o.guest_token = $1`,
-    [guestToken],
-  );
-  if (!rows[0]) throw notFound('Order');
-  const { items: _short, ...o } = rows[0];
-  const { rows: items } = await pool.query(
-    `SELECT item_name AS "itemName", quantity, unit_price_paise AS "unitPricePaise", line_total_paise AS "lineTotalPaise"
-     FROM order_items WHERE order_id = $1 ORDER BY position`,
-    [o.id],
-  );
-  return { ...o, id: undefined, items };
 }

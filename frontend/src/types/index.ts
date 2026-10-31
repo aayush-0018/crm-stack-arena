@@ -567,6 +567,7 @@ export interface KitchenOrder {
   floorName: string | null;
   guestName: string | null;
   notes: string | null;
+  discountPaise: number;
   kitchenStatus: KitchenStatus;
   kitchenUpdatedAt: string;
   createdAt: string;
@@ -579,11 +580,16 @@ export interface KitchenOrder {
 /** What a guest sees after scanning a table's QR code. */
 export interface TableMenu {
   shop: { name: string; logoKey: string | null; phone: string | null };
-  table: { label: string };
+  table: { label: string; floorName: string | null };
+  /** Offered to first-time guests once they confirm their email. */
+  firstOrderDiscountPct: number;
+  /** null until the guest has confirmed their email; the menu stays empty until then. */
+  guest: { name: string; phone: string; email: string; discountPct: number } | null;
   products: { id: number; name: string; category: string | null; unit: string; pricePaise: number }[];
 }
 
-export interface GuestOrderView {
+/** One of a guest's orders, as the guest sees it. */
+export interface GuestOrder {
   orderNumber: string;
   tableLabel: string | null;
   guestName: string | null;
@@ -591,11 +597,17 @@ export interface GuestOrderView {
   status: OrderStatus;
   kitchenStatus: KitchenStatus;
   createdAt: string;
+  subtotalPaise: number;
+  discountPaise: number;
   totalPaise: number;
   amountPaidPaise: number;
   paymentStatus: PaymentStatus;
+  guestToken: string;
+  items: { itemName: string; quantity: string; unitPricePaise: number; lineTotalPaise: number }[];
+}
+
+export interface GuestOrderView extends GuestOrder {
   shopName: string;
   logoKey: string | null;
   tableToken: string | null;
-  items: { itemName: string; quantity: string; unitPricePaise: number; lineTotalPaise: number }[];
 }

@@ -13,6 +13,7 @@ import type {
   CatalogueSettings,
   FloorPlan,
   Floor,
+  GuestOrder,
   GuestOrderView,
   KitchenOrder,
   KitchenStatus,
@@ -240,11 +241,20 @@ export const kitchenApi = {
   markPaid: (id: number, method: Exclude<PaymentMethod, 'unrecorded'>) => api.post<FloorPlan & { orders: KitchenOrder[] }>(`/kitchen/${id}/paid`, { method }),
 };
 
-/** No login: the table's QR token is the permission. */
+/** No login: the table's QR token opens the table; the guest's session (after the email code) orders. */
+const guestHeaders = (session: string | null): Record<string, string> => (session ? { 'X-Guest-Session': session } : {});
 export const tableGuestApi = {
-  menu: (token: string) => api.get<TableMenu>(`/public/tables/${encodeURIComponent(token)}`),
-  order: (token: string, body: { items: { productId: number; quantity: number }[]; name: string | null; note: string | null; paid: boolean; idempotencyKey: string }) =>
-    api.post<{ guestToken: string }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
+  menu: (token: string, session: string | null) => api.with(guestHeaders(session)).get<TableMenu>(`/public/tables/${encodeURIComponent(token)}`),
+  requestCode: (token: string, body: { name: string; phone: string; email: string }) =>
+    api.post<{ challenge: string; sentTo: string; expiresInMinutes: number }>(`/public/tables/${encodeURIComponent(token)}/code`, body),
+  verify: (token: string, body: { challenge: string; code: string }) =>
+    api.post<{ sessionToken: string; guest: { name: string; phone: string; email: string }; discountPct: number }>(
+      `/public/tables/${encodeURIComponent(token)}/verify`,
+      body,
+    ),
+  myOrders: (token: string, session: string) => api.with(guestHeaders(session)).get<GuestOrder[]>(`/public/tables/${encodeURIComponent(token)}/my-orders`),
+  order: (token: string, session: string, body: { items: { productId: number; quantity: number }[]; note: string | null; paid: boolean; idempotencyKey: string }) =>
+    api.with(guestHeaders(session)).post<{ guestToken: string; discountPaise: number }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
   view: (guestToken: string) => api.get<GuestOrderView>(`/public/table-orders/${encodeURIComponent(guestToken)}`),
 };
 

@@ -52,6 +52,9 @@ export async function start() {
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
 }
 
+/** The running API's base URL, for requests that need custom headers. */
+export const apiBase = () => base;
+
 export async function stop() {
   await new Promise((r) => server?.close(r));
   const { pool } = await import('../src/db/pool');

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { optionalText } from '../../lib/validation';
+import { phoneInput } from '../../lib/phone';
 import { paymentMethodInput } from '../payments/payments.schemas';
 
 const rotation = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).default(0);
@@ -75,13 +76,24 @@ export type KitchenStatus = (typeof KITCHEN_STATUSES)[number];
 export const kitchenStatusSchema = z.object({ status: z.enum(KITCHEN_STATUSES) });
 export const markPaidSchema = z.object({ method: paymentMethodInput });
 
+/** Step 1 at the table: who's ordering. All three are required; the email gets a one-time code. */
+export const guestOtpRequestSchema = z.object({
+  name: z.string({ required_error: 'Name is required' }).trim().min(1, 'Name is required').max(60),
+  phone: phoneInput,
+  email: z.string({ required_error: 'Email is required' }).trim().toLowerCase().email('Enter a valid email').max(254),
+});
+
+export const guestOtpVerifySchema = z.object({
+  challenge: z.string().regex(/^[A-Za-z0-9_-]{20,64}$/),
+  code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code'),
+});
+
 /** A guest's order from the table QR. Prices always come from the product list, never from here. */
 export const guestOrderSchema = z.object({
   items: z
     .array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().min(1).max(50) }))
     .min(1, 'Add at least one item')
     .max(50, 'Too many items in one order'),
-  name: optionalText(60),
   note: optionalText(300),
   /** Test switch until online payments exist: the guest says they have paid. */
   paid: z.boolean().default(false),

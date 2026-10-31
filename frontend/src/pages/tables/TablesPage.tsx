@@ -80,6 +80,7 @@ function TablePanel({ label, orders, onClose, onChange }: { label: string; order
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <span className="mr-auto font-medium tabular-nums text-ink">
                     {formatINR(o.totalPaise)}
+                    {o.discountPaise > 0 && <span className="ml-1.5 text-[12px] font-normal text-success-text">incl. {formatINR(o.discountPaise)} off</span>}
                   </span>
                   {next && (
                     <Button size="sm" variant="secondary" loading={busy === o.id} onClick={() => act(o.id, () => kitchenApi.setStatus(o.id, next), `Marked ${KITCHEN_LABEL[next].toLowerCase()}`)}>

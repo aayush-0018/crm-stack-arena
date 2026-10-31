@@ -99,6 +99,18 @@ export default function GuestOrderPage() {
             ))}
           </ul>
           {o.notes && <p className="mt-3 text-[13.5px] text-[#8a8276]">Note: {o.notes}</p>}
+          {o.discountPaise > 0 && (
+            <div className="mt-3 space-y-1 border-t border-[#f0ebe1] pt-3 text-[14.5px]">
+              <div className="flex justify-between text-[#5e574c]">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatINR(o.subtotalPaise)}</span>
+              </div>
+              <div className="flex justify-between text-[#2e7031]">
+                <span>First-order discount</span>
+                <span className="tabular-nums">−{formatINR(o.discountPaise)}</span>
+              </div>
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between border-t border-[#f0ebe1] pt-3 text-[16px] font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatINR(o.totalPaise)}</span>

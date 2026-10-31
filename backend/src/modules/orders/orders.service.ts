@@ -52,6 +52,8 @@ export interface DineInExtra {
   tableLabel: string;
   guestName: string | null;
   guestToken: string;
+  /** The verified guest who placed it. */
+  guestSessionId?: number;
 }
 
 export async function createOrder(shopId: number, userId: number | null, input: CreateOrderInput, dineIn?: DineInExtra) {
@@ -93,9 +95,9 @@ export async function createOrder(shopId: number, userId: number | null, input: 
       if (dineIn) {
         await c.query(
           `UPDATE orders SET source = 'table', table_id = $2, table_label = $3, guest_name = $4, guest_token = $5,
-             kitchen_status = 'new', kitchen_updated_at = now()
+             guest_session_id = $6, kitchen_status = 'new', kitchen_updated_at = now()
            WHERE id = $1`,
-          [id, dineIn.tableId, dineIn.tableLabel, dineIn.guestName, dineIn.guestToken],
+          [id, dineIn.tableId, dineIn.tableLabel, dineIn.guestName, dineIn.guestToken, dineIn.guestSessionId ?? null],
         );
       }
       await syncOrderStock(c, shopId, id, userId);
