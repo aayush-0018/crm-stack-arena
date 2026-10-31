@@ -4,6 +4,7 @@ import { withTransaction } from '../../db/tx';
 import { AppError, notFound } from '../../lib/errors';
 import { PaymentMethod } from '../payments/payments.schemas';
 import { recordEntry } from '../payments/payments.service';
+import { forLiveFloor } from '../reservations/reservations.repo';
 import { queueBill } from './bills';
 import { FloorPlanInput, KitchenStatus } from './dinein.schemas';
 
@@ -167,16 +168,16 @@ export async function kitchenOrders(shopId: number): Promise<KitchenOrder[]> {
   return rows;
 }
 
-/** Tables with their unfinished orders, for the live floor view. */
+/** Tables with their unfinished orders and coming bookings, for the live floor view. */
 export async function liveFloor(shopId: number) {
-  const plan = await getFloorPlan(pool, shopId);
+  const [plan, reservations] = await Promise.all([getFloorPlan(pool, shopId), forLiveFloor(pool, shopId)]);
   const { rows } = await pool.query(
     `SELECT ${KITCHEN_COLS} FROM orders o
      WHERE o.shop_id = $1 AND o.table_id IS NOT NULL AND o.kitchen_status IS NOT NULL AND ${ACTIVE}
      ORDER BY o.created_at, o.id`,
     [shopId],
   );
-  return { ...plan, orders: rows as KitchenOrder[] };
+  return { ...plan, orders: rows as KitchenOrder[], reservations };
 }
 
 /**

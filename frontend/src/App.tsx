@@ -34,6 +34,8 @@ const GuestMenuPage = lazy(() => import('./pages/tables/GuestMenuPage'));
 const GuestOrderPage = lazy(() => import('./pages/tables/GuestOrderPage'));
 const KitchenPage = lazy(() => import('./pages/tables/KitchenPage'));
 const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
+const BookTablePage = lazy(() => import('./pages/reservations/BookTablePage'));
+const MyBookingPage = lazy(() => import('./pages/reservations/MyBookingPage'));
 const later = (page: ReactNode) => <Suspense fallback={<LoadingState />}>{page}</Suspense>;
 
 export default function App() {
@@ -49,6 +51,8 @@ export default function App() {
       <Route path="/t/:token" element={later(<GuestMenuPage />)} />
       <Route path="/o/:guestToken" element={later(<GuestOrderPage />)} />
       <Route path="/bill/:token" element={<BillPage />} />
+      <Route path="/book/:token" element={later(<BookTablePage />)} />
+      <Route path="/b/:token" element={later(<MyBookingPage />)} />
       <Route element={<ProtectedRoute />}>
         {/* Full screen, no app menu: runs on the kitchen's tablet or TV. */}
         <Route path="kitchen" element={later(<KitchenPage />)} />

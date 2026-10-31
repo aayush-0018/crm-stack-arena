@@ -46,11 +46,16 @@ const codesByIp = createLimiter(10, 10 * 60_000);
 /** Emails a 6-digit code. Limits: one per email every 30 seconds, five per 10 minutes; ten per address. */
 export async function requestCode(tableToken: string, g: { name: string; phone: string; email: string }, ip: string) {
   const table = await tableOr404(tableToken);
+  return emailCode(table.shopId, g, ip, 'see the menu and order');
+}
+
+/** The code email itself, for any guest of the branch: `purpose` reads "Your code to <purpose> at <shop>". */
+export async function emailCode(shopId: number, g: { name: string; phone: string; email: string }, ip: string, purpose: string) {
   const wait = codesByIp.retryAfter(ip);
   const { rows: recent } = await pool.query(
     `SELECT count(*)::int AS n, max(created_at) AS last FROM guest_otps
      WHERE shop_id = $1 AND lower(email) = $2 AND created_at > now() - interval '10 minutes'`,
-    [table.shopId, g.email],
+    [shopId, g.email],
   );
   const sinceLast = recent[0].last ? Date.now() - new Date(recent[0].last).getTime() : Infinity;
   if (wait > 0 || recent[0].n >= 5) {
@@ -66,18 +71,18 @@ export async function requestCode(tableToken: string, g: { name: string; phone: 
   await pool.query(
     `INSERT INTO guest_otps (shop_id, challenge, name, phone, email, code_hash, expires_at, ip)
      VALUES ($1, $2, $3, $4, $5, $6, now() + interval '${CODE_TTL_MIN} minutes', $7)`,
-    [table.shopId, challenge, g.name, g.phone, g.email, codeHash(challenge, code), ip],
+    [shopId, challenge, g.name, g.phone, g.email, codeHash(challenge, code), ip],
   );
-  const { rows: shop } = await pool.query(`SELECT name FROM shops WHERE id = $1`, [table.shopId]);
+  const { rows: shop } = await pool.query(`SELECT name FROM shops WHERE id = $1`, [shopId]);
   const shopName = shop[0]?.name ?? 'the café';
   try {
     await sendMail({
       to: g.email,
       subject: `${code} is your code for ${shopName}`,
-      text: `Hi ${g.name.split(' ')[0]},\n\nYour code to see the menu and order at ${shopName} is ${code}.\nIt works for ${CODE_TTL_MIN} minutes.\n\nIf you didn't ask for this, ignore this email.`,
+      text: `Hi ${g.name.split(' ')[0]},\n\nYour code to ${purpose} at ${shopName} is ${code}.\nIt works for ${CODE_TTL_MIN} minutes.\n\nIf you didn't ask for this, ignore this email.`,
       html: `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;color:#171717;line-height:1.5">
   <p>Hi ${g.name.split(' ')[0].replace(/[&<>"']/g, '')},</p>
-  <p>Your code to see the menu and order at <strong>${shopName.replace(/[&<>"']/g, '')}</strong> is</p>
+  <p>Your code to ${purpose} at <strong>${shopName.replace(/[&<>"']/g, '')}</strong> is</p>
   <p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:16px 0">${code}</p>
   <p style="color:#8f8f8a;font-size:13px">It works for ${CODE_TTL_MIN} minutes. If you didn't ask for this, ignore this email.</p>
 </div>`,
@@ -89,6 +94,45 @@ export async function requestCode(tableToken: string, g: { name: string; phone: 
   return { challenge, sentTo: maskEmail(g.email), expiresInMinutes: CODE_TTL_MIN };
 }
 
+export interface UsedCode {
+  name: string;
+  phone: string;
+  email: string;
+}
+
+/**
+ * Checks a code inside the caller's transaction and marks it used. A wrong code is counted and
+ * returned as `error` (not thrown) so the caller can commit the count before throwing it.
+ */
+export async function useCode(c: Db, shopId: number, challenge: string, code: string): Promise<{ otp: UsedCode } | { error: AppError }> {
+  const { rows } = await c.query(
+    `SELECT id, name, phone, email, code_hash AS "codeHash", attempts, used_at AS "usedAt", expires_at < now() AS expired
+     FROM guest_otps WHERE challenge = $1 AND shop_id = $2 FOR UPDATE`,
+    [challenge, shopId],
+  );
+  const otp = rows[0];
+  if (!otp || otp.usedAt || otp.expired || otp.attempts >= MAX_TRIES) {
+    return { error: new AppError(400, 'CODE_EXPIRED', 'This code has expired. Please ask for a new one.', { code: 'This code has expired' }) };
+  }
+  if (otp.codeHash !== codeHash(challenge, code)) {
+    await c.query(`UPDATE guest_otps SET attempts = attempts + 1 WHERE id = $1`, [otp.id]);
+    const left = MAX_TRIES - otp.attempts - 1;
+    return {
+      error: new AppError(400, 'WRONG_CODE', left > 0 ? `That code isn't right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Please ask for a new one.', {
+        code: "That code isn't right",
+      }),
+    };
+  }
+  await c.query(`UPDATE guest_otps SET used_at = now() WHERE id = $1`, [otp.id]);
+  return { otp: { name: otp.name, phone: otp.phone, email: otp.email } };
+}
+
+/** The branch's customer with this mobile number (their saved details are kept), or a new one. */
+export async function customerFor(c: Db, shopId: number, g: { name: string; phone: string; email: string | null }, note: string): Promise<number> {
+  const existing = await findActiveByPhone(c, shopId, g.phone);
+  return existing ? Number(existing) : (await createCustomer(c, shopId, { name: g.name, phone: g.phone, email: g.email, address: null, notes: note })).id;
+}
+
 /**
  * Checks the code. On success the guest is linked to the branch's customer with that mobile number
  * (created if new) and gets a session token. First-time guests are offered the first-order discount.
@@ -96,31 +140,12 @@ export async function requestCode(tableToken: string, g: { name: string; phone: 
 export async function verifyCode(tableToken: string, challenge: string, code: string) {
   const table = await tableOr404(tableToken);
   const result = await withTransaction(async (c) => {
-    const { rows } = await c.query(
-      `SELECT id, name, phone, email, code_hash AS "codeHash", attempts, used_at AS "usedAt", expires_at < now() AS expired
-       FROM guest_otps WHERE challenge = $1 AND shop_id = $2 FOR UPDATE`,
-      [challenge, table.shopId],
-    );
-    const otp = rows[0];
-    if (!otp || otp.usedAt || otp.expired || otp.attempts >= MAX_TRIES) {
-      return { error: new AppError(400, 'CODE_EXPIRED', 'This code has expired. Please ask for a new one.', { code: 'This code has expired' }) };
-    }
-    if (otp.codeHash !== codeHash(challenge, code)) {
-      await c.query(`UPDATE guest_otps SET attempts = attempts + 1 WHERE id = $1`, [otp.id]);
-      const left = MAX_TRIES - otp.attempts - 1;
-      return {
-        error: new AppError(400, 'WRONG_CODE', left > 0 ? `That code isn't right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Please ask for a new one.', {
-          code: "That code isn't right",
-        }),
-      };
-    }
-    await c.query(`UPDATE guest_otps SET used_at = now() WHERE id = $1`, [otp.id]);
+    const used = await useCode(c, table.shopId, challenge, code);
+    if ('error' in used) return used;
+    const { otp } = used;
 
     // An existing customer keeps their saved name and email; the verified email is kept on the session.
-    const existing = await findActiveByPhone(c, table.shopId, otp.phone);
-    const customerId: number = existing
-      ? Number(existing)
-      : (await createCustomer(c, table.shopId, { name: otp.name, phone: otp.phone, email: otp.email, address: null, notes: 'Added when ordering from a table QR code' })).id;
+    const customerId = await customerFor(c, table.shopId, otp, 'Added when ordering from a table QR code');
 
     // First time = no order (other than cancelled) under this mobile number or this email.
     const { rows: before } = await c.query(
@@ -137,7 +162,7 @@ export async function verifyCode(tableToken: string, challenge: string, code: st
        VALUES ($1, $2, $3, $4, $5, $6, $7, now() + interval '${SESSION_HOURS} hours')`,
       [table.shopId, customerId, sha256(token), otp.name, otp.phone, otp.email, pct],
     );
-    return { token, guest: { name: otp.name as string, phone: otp.phone as string, email: otp.email as string }, discountPct: pct };
+    return { token, guest: { name: otp.name, phone: otp.phone, email: otp.email }, discountPct: pct };
   });
   if ('error' in result) throw result.error;
   return { sessionToken: result.token, guest: result.guest, discountPct: result.discountPct };

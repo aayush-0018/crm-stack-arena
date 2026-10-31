@@ -14,6 +14,7 @@ import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoice
 import { ordersRouter } from './modules/orders/orders.routes';
 import { paymentsRouter } from './modules/payments/payments.routes';
 import { productsRouter } from './modules/products/products.routes';
+import { publicBookingRouter, reservationsRouter } from './modules/reservations/reservations.routes';
 import { receiptsRouter } from './modules/receipts/receipts.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
 import { returnsRouter } from './modules/returns/returns.routes';
@@ -49,6 +50,7 @@ app.use('/api/public', publicInvoicesRouter);
 app.use('/api/public', publicLogoRouter);
 app.use('/api/public', publicCatalogueRouter);
 app.use('/api/public', publicTablesRouter);
+app.use('/api/public', publicBookingRouter);
 
 app.use('/api', requireAuth);
 app.use('/api/shop', shopRouter);
@@ -60,6 +62,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/catalogue', catalogueRouter);
 app.use('/api/floor-plan', floorPlanRouter);
 app.use('/api/kitchen', kitchenRouter);
+app.use('/api/reservations', reservationsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/receipts', receiptsRouter);

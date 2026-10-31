@@ -613,3 +613,70 @@ export interface GuestOrderView extends GuestOrder {
   logoKey: string | null;
   tableToken: string | null;
 }
+
+export type ReservationStatus = 'booked' | 'seated' | 'finished' | 'cancelled' | 'no_show';
+
+/** A table booking, as staff see it. */
+export interface Reservation {
+  id: number;
+  customerId: number | null;
+  name: string;
+  phone: string;
+  email: string | null;
+  partySize: number;
+  startsAt: string;
+  endsAt: string;
+  /** Empty = no table given yet. */
+  tableIds: number[];
+  tables: { id: number; label: string }[];
+  status: ReservationStatus;
+  source: 'staff' | 'online';
+  notes: string | null;
+  seatedAt: string | null;
+  createdAt: string;
+}
+
+/** The branch's opening hours and booking rules. bookingToken null = online booking off. */
+export interface ReservationSettings {
+  bookingToken: string | null;
+  opensAt: string;
+  closesAt: string;
+  /** 0 = Sunday … 6 = Saturday. */
+  closedDays: number[];
+  slotMinutes: 15 | 30 | 60;
+  durationMinutes: number;
+  maxParty: number;
+  daysAhead: number;
+  minNoticeMinutes: number;
+}
+
+/** The branch's public booking page. */
+export interface BookingPage {
+  shop: { name: string; logoKey: string | null; phone: string | null };
+  today: string;
+  maxParty: number;
+  daysAhead: number;
+  closedDays: number[];
+  opensAt: string;
+  closesAt: string;
+  durationMinutes: number;
+}
+
+export interface BookingTimes {
+  times: { time: string; available: boolean }[];
+  reason: 'closed' | 'out_of_range' | 'too_big' | 'full' | null;
+}
+
+/** A guest's own booking, from the link in their email. */
+export interface GuestBooking {
+  shop: { name: string; logoKey: string | null; phone: string | null };
+  name: string;
+  partySize: number;
+  startsAt: string;
+  endsAt: string;
+  status: ReservationStatus;
+  notes: string | null;
+  canCancel: boolean;
+}
+
+export type LiveFloor = FloorPlan & { orders: KitchenOrder[]; reservations: Reservation[] };

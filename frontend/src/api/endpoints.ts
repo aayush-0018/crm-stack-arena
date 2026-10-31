@@ -1,4 +1,11 @@
 import type {
+  BookingPage,
+  BookingTimes,
+  GuestBooking,
+  LiveFloor,
+  Reservation,
+  ReservationSettings,
+  ReservationStatus,
   AgeingReport,
   CollectionsReport,
   ImportResult,
@@ -232,13 +239,13 @@ export const floorPlanApi = {
   save: (floors: Floor[]) => api.put<FloorPlan>('/floor-plan', { floors }),
   setLocked: (locked: boolean) => api.put<FloorPlan>('/floor-plan/lock', { locked }),
   newQr: (tableId: number) => api.post<FloorPlan>(`/floor-plan/tables/${tableId}/new-qr`),
-  live: () => api.get<FloorPlan & { orders: KitchenOrder[] }>('/floor-plan/live'),
+  live: () => api.get<LiveFloor>('/floor-plan/live'),
 };
 
 export const kitchenApi = {
   list: () => api.get<KitchenOrder[]>('/kitchen'),
   setStatus: (id: number, status: KitchenStatus) => api.patch<KitchenOrder[]>(`/kitchen/${id}`, { status }),
-  markPaid: (id: number, method: Exclude<PaymentMethod, 'unrecorded'>) => api.post<FloorPlan & { orders: KitchenOrder[] }>(`/kitchen/${id}/paid`, { method }),
+  markPaid: (id: number, method: Exclude<PaymentMethod, 'unrecorded'>) => api.post<LiveFloor>(`/kitchen/${id}/paid`, { method }),
 };
 
 /** No login: the table's QR token opens the table; the guest's session (after the email code) orders. */
@@ -256,6 +263,42 @@ export const tableGuestApi = {
   order: (token: string, session: string, body: { items: { productId: number; quantity: number }[]; note: string | null; paid: boolean; idempotencyKey: string }) =>
     api.with(guestHeaders(session)).post<{ guestToken: string; discountPaise: number }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
   view: (guestToken: string) => api.get<GuestOrderView>(`/public/table-orders/${encodeURIComponent(guestToken)}`),
+};
+
+export interface ReservationPayload {
+  name: string;
+  phone: string;
+  email: string | null;
+  partySize: number;
+  date: string;
+  time: string;
+  durationMinutes: number;
+  tableIds: number[];
+  notes: string | null;
+}
+
+export const reservationsApi = {
+  day: (date: string) => api.get<Reservation[]>(`/reservations?date=${date}`),
+  create: (body: ReservationPayload) => api.post<Reservation>('/reservations', body),
+  update: (id: number, body: ReservationPayload) => api.put<Reservation>(`/reservations/${id}`, body),
+  setStatus: (id: number, status: ReservationStatus) => api.post<Reservation>(`/reservations/${id}/status`, { status }),
+  settings: () => api.get<ReservationSettings>('/reservations/settings'),
+  saveSettings: (body: Omit<ReservationSettings, 'bookingToken'>) => api.put<ReservationSettings>('/reservations/settings', body),
+  /** Turns online booking on, or replaces its link. */
+  newLink: () => api.post<ReservationSettings>('/reservations/settings/link'),
+  turnOff: () => api.delete<ReservationSettings>('/reservations/settings/link'),
+};
+
+/** No login: the branch's booking link, and each guest's own booking link. */
+export const bookingApi = {
+  page: (token: string) => api.get<BookingPage>(`/public/bookings/${encodeURIComponent(token)}`),
+  times: (token: string, date: string, party: number) => api.get<BookingTimes>(`/public/bookings/${encodeURIComponent(token)}/times?date=${date}&party=${party}`),
+  requestCode: (token: string, body: { name: string; phone: string; email: string }) =>
+    api.post<{ challenge: string; sentTo: string; expiresInMinutes: number }>(`/public/bookings/${encodeURIComponent(token)}/code`, body),
+  confirm: (token: string, body: { challenge: string; code: string; date: string; time: string; partySize: number; notes: string | null }) =>
+    api.post<{ manageToken: string }>(`/public/bookings/${encodeURIComponent(token)}/confirm`, body),
+  view: (manageToken: string) => api.get<GuestBooking>(`/public/reservations/${encodeURIComponent(manageToken)}`),
+  cancel: (manageToken: string) => api.post<GuestBooking>(`/public/reservations/${encodeURIComponent(manageToken)}/cancel`),
 };
 
 export interface SettlePayload {

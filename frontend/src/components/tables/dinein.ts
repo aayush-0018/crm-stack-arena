@@ -18,8 +18,8 @@ export function since(iso: string, now = Date.now()) {
 
 export const minutesSince = (iso: string, now = Date.now()) => (now - new Date(iso).getTime()) / 60_000;
 
-/** Where a table stands, from its unfinished orders. Most urgent first. */
-export type TableState = 'free' | 'ready' | 'new' | 'preparing' | 'unpaid';
+/** Where a table stands, from its unfinished orders (or a booking, when it has none). Most urgent first. */
+export type TableState = 'free' | 'ready' | 'new' | 'preparing' | 'unpaid' | 'reserved';
 export function tableState(orders: KitchenOrder[]): TableState {
   if (!orders.length) return 'free';
   if (orders.some((o) => o.kitchenStatus === 'ready')) return 'ready';
@@ -34,6 +34,7 @@ export const TABLE_STATE: Record<TableState, { label: string; tone: string; dot:
   preparing: { label: 'Preparing', tone: 'border-info-line bg-info-bg-2 text-info-strong', dot: 'bg-info-strong' },
   ready: { label: 'Ready to serve', tone: 'border-success-line bg-success-bg-2 text-success-strong animate-pulse', dot: 'bg-success-strong' },
   unpaid: { label: 'Awaiting payment', tone: 'border-danger-line-2 bg-danger-bg-2 text-danger-text', dot: 'bg-danger' },
+  reserved: { label: 'Reserved', tone: 'border-dashed border-ink-3 bg-wash text-ink', dot: 'bg-ink-3' },
 };
 
 /** Calls `fn` now and every `ms` while the tab is visible (and right away when it becomes visible again). */

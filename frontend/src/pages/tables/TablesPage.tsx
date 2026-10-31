@@ -1,9 +1,11 @@
-import { ChefHat, Download, ExternalLink, Printer, RefreshCw, X } from 'lucide-react';
+import { CalendarClock, ChefHat, Download, ExternalLink, Printer, RefreshCw, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
-import { floorPlanApi, kitchenApi } from '../../api/endpoints';
+import { floorPlanApi, kitchenApi, reservationsApi } from '../../api/endpoints';
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from '../../components/orders/Payments';
+import ReservationsBoard from '../../components/reservations/ReservationsBoard';
+import { clock, people } from '../../components/reservations/reservations';
 import FloorCanvas from '../../components/tables/FloorCanvas';
 import FloorPlanEditor from '../../components/tables/FloorPlanEditor';
 import QrImage, { useQrDataUrl } from '../../components/tables/QrImage';
@@ -17,13 +19,80 @@ import { PageTop } from '../../components/ui/Tabs';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatINR } from '../../lib/money';
-import type { FloorPlan, KitchenOrder, PaymentMethod } from '../../types';
+import type { FloorPlan, KitchenOrder, LiveFloor as Live, PaymentMethod, Reservation, ReservationStatus } from '../../types';
 
-type Tab = 'live' | 'plan' | 'qr';
-type Live = FloorPlan & { orders: KitchenOrder[] };
+type Tab = 'live' | 'bookings' | 'plan' | 'qr';
+
+/** A table's booking that matters now: the party at it, or the next one due. */
+function tableBooking(list: Reservation[]) {
+  return list.find((r) => r.status === 'seated') ?? list.find((r) => r.status === 'booked') ?? null;
+}
+
+/** The booking on a table in the live panel: seat the party when they arrive, free the table when they leave. */
+function BookingCard({ r, onChange }: { r: Reservation; onChange: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const set = async (status: ReservationStatus, done: string) => {
+    setBusy(true);
+    try {
+      await reservationsApi.setStatus(r.id, status);
+      toast('success', done);
+      onChange();
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'Something went wrong');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mb-3 rounded-lg border border-dashed border-ink-3 bg-wash p-3 text-[13.5px]">
+      <div className="flex items-center gap-2">
+        <CalendarClock size={15} className="text-ink-2" />
+        <span className="font-medium text-ink">{r.status === 'seated' ? 'Seated' : `Booked for ${clock(r.startsAt)}`}</span>
+        <span className="ml-auto inline-flex items-center gap-1 text-ink-2">
+          <Users size={13} /> {r.partySize}
+        </span>
+      </div>
+      <p className="mt-1 text-ink-2">
+        {r.name}
+        {r.notes ? ` · ${r.notes}` : ''}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {r.status === 'booked' ? (
+          <>
+            <Button size="sm" loading={busy} onClick={() => set('seated', `${r.name} seated`)}>
+              Seat {people(r.partySize)}
+            </Button>
+            {new Date(r.startsAt).getTime() < Date.now() && (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => set('no_show', 'Marked as no-show')}>
+                No-show
+              </Button>
+            )}
+          </>
+        ) : (
+          <Button size="sm" variant="secondary" loading={busy} onClick={() => set('finished', 'Table freed')}>
+            Guests left · free table
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Click a table: its open orders, with serve and payment actions. */
-function TablePanel({ label, orders, onClose, onChange }: { label: string; orders: KitchenOrder[]; onClose: () => void; onChange: (l: Live | null) => void }) {
+function TablePanel({
+  label,
+  orders,
+  booking,
+  onClose,
+  onChange,
+}: {
+  label: string;
+  orders: KitchenOrder[];
+  booking: Reservation | null;
+  onClose: () => void;
+  onChange: (l: Live | null) => void;
+}) {
   const toast = useToast();
   const now = useNow();
   const [method, setMethod] = useState<Exclude<PaymentMethod, 'unrecorded'>>('cash');
@@ -50,8 +119,9 @@ function TablePanel({ label, orders, onClose, onChange }: { label: string; order
           <X size={16} />
         </button>
       </div>
+      {booking && <BookingCard r={booking} onChange={() => onChange(null)} />}
       {orders.length === 0 ? (
-        <p className="text-[13.5px] text-ink-3">No open orders. The table is free.</p>
+        <p className="text-[13.5px] text-ink-3">{booking ? 'No open orders.' : 'No open orders. The table is free.'}</p>
       ) : (
         <div className="space-y-3">
           {orders.map((o) => {
@@ -138,6 +208,16 @@ function LiveFloor() {
     for (const o of live?.orders ?? []) if (o.tableId) m.set(o.tableId, [...(m.get(o.tableId) ?? []), o]);
     return m;
   }, [live]);
+  const bookingByTable = useMemo(() => {
+    const m = new Map<number, Reservation[]>();
+    for (const r of live?.reservations ?? []) for (const id of r.tableIds) m.set(id, [...(m.get(id) ?? []), r]);
+    return new Map([...m].map(([id, list]) => [id, tableBooking(list)!]));
+  }, [live]);
+  // A table with no orders but a booking shows as reserved.
+  const stateOf = (id: number) => {
+    const s = tableState(byTable.get(id) ?? []);
+    return s === 'free' && bookingByTable.has(id) ? 'reserved' : s;
+  };
 
   if (error && !live) return <ErrorState error={error} onRetry={load} />;
   if (!live) return <LoadingState />;
@@ -147,7 +227,7 @@ function LiveFloor() {
   }
 
   const counts = allTables.reduce<Record<string, number>>((acc, t) => {
-    const s = tableState(byTable.get(t.id) ?? []);
+    const s = stateOf(t.id);
     acc[s] = (acc[s] ?? 0) + 1;
     return acc;
   }, {});
@@ -201,9 +281,17 @@ function LiveFloor() {
           decor={floor.decor}
           tables={floor.tables}
           selected={sel ? (`t${floor.tables.indexOf(sel)}` as const) : null}
-          tableTone={(t) => TABLE_STATE[tableState(byTable.get(t.id!) ?? [])].tone}
+          tableTone={(t) => TABLE_STATE[stateOf(t.id!)].tone}
           tableBadge={(t) => {
             const orders = byTable.get(t.id!) ?? [];
+            const booking = bookingByTable.get(t.id!);
+            if (!orders.length && booking) {
+              return (
+                <span className="mt-0.5 max-w-full truncate px-1 text-[10px] font-medium leading-none opacity-80">
+                  {booking.status === 'seated' ? 'Seated' : clock(booking.startsAt)} · {booking.name.split(' ')[0]}
+                </span>
+              );
+            }
             if (!orders.length) return null;
             const oldest = orders[0].createdAt;
             return (
@@ -215,7 +303,15 @@ function LiveFloor() {
           }}
           onTableClick={(t) => setSelected(t.id === selected ? null : t.id!)}
         />
-        {sel && <TablePanel label={sel.label} orders={byTable.get(sel.id) ?? []} onClose={() => setSelected(null)} onChange={(l) => (l ? setLive(l) : load())} />}
+        {sel && (
+          <TablePanel
+            label={sel.label}
+            orders={byTable.get(sel.id) ?? []}
+            booking={bookingByTable.get(sel.id) ?? null}
+            onClose={() => setSelected(null)}
+            onChange={(l) => (l ? setLive(l) : load())}
+          />
+        )}
       </div>
     </div>
   );
@@ -324,6 +420,7 @@ export default function TablesPage() {
       <PageTop
         tabs={[
           { key: 'live', label: 'Live tables' },
+          { key: 'bookings', label: 'Reservations' },
           { key: 'plan', label: 'Floor plan' },
           { key: 'qr', label: 'QR codes' },
         ]}
@@ -338,6 +435,8 @@ export default function TablesPage() {
       <div className="px-4 py-5 sm:px-6">
         {tab === 'live' ? (
           <LiveFloor />
+        ) : tab === 'bookings' ? (
+          <ReservationsBoard plan={plan} />
         ) : error ? (
           <ErrorState error={error} onRetry={loadPlan} />
         ) : !plan ? (
