@@ -1,9 +1,9 @@
-import { ChevronDown, Gamepad2, Lock, Mail, Minus, Plus, Search, ShoppingBag, Sparkles, Trophy, X } from 'lucide-react';
+import { Gamepad2, Mail, Minus, Plus, Receipt, Search, ShoppingBag, Sparkles, Trophy, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { tableGuestApi } from '../../api/endpoints';
-import { KITCHEN_LABEL, qty, read, SESSION_KEY, write } from '../../components/tables/dinein';
+import { read, SESSION_KEY, write } from '../../components/tables/dinein';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import { formatINR } from '../../lib/money';
@@ -218,55 +218,6 @@ function Stepper({ n, onChange, name }: { n: number; onChange: (n: number) => vo
 }
 
 /** An order already placed: shown for reference only. */
-function PlacedOrder({ o }: { o: GuestOrder }) {
-  const [open, setOpen] = useState(false);
-  const count = o.items.reduce((s, it) => s + Number(it.quantity), 0);
-  return (
-    <li className="rounded-xl border border-[#ece6da] bg-white">
-      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 px-3.5 py-3 text-left" aria-expanded={open}>
-        <Lock size={14} className="shrink-0 text-[#b7ad9c]" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14.5px]">
-            {count} {count === 1 ? 'item' : 'items'} · {rupees(o.totalPaise)}
-          </span>
-          <span className="block text-[12.5px] text-[#8a8276]">
-            {o.status === 'cancelled' ? 'Cancelled' : KITCHEN_LABEL[o.kitchenStatus]} · {o.paymentStatus === 'paid' ? 'Paid' : 'Not paid yet'}
-          </span>
-        </span>
-        <ChevronDown size={16} className={`shrink-0 text-[#8a8276] transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="border-t border-[#f0ebe1] px-3.5 pb-3 pt-2 text-[13.5px]">
-          <ul className="space-y-1">
-            {o.items.map((it, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="tabular-nums text-[#8a8276]">{qty(it.quantity)}×</span>
-                <span className="flex-1">{it.itemName}</span>
-                <span className="tabular-nums">{rupees(it.lineTotalPaise)}</span>
-              </li>
-            ))}
-            {o.discountPaise - o.prizePaise > 0 && (
-              <li className="flex justify-between text-[#2e7031]">
-                <span>First-order discount</span>
-                <span className="tabular-nums">−{rupees(o.discountPaise - o.prizePaise)}</span>
-              </li>
-            )}
-            {o.prizePaise > 0 && (
-              <li className="flex justify-between text-[#2e7031]">
-                <span>Table game prize</span>
-                <span className="tabular-nums">−{rupees(o.prizePaise)}</span>
-              </li>
-            )}
-          </ul>
-          <Link to={`/o/${o.guestToken}`} className="mt-2 inline-block text-[13px] text-[#8c2f1b]">
-            Track this order →
-          </Link>
-        </div>
-      )}
-    </li>
-  );
-}
-
 /** What a guest sees after scanning the table's QR code: confirm email, then the menu, a cart and "Place order". */
 export default function GuestMenuPage() {
   const { token = '' } = useParams();
@@ -311,6 +262,8 @@ export default function GuestMenuPage() {
   useEffect(() => {
     if (menu) document.title = `${menu.shop.name} · Table ${menu.table.label}`;
   }, [menu]);
+
+  const toPay = orders.reduce((s, o) => s + (o.status === 'cancelled' ? 0 : Math.max(0, o.totalPaise - o.amountPaidPaise)), 0);
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -450,15 +403,17 @@ export default function GuestMenuPage() {
         )}
 
         {orders.length > 0 && (
-          <section className="mt-4" aria-label="Your orders">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">Your orders</p>
-            <ul className="space-y-2">
-              {orders.map((o) => (
-                <PlacedOrder key={o.guestToken} o={o} />
-              ))}
-            </ul>
-            <p className="mt-2 text-[12.5px] text-[#a39a8c]">Orders already placed can't be changed. To add something, order it below; for anything else, ask the staff.</p>
-          </section>
+          <Link to={`/t/${token}/orders`} className="mt-3 flex items-center gap-2.5 rounded-xl border border-[#ece6da] bg-white px-3.5 py-3 text-[14px]">
+            <Receipt size={17} className="shrink-0 text-[#8a8276]" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Your orders</span>
+              <span className="block text-[12.5px] text-[#8a8276]">
+                {orders.length} {orders.length === 1 ? 'order' : 'orders'}
+                {toPay > 0 ? ` · ${rupees(toPay)} to pay` : ' · all paid'}
+              </span>
+            </span>
+            <span aria-hidden className="text-[#8a8276]">→</span>
+          </Link>
         )}
       </header>
 
