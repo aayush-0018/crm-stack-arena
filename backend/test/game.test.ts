@@ -60,11 +60,10 @@ async function guest(tableToken: string, phone = nextPhone()) {
   };
 }
 
-/** Ordered and past the review step: ready to play. */
+/** Ordered: ready to play. */
 async function player(tableToken: string, coffeeId: number, extra: Record<string, unknown> = {}) {
   const g = await guest(tableToken);
   assert.equal((await g.order(coffeeId, extra)).status, 201);
-  assert.equal((await g.reviewed()).status, 200);
   return g;
 }
 
@@ -95,8 +94,8 @@ describe('Google review link', () => {
   });
 });
 
-describe('review step, then the game', () => {
-  test('locked until they order, then until they open the review page; asked once per customer', async () => {
+describe('review step and the game', () => {
+  test('the game opens once they order, review or not; the review is asked once per customer', async () => {
     const { coffee, t1 } = await cafe();
     const g = await guest(t1);
     let s = (await g.state()).body;
@@ -104,23 +103,21 @@ describe('review step, then the game', () => {
     assert.deepEqual(s.review, { url: `https://search.google.com/local/writereview?placeid=${PLACE_ID}`, done: false });
     assert.equal((await g.practice()).status, 403);
 
+    // Ordered, not reviewed: the game is open anyway (Google forbids rewarding reviews).
     await g.order(coffee.id);
     s = (await g.state()).body;
-    assert.equal(s.locked, 'review');
-    assert.equal((await g.startRound()).status, 403);
-
-    s = (await g.reviewed()).body;
     assert.equal(s.locked, null);
-    assert.equal(s.review.done, true);
+    assert.equal(s.review.done, false);
     const p = (await g.practice()).body;
     assert.equal(p.seconds, 45);
     assert.equal(p.questions.length, 60);
     assert.ok(p.questions.every((q: { options: string[]; answer: number }) => q.options.length === 4 && q.answer >= 0 && q.answer < 4));
 
-    // Same customer on another phone: already reviewed.
+    s = (await g.reviewed()).body;
+    assert.equal(s.review.done, true);
+    // Same customer on another phone: not asked again.
     const again = await guest(t1, g.phone);
-    await again.order(coffee.id);
-    assert.equal((await again.state()).body.locked, null);
+    assert.equal((await again.state()).body.review.done, true);
   });
 
   test('no review link: the game opens straight after ordering', async () => {

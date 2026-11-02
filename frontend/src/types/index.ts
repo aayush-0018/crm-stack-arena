@@ -636,8 +636,8 @@ export type GameRoundStatus = 'lobby' | 'playing' | 'counting' | 'finished' | 'c
 export interface GameState {
   /** null = this branch has no Google review link. */
   review: { url: string; done: boolean } | null;
-  /** Why the game isn't open yet: no order yet, or the review step is still to do. */
-  locked: 'order' | 'review' | null;
+  /** The game opens once they've ordered (never tied to the review). */
+  locked: 'order' | null;
   tableLabel: string;
   prizePct: number;
   lobbySeconds: number;

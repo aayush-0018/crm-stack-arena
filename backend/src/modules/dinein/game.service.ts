@@ -6,8 +6,9 @@ import { discountFor, findSession, GuestSession, pendingPrize, SESSION_HOURS, se
 import { makeQuestions, mark, QUESTION_COUNT, withoutAnswers } from './questions';
 
 /**
- * After ordering from a table: rate the branch on Google (when it has a review link), then play.
- * Guests can practise alone, or start a table challenge: other tables have LOBBY_SECONDS to join,
+ * After ordering from a table: the branch asks for a Google review (when it has a review link) and
+ * the game opens. The game never depends on the review: Google forbids rewarding reviews, and the
+ * game has a prize. Guests can practise alone, or start a table challenge: other tables have LOBBY_SECONDS to join,
  * everyone answers the same questions for PLAY_SECONDS, and the top score wins PRIZE_PCT off.
  */
 export const PRIZE_PCT = 10;
@@ -18,7 +19,7 @@ const GRACE_SECONDS = 10;
 /** A finished round stays on screen this long. */
 const SHOW_RESULT_MINUTES = 15;
 
-type Locked = 'order' | 'review' | null;
+type Locked = 'order' | null;
 
 async function guestAt(tableToken: string, sessionToken: string | undefined) {
   const table = await tableOr404(tableToken);
@@ -27,7 +28,7 @@ async function guestAt(tableToken: string, sessionToken: string | undefined) {
   return { table, session };
 }
 
-/** The review step (null when the branch has no review link) and whether the game is open to this guest yet. */
+/** The review step (null when the branch has no review link), and whether the game is open yet: only ordering counts. */
 async function access(db: Db, s: GuestSession) {
   const { rows } = await db.query(
     `SELECT sh.google_review_url AS url,
@@ -39,16 +40,13 @@ async function access(db: Db, s: GuestSession) {
   );
   const { url, reviewed, ordered } = rows[0] as { url: string | null; reviewed: boolean; ordered: boolean };
   const review = url ? { url, done: reviewed } : null;
-  const locked: Locked = !ordered ? 'order' : review && !review.done ? 'review' : null;
+  const locked: Locked = ordered ? null : 'order';
   return { review, locked };
 }
 
-const lockedError = (locked: Locked) =>
-  locked === 'order'
-    ? new AppError(403, 'GAME_LOCKED', 'Place an order first, then the game opens.')
-    : new AppError(403, 'GAME_LOCKED', 'Rate us on Google first, then the game opens.');
+const lockedError = () => new AppError(403, 'GAME_LOCKED', 'Place an order first, then the game opens.');
 
-/** The guest has been sent to the review page: the game opens. Asked once per customer. */
+/** The guest has been sent to the review page, so they aren't asked again. Asked once per customer. */
 export async function reviewOpened(tableToken: string, sessionToken: string | undefined) {
   const { session } = await guestAt(tableToken, sessionToken);
   await pool.query(`UPDATE guest_sessions SET review_opened_at = COALESCE(review_opened_at, now()) WHERE id = $1`, [session.id]);
@@ -231,7 +229,7 @@ export async function gameState(tableToken: string, sessionToken: string | undef
 async function playable(tableToken: string, sessionToken: string | undefined) {
   const g = await guestAt(tableToken, sessionToken);
   const { locked } = await access(pool, g.session);
-  if (locked) throw lockedError(locked);
+  if (locked) throw lockedError();
   return g;
 }
 

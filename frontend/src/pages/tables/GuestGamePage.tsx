@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Coffee, Gamepad2, Star, Timer, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, Check, Coffee, Gamepad2, Timer, Trophy, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -165,7 +165,7 @@ function Players({ players, showScores }: { players: NonNullable<GameState['roun
   );
 }
 
-/** The table game, opened from the order page once the guest has ordered (and rated us, if the café asks). */
+/** The table game, opened from the order page once the guest has ordered. */
 export default function GuestGamePage() {
   const { token = '' } = useParams();
   const [session] = useState<string | null>(() => read(localStorage, SESSION_KEY, null));
@@ -229,13 +229,6 @@ export default function GuestGamePage() {
     }
   };
 
-  const openReview = async () => {
-    if (!session || !state?.review) return;
-    const url = state.review.url;
-    await tableGuestApi.reviewOpened(token, session).then(take, () => undefined);
-    window.location.assign(url);
-  };
-
   const shell = (body: React.ReactNode) => (
     <div className="theme-light min-h-screen bg-[#faf8f4] px-4 pb-10 pt-5 text-[#1f1b16]">
       <div className="mx-auto max-w-md">
@@ -287,28 +280,11 @@ export default function GuestGamePage() {
   if (state.locked) {
     return shell(
       <div className={`${card} mt-6 text-center`}>
-        {state.locked === 'order' ? (
-          <>
-            <p className="text-[16px] font-medium">The game opens after you order</p>
-            <p className="mt-1 text-[14px] text-[#8a8276]">Place an order from the menu, then come back to play.</p>
-            <Link to={`/t/${token}`} className={`${primary} mt-4`}>
-              Open the menu
-            </Link>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-center gap-1" aria-hidden>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Star key={i} size={24} className="text-[#e0a21b]" fill="#e0a21b" />
-              ))}
-            </div>
-            <p className="mt-3 text-[16px] font-medium">Rate us on Google to open the game</p>
-            <p className="mt-1 text-[14px] text-[#8a8276]">It takes a few seconds. Then come back here and play.</p>
-            <button type="button" onClick={openReview} className={`${primary} mt-4`}>
-              <Star size={16} /> Rate us on Google
-            </button>
-          </>
-        )}
+        <p className="text-[16px] font-medium">The game opens after you order</p>
+        <p className="mt-1 text-[14px] text-[#8a8276]">Place an order from the menu, then come back to play.</p>
+        <Link to={`/t/${token}`} className={`${primary} mt-4`}>
+          Open the menu
+        </Link>
       </div>,
     );
   }

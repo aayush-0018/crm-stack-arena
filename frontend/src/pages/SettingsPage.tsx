@@ -199,8 +199,9 @@ export default function SettingsPage() {
       <Card title="Google reviews" className="mt-5">
         <form onSubmit={saveReview} noValidate className="space-y-4">
           <p className="text-[13px] text-ink-3">
-            After ordering from a table QR code, guests are taken straight to your Google review box (stars and a text box), then
-            to the table game. In your Google Business Profile, open <span className="text-ink">Ask for reviews</span> and paste
+            After ordering from a table QR code, guests are taken straight to your Google review box (stars and a text box). The
+            table game doesn't depend on it, as Google doesn't allow rewards for reviews. In your Google Business Profile, open{' '}
+            <span className="text-ink">Ask for reviews</span> and paste
             that link here, or paste your Place ID. Leave blank to skip the review step.
           </p>
           <TextField

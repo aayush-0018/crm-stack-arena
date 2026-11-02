@@ -133,29 +133,27 @@ export default function GuestOrderPage() {
           </ol>
         )}
 
-        {game && o.status !== 'cancelled' && tableToken && (
-          game.review && !game.review.done ? (
-            <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-              <p className="flex items-center gap-2 text-[15px] font-medium">
-                <Star size={17} className="text-[#e0a21b]" fill="#e0a21b" /> Enjoying {o.shopName}?
-              </p>
-              <p className="mt-0.5 text-[13.5px] text-[#8a8276]">Rate us on Google, then play the table game while you wait.</p>
-              <button type="button" onClick={openReview} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
-                <Star size={16} /> Rate us on Google
-              </button>
-            </div>
-          ) : (
-            !game.locked && (
-              <Link to={`/t/${tableToken}/game`} className="mt-4 flex items-center gap-3 rounded-2xl bg-[#1f1b16] p-5 text-white">
-                <Gamepad2 size={22} className="shrink-0 text-[#f6d48a]" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium">Play while you wait</span>
-                  <span className="block text-[13px] opacity-75">Take on the other tables. The winner gets {game.prizePct}% off.</span>
-                </span>
-                <span aria-hidden>→</span>
-              </Link>
-            )
-          )
+        {game && o.status !== 'cancelled' && tableToken && !game.locked && (
+          <Link to={`/t/${tableToken}/game`} className="mt-4 flex items-center gap-3 rounded-2xl bg-[#1f1b16] p-5 text-white">
+            <Gamepad2 size={22} className="shrink-0 text-[#f6d48a]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium">Play while you wait</span>
+              <span className="block text-[13px] opacity-75">Take on the other tables. The winner gets {game.prizePct}% off.</span>
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
+        )}
+
+        {game?.review && !game.review.done && o.status !== 'cancelled' && (
+          <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <p className="flex items-center gap-2 text-[15px] font-medium">
+              <Star size={17} className="text-[#e0a21b]" fill="#e0a21b" /> Enjoying {o.shopName}?
+            </p>
+            <p className="mt-0.5 text-[13.5px] text-[#8a8276]">A quick Google review helps us a lot.</p>
+            <button type="button" onClick={openReview} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
+              <Star size={16} /> Rate us on Google
+            </button>
+          </div>
         )}
 
         <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -242,7 +240,7 @@ export default function GuestOrderPage() {
               <p className="mt-3 text-[19px] font-semibold">Rate {o.shopName} on Google?</p>
             </div>
             <div className="p-6">
-              <p className="text-[14.5px] text-[#5e574c]">It takes a few seconds and helps us a lot. Then come back here to play the table game.</p>
+              <p className="text-[14.5px] text-[#5e574c]">It takes a few seconds and helps us a lot.</p>
               <button type="button" onClick={openReview} className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#1f1b16] text-[16px] font-semibold text-white">
                 Rate us now ({countdown})
               </button>
