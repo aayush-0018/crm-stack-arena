@@ -1,9 +1,9 @@
-import { ChevronDown, Lock, Mail, Minus, Plus, Search, ShoppingBag, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Gamepad2, Lock, Mail, Minus, Plus, Search, ShoppingBag, Sparkles, Trophy, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { tableGuestApi } from '../../api/endpoints';
-import { KITCHEN_LABEL, qty } from '../../components/tables/dinein';
+import { KITCHEN_LABEL, qty, read, SESSION_KEY, write } from '../../components/tables/dinein';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import { formatINR } from '../../lib/money';
@@ -12,25 +12,7 @@ import type { GuestOrder, TableMenu } from '../../types';
 
 type Product = TableMenu['products'][number];
 
-/** Remembered on this phone: the guest's session (12 hours), the cart until ordered, and the welcome seen. */
-const SESSION_KEY = 'cw.guestSession';
 const cartKey = (t: string) => `cw.cart.${t}`;
-function read<T>(store: Storage, key: string, fallback: T): T {
-  try {
-    const v = store.getItem(key);
-    return v === null ? fallback : (JSON.parse(v) as T);
-  } catch {
-    return fallback;
-  }
-}
-function write(store: Storage, key: string, value: unknown) {
-  try {
-    if (value === null) store.removeItem(key);
-    else store.setItem(key, JSON.stringify(value));
-  } catch {
-    /* private mode: works for this visit only */
-  }
-}
 
 const rupees = (paise: number) => formatINR(paise).replace(/\.00$/, '');
 const price = (p: Product) => `${rupees(p.pricePaise)}${p.unit === 'pcs' ? '' : ` / ${p.unit}`}`;
@@ -263,10 +245,16 @@ function PlacedOrder({ o }: { o: GuestOrder }) {
                 <span className="tabular-nums">{rupees(it.lineTotalPaise)}</span>
               </li>
             ))}
-            {o.discountPaise > 0 && (
+            {o.discountPaise - o.prizePaise > 0 && (
               <li className="flex justify-between text-[#2e7031]">
                 <span>First-order discount</span>
-                <span className="tabular-nums">−{rupees(o.discountPaise)}</span>
+                <span className="tabular-nums">−{rupees(o.discountPaise - o.prizePaise)}</span>
+              </li>
+            )}
+            {o.prizePaise > 0 && (
+              <li className="flex justify-between text-[#2e7031]">
+                <span>Table game prize</span>
+                <span className="tabular-nums">−{rupees(o.prizePaise)}</span>
               </li>
             )}
           </ul>
@@ -377,7 +365,10 @@ export default function GuestMenuPage() {
   const lines = menu.products.filter((p) => cart[p.id]).map((p) => ({ p, n: cart[p.id] }));
   const count = lines.reduce((s, l) => s + l.n, 0);
   const subtotal = lines.reduce((s, l) => s + l.n * l.p.pricePaise, 0);
-  const discount = discountFor(subtotal, guest.discountPct);
+  const firstDiscount = discountFor(subtotal, guest.discountPct);
+  // Same order of taking off as the server: first-order discount, then the game prize.
+  const prize = Math.min(discountFor(subtotal, guest.prizePct), subtotal - firstDiscount);
+  const discount = firstDiscount + prize;
   const total = subtotal - discount;
   const setQty = (id: number, n: number) =>
     setCart((c) => {
@@ -403,7 +394,8 @@ export default function GuestMenuPage() {
       setNote('');
       setPaid(false);
       setAttempt(uuid());
-      navigate(`/o/${guestToken}`);
+      // The order page then offers the Google review and the game.
+      navigate(`/o/${guestToken}`, { state: { justOrdered: true } });
     } catch (e) {
       if (e instanceof ApiError && e.code === 'GUEST_SESSION') return signOut();
       setError(e instanceof ApiError ? e.message : "Couldn't send your order. Check your connection and try again.");
@@ -438,6 +430,23 @@ export default function GuestMenuPage() {
               <strong>{guest.discountPct}% off</strong> your first order, applied at checkout.
             </span>
           </button>
+        )}
+
+        {guest.prizePct > 0 && (
+          <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-[#fdf3e3] px-3.5 py-2.5 text-[14px] text-[#7a4c09]">
+            <Trophy size={16} className="shrink-0" />
+            <span>
+              You won the table game: <strong>{guest.prizePct}% off</strong> your next order.
+            </span>
+          </div>
+        )}
+
+        {orders.some((o) => o.status !== 'cancelled') && (
+          <Link to={`/t/${token}/game`} className="mt-4 flex items-center gap-2.5 rounded-xl bg-[#1f1b16] px-3.5 py-3 text-[14px] text-white">
+            <Gamepad2 size={17} className="shrink-0 text-[#f6d48a]" />
+            <span className="flex-1">Play while you wait: beat the other tables for 10% off</span>
+            <span aria-hidden>→</span>
+          </Link>
         )}
 
         {orders.length > 0 && (
@@ -543,10 +552,18 @@ export default function GuestMenuPage() {
                         <dt>Subtotal</dt>
                         <dd className="tabular-nums">{formatINR(subtotal)}</dd>
                       </div>
-                      <div className="flex justify-between text-[#2e7031]">
-                        <dt>First-order discount ({guest.discountPct}%)</dt>
-                        <dd className="tabular-nums">−{formatINR(discount)}</dd>
-                      </div>
+                      {firstDiscount > 0 && (
+                        <div className="flex justify-between text-[#2e7031]">
+                          <dt>First-order discount ({guest.discountPct}%)</dt>
+                          <dd className="tabular-nums">−{formatINR(firstDiscount)}</dd>
+                        </div>
+                      )}
+                      {prize > 0 && (
+                        <div className="flex justify-between text-[#2e7031]">
+                          <dt>Table game prize ({guest.prizePct}%)</dt>
+                          <dd className="tabular-nums">−{formatINR(prize)}</dd>
+                        </div>
+                      )}
                     </>
                   )}
                   <div className="flex justify-between text-[16px] font-semibold">

@@ -313,7 +313,7 @@ export async function getReturn(shopId: number, id: number) {
     r.customerId ? findCustomer(pool, shopId, r.customerId, { includeDeleted: true }) : null,
     latestInvoiceForOrder(pool, r.orderId),
   ]);
-  const { id: _id, allowNegativeStock: _s, ...shopDetails } = shop!;
+  const { id: _id, allowNegativeStock: _s, googleReviewUrl: _r, ...shopDetails } = shop!;
   return {
     ...r,
     items,

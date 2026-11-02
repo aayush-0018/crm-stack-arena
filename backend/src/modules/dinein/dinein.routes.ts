@@ -9,7 +9,8 @@ import { idParam } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
 import { catalogueProducts } from '../catalogue/catalogue.repo';
 import { findShop } from '../shop/shop.repo';
-import { floorPlanSchema, guestOrderSchema, guestOtpRequestSchema, guestOtpVerifySchema, kitchenStatusSchema, markPaidSchema } from './dinein.schemas';
+import { floorPlanSchema, gameAnswersSchema, guestOrderSchema, guestOtpRequestSchema, guestOtpVerifySchema, kitchenStatusSchema, markPaidSchema } from './dinein.schemas';
+import * as game from './game.service';
 import * as guests from './guest.service';
 import * as service from './dinein.service';
 
@@ -113,7 +114,7 @@ publicTablesRouter.get(
   '/tables/:token',
   ah(async (req, res) => {
     const { token } = tokenParam.parse(req.params);
-    const { table, session: s, discountPct } = await guests.tableMenu(token, session(req));
+    const { table, session: s, discountPct, prizePct } = await guests.tableMenu(token, session(req));
     const shop = await findShop(pool, table.shopId);
     if (!shop) throw notFound('Table');
     noStore(res);
@@ -122,7 +123,7 @@ publicTablesRouter.get(
       table: { label: table.label, floorName: table.floorName },
       firstOrderDiscountPct: guests.FIRST_ORDER_DISCOUNT_PCT,
       // The menu opens only after the guest has confirmed their email.
-      guest: s ? { name: s.name, phone: s.phone, email: s.email, discountPct } : null,
+      guest: s ? { name: s.name, phone: s.phone, email: s.email, discountPct, prizePct } : null,
       products: s
         ? (await catalogueProducts(pool, table.shopId, true)).map(({ id, name, category, unit, pricePaise }) => ({ id, name, category, unit, pricePaise }))
         : [],
@@ -183,5 +184,68 @@ publicTablesRouter.get(
     const { token } = tokenParam.parse(req.params);
     noStore(res);
     res.json(await guests.guestOrderView(token));
+  }),
+);
+
+// ---------------------------------------------------------------------------------------------
+// After ordering: the Google review step and the table game. All need the guest's session.
+// ---------------------------------------------------------------------------------------------
+const roundsBySession = createLimiter(6, 10 * 60_000);
+const roundParam = z.object({ token: tokenParam.shape.token, id: z.coerce.number().int().positive() });
+
+publicTablesRouter.get(
+  '/tables/:token/game',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    noStore(res);
+    res.json(await game.gameState(token, session(req)));
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/review-opened',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    noStore(res);
+    res.json(await game.reviewOpened(token, session(req)));
+  }),
+);
+
+publicTablesRouter.get(
+  '/tables/:token/game/practice',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    noStore(res);
+    res.json(await game.practice(token, session(req)));
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/game/rounds',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    const key = session(req) ?? req.ip ?? 'unknown';
+    if (roundsBySession.retryAfter(key) > 0) throw new AppError(429, 'TOO_MANY_ROUNDS', 'Too many rounds just now. Please wait a few minutes.');
+    roundsBySession.hit(key);
+    noStore(res);
+    res.status(201).json(await game.startChallenge(token, session(req)));
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/game/rounds/:id/join',
+  ah(async (req, res) => {
+    const { token, id } = roundParam.parse(req.params);
+    noStore(res);
+    res.json(await game.joinChallenge(token, session(req), id));
+  }),
+);
+
+publicTablesRouter.post(
+  '/tables/:token/game/rounds/:id/answers',
+  ah(async (req, res) => {
+    const { token, id } = roundParam.parse(req.params);
+    noStore(res);
+    res.json(await game.submitAnswers(token, session(req), id, gameAnswersSchema.parse(req.body).answers));
   }),
 );

@@ -51,6 +51,8 @@ import type {
   Session,
   ShareChannel,
   Shop,
+  GameQuestion,
+  GameState,
   User,
 } from '../types';
 import { api } from './client';
@@ -74,7 +76,8 @@ export const branchesApi = {
 
 export const shopApi = {
   get: () => api.get<Shop>('/shop'),
-  update: (body: Omit<Shop, 'id' | 'logoKey' | 'allowNegativeStock'> & { allowNegativeStock?: boolean }) => api.put<Shop>('/shop', body),
+  update: (body: Omit<Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl'> & { allowNegativeStock?: boolean; googleReviewUrl?: string | null }) =>
+    api.put<Shop>('/shop', body),
   uploadLogo: (dataUrl: string) => api.put<Shop>('/shop/logo', { dataUrl }),
   removeLogo: () => api.delete<Shop>('/shop/logo'),
 };
@@ -263,6 +266,17 @@ export const tableGuestApi = {
   order: (token: string, session: string, body: { items: { productId: number; quantity: number }[]; note: string | null; paid: boolean; idempotencyKey: string }) =>
     api.with(guestHeaders(session)).post<{ guestToken: string; discountPaise: number }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
   view: (guestToken: string) => api.get<GuestOrderView>(`/public/table-orders/${encodeURIComponent(guestToken)}`),
+  game: (token: string, session: string) => api.with(guestHeaders(session)).get<GameState>(`/public/tables/${encodeURIComponent(token)}/game`),
+  /** The guest is being sent to the Google review page: the game opens. */
+  reviewOpened: (token: string, session: string) => api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/review-opened`),
+  practice: (token: string, session: string) =>
+    api.with(guestHeaders(session)).get<{ seconds: number; questions: GameQuestion[] }>(`/public/tables/${encodeURIComponent(token)}/game/practice`),
+  /** Opens a table challenge, or joins the one already open. */
+  startRound: (token: string, session: string) => api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds`),
+  joinRound: (token: string, session: string, id: number) =>
+    api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds/${id}/join`),
+  answer: (token: string, session: string, id: number, answers: number[]) =>
+    api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds/${id}/answers`, { answers }),
 };
 
 export interface ReservationPayload {

@@ -33,6 +33,8 @@ export interface Shop {
   logoKey: string | null;
   /** When off (default), an order that would take a product below zero is refused. */
   allowNegativeStock: boolean;
+  /** Google's "write a review" page for this branch; guests are sent there after a table order. */
+  googleReviewUrl: string | null;
 }
 
 export interface Branch {
@@ -584,7 +586,7 @@ export interface TableMenu {
   /** Offered to first-time guests once they confirm their email. */
   firstOrderDiscountPct: number;
   /** null until the guest has confirmed their email; the menu stays empty until then. */
-  guest: { name: string; phone: string; email: string; discountPct: number } | null;
+  guest: { name: string; phone: string; email: string; discountPct: number; prizePct: number } | null;
   products: { id: number; name: string; category: string | null; unit: string; pricePaise: number }[];
 }
 
@@ -603,6 +605,8 @@ export interface GuestOrder {
   amountPaidPaise: number;
   paymentStatus: PaymentStatus;
   guestToken: string;
+  /** The part of discountPaise that is a table-game prize (the rest is the first-order discount). */
+  prizePaise: number;
   /** Set once the bill has been emailed: opens the invoice PDF. */
   billToken: string | null;
   items: { itemName: string; quantity: string; unitPricePaise: number; lineTotalPaise: number }[];
@@ -612,6 +616,46 @@ export interface GuestOrderView extends GuestOrder {
   shopName: string;
   logoKey: string | null;
   tableToken: string | null;
+}
+
+export type GameInk = 'red' | 'blue' | 'green' | 'orange' | 'purple';
+
+/** One quick-fire question. Practice questions come with the answer; challenge ones never do. */
+export interface GameQuestion {
+  kind: 'sum' | 'ink' | 'count' | 'max';
+  prompt: string;
+  ink?: GameInk;
+  count?: number;
+  options: string[];
+  answer?: number;
+}
+
+export type GameRoundStatus = 'lobby' | 'playing' | 'counting' | 'finished' | 'called_off';
+
+/** The review step and the table game, as one guest sees them. */
+export interface GameState {
+  /** null = this branch has no Google review link. */
+  review: { url: string; done: boolean } | null;
+  /** Why the game isn't open yet: no order yet, or the review step is still to do. */
+  locked: 'order' | 'review' | null;
+  tableLabel: string;
+  prizePct: number;
+  lobbySeconds: number;
+  playSeconds: number;
+  /** Won but not used yet: comes off the next order. */
+  pendingPrizePct: number;
+  round: {
+    id: number;
+    status: GameRoundStatus;
+    startsInSeconds: number;
+    endsInSeconds: number;
+    tables: number;
+    joined: boolean;
+    submitted: boolean;
+    questions: GameQuestion[] | null;
+    players: { name: string; tableLabel: string; me: boolean; score: number | null; correct: number | null; wrong: number | null; winner: boolean }[];
+    myPrize: { pct: number; appliedPaise: number } | null;
+  } | null;
 }
 
 export type ReservationStatus = 'booked' | 'seated' | 'finished' | 'cancelled' | 'no_show';

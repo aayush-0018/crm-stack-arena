@@ -53,7 +53,7 @@ export async function generateInvoice(shopId: number, userId: number | null, ord
       if (!shop || (order.customerId && !customer)) throw new Error('Shop or customer missing for invoice');
 
       // Only what's printed on the invoice; internal settings stay out of the snapshot.
-      const { id: _shopId, allowNegativeStock: _setting, ...shopSnapshot } = shop;
+      const { id: _shopId, allowNegativeStock: _setting, googleReviewUrl: _review, ...shopSnapshot } = shop;
       const id = await repo.insertInvoice(c, {
         shopId,
         orderId,

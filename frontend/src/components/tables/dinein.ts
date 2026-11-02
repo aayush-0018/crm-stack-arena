@@ -70,3 +70,22 @@ export function useNow(ms = 15_000) {
 
 /** Link printed on a table's QR code. */
 export const tableUrl = (qrToken: string) => `${window.location.origin}/t/${qrToken}`;
+
+/** Remembered on this phone: the guest's session (12 hours), their cart until ordered, and their details. */
+export const SESSION_KEY = 'cw.guestSession';
+export function read<T>(store: Storage, key: string, fallback: T): T {
+  try {
+    const v = store.getItem(key);
+    return v === null ? fallback : (JSON.parse(v) as T);
+  } catch {
+    return fallback;
+  }
+}
+export function write(store: Storage, key: string, value: unknown) {
+  try {
+    if (value === null) store.removeItem(key);
+    else store.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode: works for this visit only */
+  }
+}

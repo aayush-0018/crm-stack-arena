@@ -183,6 +183,20 @@ All booking times are India time (+05:30).
 | Guest's booking page | Shows the shop, date, time, party size, note and status, and nothing else. The guest can cancel it until its start time |
 | Live tables | A table with no open orders shows as Reserved when a booking on it starts within 2 hours (or is up to an hour late), or its party is seated. Staff can seat the party, mark a no-show once the time has passed, or free the table when they leave |
 
+## 6d. Google review and the table game (after a table order)
+
+| Rule | Detail |
+|---|---|
+| Review link | Set per branch in Settings → Google reviews. Only links that open Google's own review box (stars and the text box) are accepted: the `g.page/r/…/review` link from "Ask for reviews" in the Google Business Profile, a `search.google.com/local/writereview?placeid=…` link, or a bare Place ID (turned into that link). Blank = no review step |
+| Review step | Right after placing an order the guest sees "Rate us on Google?" and is taken to the review box after 4 seconds (or at once with "Rate us now"); "Not now" stays on the order page, which keeps a "Rate us on Google" button. Asked once per customer: once they've been sent there, they're not asked again |
+| What "reviewed" means | Google doesn't tell a website whether a review was posted, so "reviewed" = the guest was sent to the review box |
+| Game opens | After the guest has a table order (not cancelled) in the last 12 hours **and**, when the branch has a review link, has been sent to the review box. Needs the guest's session (same phone) |
+| Practice | 45 seconds of quick questions (sums, ink colours, counting cups, the biggest number) on their own. Nothing to win |
+| Table challenge | One round at a time per branch. A guest starts it; for 90 seconds anyone at the branch who can play may join (starting again joins the open round). Then everyone answers the same questions for 45 seconds. Needs players from at least two tables, or it's called off when it would start. A new round can start once the last one is over |
+| Scoring | Marked on the server (the phone never gets the answers): +1 right, −1 wrong, never below 0. Answers count until 10 seconds after the end. One go per player. Scores stay hidden until the results; ties go to fewer wrong answers, then whoever answered first |
+| Prize | The top score above 0 wins 10% off: taken off the subtotal of the winner's open table orders from the last 12 hours that have no payment yet, after the first-order discount (never more than what's left). If they have none, it comes off their next table order instead (once, within 12 hours). Shown on the order and bill as part of the discount, and to the guest as "Table game prize" |
+| Shown to others | Players see each other's first name and table only |
+
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
 | Field | Rule |

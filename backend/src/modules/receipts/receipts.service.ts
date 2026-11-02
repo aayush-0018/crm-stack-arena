@@ -63,7 +63,7 @@ export async function issueReceipt(
   if (!shop) throw notFound('Shop');
   const customer = r.customerId ? await findCustomer(c, r.shopId, r.customerId, { includeDeleted: true }) : null;
   // Only what's printed; internal settings stay out of the snapshot (as on invoices).
-  const { id: _id, allowNegativeStock: _setting, ...shopSnapshot } = shop;
+  const { id: _id, allowNegativeStock: _setting, googleReviewUrl: _review, ...shopSnapshot } = shop;
   const seq = await nextSeq(c, r.shopId, r.kind === 'payment' ? 'receipt' : 'refund');
   const receiptNumber = formatDocNumber(r.kind === 'payment' ? 'RCPT' : 'RFND', r.date.slice(0, 4), seq, await branchCode(c, r.shopId));
   const { rows } = await c.query(

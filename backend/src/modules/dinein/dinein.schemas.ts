@@ -99,3 +99,8 @@ export const guestOrderSchema = z.object({
   paid: z.boolean().default(false),
   idempotencyKey: z.string().uuid(),
 });
+
+/** A player's answers to a table-game round: the option tapped for each question, in order. */
+export const gameAnswersSchema = z.object({
+  answers: z.array(z.number().int().min(0).max(3)).max(60),
+});

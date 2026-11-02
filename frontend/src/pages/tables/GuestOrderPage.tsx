@@ -1,14 +1,17 @@
-import { Check, ChefHat, CookingPot, Download, HandPlatter, MessageCircle, Receipt } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Check, ChefHat, CookingPot, Download, Gamepad2, HandPlatter, MessageCircle, Receipt, Star } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { tableGuestApi } from '../../api/endpoints';
-import { qty, usePolling } from '../../components/tables/dinein';
+import { qty, read, SESSION_KEY, usePolling } from '../../components/tables/dinein';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import { formatDateTime } from '../../lib/date';
 import { formatINR } from '../../lib/money';
-import type { GuestOrderView, KitchenStatus } from '../../types';
+import type { GameState, GuestOrderView, KitchenStatus } from '../../types';
+
+/** Seconds on the "rate us" screen before Google's review page opens by itself. */
+const REVIEW_COUNTDOWN = 4;
 
 const STEPS: { status: KitchenStatus; label: string; hint: string; Icon: typeof Check }[] = [
   { status: 'new', label: 'Order received', hint: 'The kitchen has your order.', Icon: Receipt },
@@ -30,6 +33,47 @@ export default function GuestOrderPage() {
     tableGuestApi.view(guestToken).then(setO, (e) => e instanceof ApiError && e.status < 500 && setMissing(true));
   }, [guestToken, done]);
   usePolling(load, 5000);
+
+  // The review step and the game need the guest's session from the menu (same phone).
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [session] = useState<string | null>(() => read(localStorage, SESSION_KEY, null));
+  const [game, setGame] = useState<GameState | null>(null);
+  const [justOrdered, setJustOrdered] = useState(() => !!(location.state as { justOrdered?: boolean } | null)?.justOrdered);
+  const [countdown, setCountdown] = useState(REVIEW_COUNTDOWN);
+  const tableToken = o?.tableToken ?? null;
+  useEffect(() => {
+    if (tableToken && session) tableGuestApi.game(tableToken, session).then(setGame, () => undefined);
+  }, [tableToken, session]);
+
+  const askReview = justOrdered && !!game?.review && !game.review.done;
+  // Leaves the "just ordered" state behind, so coming back from Google doesn't ask again.
+  const settle = useCallback(() => {
+    setJustOrdered(false);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [navigate, location.pathname]);
+
+  const openReview = useCallback(async () => {
+    if (!game?.review || !tableToken || !session) return;
+    const url = game.review.url;
+    try {
+      setGame(await tableGuestApi.reviewOpened(tableToken, session));
+    } catch {
+      /* still send them; the game opens next time they look */
+    }
+    settle();
+    window.location.assign(url);
+  }, [game, tableToken, session, settle]);
+
+  useEffect(() => {
+    if (!askReview) return;
+    if (countdown <= 0) {
+      openReview();
+      return;
+    }
+    const t = setTimeout(() => setCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [askReview, countdown, openReview]);
 
   if (missing) {
     return (
@@ -89,6 +133,31 @@ export default function GuestOrderPage() {
           </ol>
         )}
 
+        {game && o.status !== 'cancelled' && tableToken && (
+          game.review && !game.review.done ? (
+            <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+              <p className="flex items-center gap-2 text-[15px] font-medium">
+                <Star size={17} className="text-[#e0a21b]" fill="#e0a21b" /> Enjoying {o.shopName}?
+              </p>
+              <p className="mt-0.5 text-[13.5px] text-[#8a8276]">Rate us on Google, then play the table game while you wait.</p>
+              <button type="button" onClick={openReview} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
+                <Star size={16} /> Rate us on Google
+              </button>
+            </div>
+          ) : (
+            !game.locked && (
+              <Link to={`/t/${tableToken}/game`} className="mt-4 flex items-center gap-3 rounded-2xl bg-[#1f1b16] p-5 text-white">
+                <Gamepad2 size={22} className="shrink-0 text-[#f6d48a]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-medium">Play while you wait</span>
+                  <span className="block text-[13px] opacity-75">Take on the other tables. The winner gets {game.prizePct}% off.</span>
+                </span>
+                <span aria-hidden>→</span>
+              </Link>
+            )
+          )
+        )}
+
         <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <ul className="space-y-2 text-[15px]">
             {o.items.map((it, i) => (
@@ -106,10 +175,18 @@ export default function GuestOrderPage() {
                 <span>Subtotal</span>
                 <span className="tabular-nums">{formatINR(o.subtotalPaise)}</span>
               </div>
-              <div className="flex justify-between text-[#2e7031]">
-                <span>First-order discount</span>
-                <span className="tabular-nums">−{formatINR(o.discountPaise)}</span>
-              </div>
+              {o.discountPaise - o.prizePaise > 0 && (
+                <div className="flex justify-between text-[#2e7031]">
+                  <span>First-order discount</span>
+                  <span className="tabular-nums">−{formatINR(o.discountPaise - o.prizePaise)}</span>
+                </div>
+              )}
+              {o.prizePaise > 0 && (
+                <div className="flex justify-between text-[#2e7031]">
+                  <span>Table game prize</span>
+                  <span className="tabular-nums">−{formatINR(o.prizePaise)}</span>
+                </div>
+              )}
             </div>
           )}
           <div className="mt-3 flex items-center justify-between border-t border-[#f0ebe1] pt-3 text-[16px] font-semibold">
@@ -149,6 +226,33 @@ export default function GuestOrderPage() {
           </Link>
         )}
       </div>
+
+      {/* Straight after ordering: off to Google's review box (stars and the text box), unless they say not now. */}
+      {askReview && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-6">
+          <div role="dialog" aria-modal="true" aria-label="Rate us on Google" className="w-full max-w-sm overflow-hidden rounded-3xl bg-white text-center">
+            <div className="bg-[#1f1b16] px-6 pb-6 pt-8 text-white">
+              <Check size={28} className="mx-auto text-[#f6d48a]" />
+              <p className="mt-3 text-[15px] opacity-80">Your order is with the kitchen</p>
+              <div className="mt-3 flex justify-center gap-1" aria-hidden>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Star key={i} size={26} className="text-[#f6d48a]" fill="#f6d48a" />
+                ))}
+              </div>
+              <p className="mt-3 text-[19px] font-semibold">Rate {o.shopName} on Google?</p>
+            </div>
+            <div className="p-6">
+              <p className="text-[14.5px] text-[#5e574c]">It takes a few seconds and helps us a lot. Then come back here to play the table game.</p>
+              <button type="button" onClick={openReview} className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-[#1f1b16] text-[16px] font-semibold text-white">
+                Rate us now ({countdown})
+              </button>
+              <button type="button" onClick={settle} className="mt-2 h-10 w-full text-[14px] text-[#5e574c]">
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

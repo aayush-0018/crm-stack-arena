@@ -30,9 +30,13 @@ shopRouter.put(
     const { rows } = await pool.query(
       `UPDATE shops SET name = $2, phone = $3, email = $4, address_line1 = $5, address_line2 = $6,
          city = $7, state = $8, pincode = $9, gstin = $10, code = $11,
-         allow_negative_stock = COALESCE($12, allow_negative_stock), updated_at = now()
+         allow_negative_stock = COALESCE($12, allow_negative_stock),
+         google_review_url = CASE WHEN $13 THEN $14 ELSE google_review_url END, updated_at = now()
        WHERE id = $1 RETURNING ${SHOP_COLS}`,
-      [shopId, b.name, b.phone, b.email, b.addressLine1, b.addressLine2, b.city, b.state, b.pincode, b.gstin, b.code, b.allowNegativeStock ?? null],
+      [
+        shopId, b.name, b.phone, b.email, b.addressLine1, b.addressLine2, b.city, b.state, b.pincode, b.gstin, b.code,
+        b.allowNegativeStock ?? null, b.googleReviewUrl !== undefined, b.googleReviewUrl ?? null,
+      ],
     );
     if (!rows[0]) throw notFound('Shop');
     res.json(rows[0]);

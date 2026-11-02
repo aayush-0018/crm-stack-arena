@@ -40,7 +40,39 @@ export const updateShopSchema = z.object({
     .transform((v) => (v ? v : null)),
   /** Omitted = leave as it is. */
   allowNegativeStock: z.boolean().optional(),
+  /** Omitted = leave as it is; blank = no review step after table orders. */
+  googleReviewUrl: z.lazy(() => googleReviewInput).optional(),
 });
+
+const REVIEW_HINT = "Paste the review link from your Google Business Profile (Ask for reviews), or your Place ID";
+
+/**
+ * Where guests are sent to rate the branch. Only links that open Google's own review box (stars and
+ * the text box) are accepted: the g.page/r/…/review link from "Ask for reviews", a
+ * search.google.com/local/writereview link, or a bare Place ID (turned into the latter).
+ */
+export const googleReviewInput = z
+  .union([z.literal(''), z.string().trim().max(500)])
+  .nullable()
+  .transform((v, ctx) => {
+    if (!v) return null;
+    if (/^[A-Za-z0-9_-]{16,200}$/.test(v)) return `https://search.google.com/local/writereview?placeid=${v}`;
+    let u: URL;
+    try {
+      u = new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: REVIEW_HINT });
+      return z.NEVER;
+    }
+    const host = u.hostname.toLowerCase();
+    const placeId = u.searchParams.get('placeid');
+    if (host === 'g.page' && /^\/r\/[A-Za-z0-9_-]+\/review\/?$/.test(u.pathname)) return `https://g.page${u.pathname}`;
+    if (host === 'search.google.com' && u.pathname === '/local/writereview' && placeId && /^[A-Za-z0-9_-]{16,200}$/.test(placeId)) {
+      return `https://search.google.com/local/writereview?placeid=${placeId}`;
+    }
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: REVIEW_HINT });
+    return z.NEVER;
+  });
 
 export const branchCodeInput = z
   .union([z.literal(''), z.string().trim().toUpperCase().regex(/^[A-Z0-9]{2,6}$/, 'Use 2–6 letters or digits, e.g. JPR')])

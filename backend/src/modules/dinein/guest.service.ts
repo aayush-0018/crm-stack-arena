@@ -14,7 +14,7 @@ import { newToken } from './dinein.service';
 export const FIRST_ORDER_DISCOUNT_PCT = 15;
 const CODE_TTL_MIN = 10;
 const MAX_TRIES = 5;
-const SESSION_HOURS = 12;
+export const SESSION_HOURS = 12;
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 const codeHash = (challenge: string, code: string) => sha256(`${challenge}:${code}`);
@@ -29,7 +29,7 @@ export async function findTableByToken(db: Db, token: string) {
   return (rows[0] as { id: number; shopId: number; label: string; floorName: string | null } | undefined) ?? null;
 }
 
-async function tableOr404(token: string) {
+export async function tableOr404(token: string) {
   const table = await findTableByToken(pool, token);
   if (!table) throw notFound('Table');
   return table;
@@ -194,7 +194,7 @@ export async function findSession(db: Db, shopId: number, token: string | undefi
   return rows[0] ?? null;
 }
 
-const sessionNeeded = () => new AppError(401, 'GUEST_SESSION', 'Please confirm your email again to order.');
+export const sessionNeeded = () => new AppError(401, 'GUEST_SESSION', 'Please confirm your email again to order.');
 
 /** The first-order discount still on offer for this session: not yet used, and still no orders. */
 async function discountOnOffer(db: Db, s: GuestSession): Promise<number> {
@@ -206,11 +206,28 @@ async function discountOnOffer(db: Db, s: GuestSession): Promise<number> {
   return rows.length ? 0 : s.firstOrderPct;
 }
 
+/** A prize this customer won but couldn't use yet (no unpaid order then). Taken off their next table order. */
+export async function pendingPrize(db: Db, customerId: number) {
+  const { rows } = await db.query(
+    `SELECT e.id, e.prize_pct AS pct FROM game_entries e JOIN game_rounds r ON r.id = e.round_id
+     WHERE e.customer_id = $1 AND e.prize_pct > 0 AND e.prize_used_at IS NULL
+       AND r.finalized_at > now() - interval '${SESSION_HOURS} hours'
+     ORDER BY e.id LIMIT 1`,
+    [customerId],
+  );
+  return (rows[0] as { id: number; pct: number } | undefined) ?? null;
+}
+
 /** The menu screen: shop and table always; the guest and products only once their email is verified. */
 export async function tableMenu(tableToken: string, sessionToken: string | undefined) {
   const table = await tableOr404(tableToken);
   const session = await findSession(pool, table.shopId, sessionToken);
-  return { table, session, discountPct: session ? await discountOnOffer(pool, session) : 0 };
+  return {
+    table,
+    session,
+    discountPct: session ? await discountOnOffer(pool, session) : 0,
+    prizePct: session ? ((await pendingPrize(pool, session.customerId))?.pct ?? 0) : 0,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -253,8 +270,21 @@ export async function placeGuestOrder(
     const { rowCount } = await pool.query(`UPDATE guest_sessions SET discount_claimed_at = now() WHERE id = $1 AND discount_claimed_at IS NULL`, [session.id]);
     if (!rowCount) pct = 0;
   }
-  const discount = discountFor(subtotal, pct);
-  const unclaim = () => pct && pool.query(`UPDATE guest_sessions SET discount_claimed_at = NULL WHERE id = $1`, [session.id]);
+  const firstDiscount = discountFor(subtotal, pct);
+
+  // A table-game prize they couldn't use yet comes off this order too, claimed the same way.
+  const won = await pendingPrize(pool, session.customerId);
+  const prize = won ? Math.min(discountFor(subtotal, won.pct), subtotal - firstDiscount) : 0;
+  let prizeClaimed = false;
+  if (won && prize > 0) {
+    const { rowCount } = await pool.query(`UPDATE game_entries SET prize_used_at = now() WHERE id = $1 AND prize_used_at IS NULL`, [won.id]);
+    prizeClaimed = !!rowCount;
+  }
+  const discount = firstDiscount + (prizeClaimed ? prize : 0);
+  const unclaim = async () => {
+    if (pct) await pool.query(`UPDATE guest_sessions SET discount_claimed_at = NULL WHERE id = $1`, [session.id]);
+    if (prizeClaimed) await pool.query(`UPDATE game_entries SET prize_used_at = NULL WHERE id = $1`, [won!.id]);
+  };
 
   const guestToken = newToken();
   let result;
@@ -283,6 +313,9 @@ export async function placeGuestOrder(
     const { rows } = await pool.query(`SELECT guest_token AS t FROM orders WHERE id = $1`, [result.order.id]);
     return { guestToken: rows[0].t as string, discountPaise: result.order.discountPaise };
   }
+  if (prizeClaimed) {
+    await pool.query(`INSERT INTO game_prizes (entry_id, order_id, amount_paise) VALUES ($1, $2, $3)`, [won!.id, result.order.id, prize]);
+  }
   return { guestToken, discountPaise: discount };
 }
 
@@ -290,6 +323,7 @@ const GUEST_ORDER_COLS = `o.order_number AS "orderNumber", o.table_label AS "tab
   o.status, o.kitchen_status AS "kitchenStatus", o.created_at AS "createdAt", o.subtotal_paise AS "subtotalPaise",
   o.discount_paise AS "discountPaise", o.total_paise AS "totalPaise", o.amount_paid_paise AS "amountPaidPaise",
   o.payment_status AS "paymentStatus", o.guest_token AS "guestToken",
+  COALESCE((SELECT sum(p.amount_paise) FROM game_prizes p WHERE p.order_id = o.id), 0)::int AS "prizePaise",
   CASE WHEN o.bill_sent_at IS NOT NULL THEN (SELECT i.share_token FROM invoices i WHERE i.order_id = o.id AND i.status = 'issued') END AS "billToken",
   COALESCE((SELECT json_agg(json_build_object('itemName', oi.item_name, 'quantity', oi.quantity, 'unitPricePaise', oi.unit_price_paise,
             'lineTotalPaise', oi.line_total_paise) ORDER BY oi.position) FROM order_items oi WHERE oi.order_id = o.id), '[]') AS items`;

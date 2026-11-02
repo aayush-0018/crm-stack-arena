@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Shop } from '../types';
 
-type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey' | 'allowNegativeStock'>, string>;
+type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl'>, string>;
 const toValues = (s: Shop | null): Values => ({
   name: s?.name ?? '',
   phone: s?.phone ?? '',
@@ -51,15 +51,36 @@ export default function SettingsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stockBusy, setStockBusy] = useState(false);
+  const [review, setReview] = useState(shop?.googleReviewUrl ?? '');
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   useEffect(() => setValues(toValues(shop)), [shop]);
+  useEffect(() => setReview(shop?.googleReviewUrl ?? ''), [shop]);
+
+  // Saved on its own too. The server turns a Place ID into Google's review link.
+  const saveReview = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!shop) return;
+    setReviewBusy(true);
+    setReviewError(null);
+    try {
+      const { id: _id, logoKey: _logo, allowNegativeStock: _stock, ...saved } = shop;
+      setShop(await shopApi.update({ ...saved, googleReviewUrl: review.trim() || null }));
+      toast('success', review.trim() ? 'Guests will be asked to rate you on Google' : 'Google review step turned off');
+    } catch (err) {
+      setReviewError(err instanceof ApiError ? (err.fieldErrors.googleReviewUrl ?? err.message) : 'Could not save. Please try again.');
+    } finally {
+      setReviewBusy(false);
+    }
+  };
 
   // Saved on its own, from the saved shop details, so unsaved edits above aren't sent with it.
   const setNegativeStock = async (allow: boolean) => {
     if (!shop) return;
     setStockBusy(true);
     try {
-      const { id: _id, logoKey: _logo, ...saved } = shop;
+      const { id: _id, logoKey: _logo, googleReviewUrl: _review, ...saved } = shop;
       setShop(await shopApi.update({ ...saved, allowNegativeStock: allow }));
       toast('success', allow ? 'Orders can now take stock below zero' : 'Orders can no longer take stock below zero');
     } catch (err) {
@@ -173,6 +194,37 @@ export default function SettingsPage() {
             </span>
           </span>
         </label>
+      </Card>
+
+      <Card title="Google reviews" className="mt-5">
+        <form onSubmit={saveReview} noValidate className="space-y-4">
+          <p className="text-[13px] text-ink-3">
+            After ordering from a table QR code, guests are taken straight to your Google review box (stars and a text box), then
+            to the table game. In your Google Business Profile, open <span className="text-ink">Ask for reviews</span> and paste
+            that link here, or paste your Place ID. Leave blank to skip the review step.
+          </p>
+          <TextField
+            label="Review link or Place ID"
+            value={review}
+            disabled={!isOwner}
+            onChange={(e) => {
+              setReview(e.target.value);
+              setReviewError(null);
+            }}
+            error={reviewError ?? undefined}
+            placeholder="https://g.page/r/…/review"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" loading={reviewBusy} disabled={!isOwner}>
+              Save
+            </Button>
+            {shop?.googleReviewUrl && (
+              <a href={shop.googleReviewUrl} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-ink-2 underline underline-offset-2">
+                Open the review page
+              </a>
+            )}
+          </div>
+        </form>
       </Card>
       </div>
     </>
