@@ -200,10 +200,34 @@ export default function SettingsPage() {
         <form onSubmit={saveReview} noValidate className="space-y-4">
           <p className="text-[13px] text-ink-3">
             After ordering from a table QR code, guests are taken straight to your Google review box (stars and a text box). The
-            table game doesn't depend on it, as Google doesn't allow rewards for reviews. In your Google Business Profile, open{' '}
-            <span className="text-ink">Ask for reviews</span> and paste
-            that link here, or paste your Place ID. Leave blank to skip the review step.
+            table game doesn't depend on it, as Google doesn't allow rewards for reviews. Leave blank to skip the review step.
           </p>
+          <div className="text-[13px] text-ink-3">
+            <p className="text-ink">To find your Place ID:</p>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+              <li>
+                Open Google's{' '}
+                <a
+                  href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ink-2 underline underline-offset-2"
+                >
+                  Place ID Finder
+                </a>
+                .
+              </li>
+              <li>In the search box on the map, type your shop's name and area, and pick your shop from the list.</li>
+              <li>
+                Copy the code after <span className="text-ink">Place ID:</span> (it starts with <span className="text-ink">ChIJ</span>). Copy and
+                paste it rather than typing, as letters like l and I look alike.
+              </li>
+              <li>Paste it below, save, and check it with "Open the review page".</li>
+            </ol>
+            <p className="mt-2">
+              If you manage your Google Business Profile, you can paste the link from <span className="text-ink">Ask for reviews</span> instead.
+            </p>
+          </div>
           <TextField
             label="Review link or Place ID"
             value={review}
@@ -213,7 +237,7 @@ export default function SettingsPage() {
               setReviewError(null);
             }}
             error={reviewError ?? undefined}
-            placeholder="https://g.page/r/…/review"
+            placeholder="ChIJ… or https://g.page/r/…/review"
           />
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" loading={reviewBusy} disabled={!isOwner}>
