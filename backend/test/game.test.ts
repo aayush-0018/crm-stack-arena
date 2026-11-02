@@ -54,7 +54,9 @@ async function guest(tableToken: string, phone = nextPhone()) {
     state: () => get(`/public/tables/${tableToken}/game`),
     practice: () => get(`/public/tables/${tableToken}/game/practice`),
     reviewed: () => c.post(`/public/tables/${tableToken}/review-opened`, {}, h),
-    startRound: () => c.post(`/public/tables/${tableToken}/game/rounds`, {}, h),
+    startRound: (scope?: 'cafe' | 'table') => c.post(`/public/tables/${tableToken}/game/rounds`, scope ? { scope } : {}, h),
+    startParty: () => c.post(`/public/tables/${tableToken}/game/party`, {}, h),
+    party: (id: number, action: string, body: Record<string, unknown> = {}) => c.post(`/public/tables/${tableToken}/game/party/${id}/${action}`, body, h),
     join: (id: number) => c.post(`/public/tables/${tableToken}/game/rounds/${id}/join`, {}, h),
     answer: (id: number, answers: number[]) => c.post(`/public/tables/${tableToken}/game/rounds/${id}/answers`, { answers }, h),
   };
@@ -206,17 +208,80 @@ describe('table challenge', () => {
     assert.equal((await watcher.startRound()).status, 201);
   });
 
-  test('fewer than two tables: called off, no prize', async () => {
+  test('one table, even one player: the round still runs, but gives no prize', async () => {
     const { coffee, t1 } = await cafe(false);
     const a = await player(t1, coffee.id);
-    const b = await player(t1, coffee.id);
     const id = (await a.startRound()).body.round.id;
-    await b.join(id);
     await startNow(id);
-    const s = (await a.state()).body.round;
-    assert.equal(s.status, 'called_off');
-    assert.equal(s.questions, null);
-    assert.equal((await a.answer(id, [0])).status, 409);
+    let s = (await a.state()).body.round;
+    assert.equal(s.status, 'playing');
+    assert.equal(s.prize, false);
+    assert.equal(s.questions.length, 60);
+    s = (await a.answer(id, await answersFor(id, 6))).body.round;
+    assert.equal(s.status, 'finished');
+    assert.deepEqual(s.players.map((p: { score: number; top: boolean; winner: boolean }) => [p.score, p.top, p.winner]), [[6, true, false]]);
+    assert.equal(s.myPrize, null);
+    const [o] = await sql(`SELECT o.discount_paise::int AS d FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.phone = $1`, [a.phone]);
+    assert.equal(o.d, 3000); // the first-order discount only
+  });
+
+  test('a table round is just for that table, runs alongside the cafe round, and gives no prize', async () => {
+    const { coffee, t1, t2 } = await cafe(false);
+    const a = await player(t1, coffee.id);
+    const b = await player(t1, coffee.id);
+    const other = await player(t2, coffee.id);
+
+    const started = (await a.startRound('table')).body;
+    const id = started.tableRound.id;
+    assert.equal(started.tableRound.scope, 'table');
+    assert.ok(started.tableRound.startsInSeconds > 20 && started.tableRound.startsInSeconds <= 30);
+    assert.equal(started.round, null);
+    // Same table: "start" joins it. Another table can't see or join it.
+    assert.equal((await b.startRound('table')).body.tableRound.id, id);
+    assert.equal((await other.state()).body.tableRound, null);
+    assert.equal((await other.join(id)).status, 403);
+    // A cafe round can run at the same time.
+    assert.equal((await other.startRound()).body.round.scope, 'cafe');
+
+    await startNow(id);
+    await a.answer(id, await answersFor(id, 9));
+    const s = (await b.answer(id, await answersFor(id, 4))).body.tableRound;
+    assert.equal(s.status, 'finished');
+    assert.deepEqual(s.players.map((p: { score: number; top: boolean; winner: boolean }) => [p.score, p.top, p.winner]), [
+      [9, true, false],
+      [4, false, false],
+    ]);
+    const [prizes] = await sql(`SELECT count(*)::int AS n FROM game_entries WHERE round_id = $1 AND prize_pct > 0`, [id]);
+    assert.equal(prizes.n, 0);
+  });
+
+  test('a past winner plays again for fun: the prize goes to the best player who has not won yet', async () => {
+    const { coffee, t1, t2 } = await cafe(false);
+    const a = await player(t1, coffee.id);
+    const b = await player(t2, coffee.id);
+    const round = async (aRight: number, bRight: number) => {
+      const id = (await a.startRound()).body.round.id;
+      await b.join(id);
+      await startNow(id);
+      await a.answer(id, await answersFor(id, aRight));
+      return (await b.answer(id, await answersFor(id, bRight))).body;
+    };
+    let s = await round(10, 5);
+    assert.deepEqual(s.round.players.map((p: { tableLabel: string; winner: boolean }) => [p.tableLabel, p.winner]), [['T1', true], ['T2', false]]);
+    assert.equal((await a.state()).body.prizeWon, true);
+    assert.equal(s.prizeWon, false);
+
+    // a wins again, but already has the prize: b gets it.
+    s = await round(10, 5);
+    assert.deepEqual(s.round.players.map((p: { tableLabel: string; top: boolean; winner: boolean }) => [p.tableLabel, p.top, p.winner]), [
+      ['T1', true, false],
+      ['T2', false, true],
+    ]);
+    // Both have won: a third round gives nothing.
+    s = await round(10, 5);
+    assert.ok(s.round.players.every((p: { winner: boolean }) => !p.winner));
+    const [{ n }] = await sql(`SELECT count(*)::int AS n FROM game_entries e JOIN customers c ON c.id = e.customer_id WHERE c.phone = $1 AND e.prize_pct > 0`, [a.phone]);
+    assert.equal(n, 1);
   });
 
   test('a winner with nothing unpaid gets the prize on their next order; a zero score wins nothing', async () => {
@@ -263,6 +328,74 @@ describe('table challenge', () => {
       ['T1', 3, true],
       ['T2', null, false],
     ]);
+  });
+});
+
+describe('Traitor', () => {
+  test('needs three players at the table; one traitor without the word; votes reveal them; play again keeps everyone', async () => {
+    const { coffee, t1, t2 } = await cafe(false);
+    const a = await player(t1, coffee.id);
+    const b = await player(t1, coffee.id);
+    const c = await player(t1, coffee.id);
+    const outsider = await player(t2, coffee.id);
+    const notOrdered = await guest(t1);
+
+    assert.equal((await notOrdered.startParty()).status, 403);
+    const started = await a.startParty();
+    assert.equal(started.status, 201, JSON.stringify(started.body));
+    const id = started.body.party.id;
+    assert.equal(started.body.party.status, 'lobby');
+    assert.equal((await b.startParty()).body.party.id, id); // joins the waiting game
+    assert.equal((await outsider.state()).body.party, null);
+    assert.equal((await outsider.party(id, 'join')).status, 404);
+
+    // Two players aren't enough.
+    assert.equal((await a.party(id, 'deal')).status, 409);
+    await c.party(id, 'join');
+    const dealt = await c.party(id, 'deal');
+    assert.equal(dealt.status, 200, JSON.stringify(dealt.body));
+
+    const guests = [a, b, c];
+    const views = [];
+    for (const g of guests) views.push((await g.state()).body.party);
+    const cards = views.map((v) => v.card);
+    assert.equal(cards.filter((k) => k.traitor).length, 1);
+    const word = cards.find((k) => !k.traitor).word;
+    assert.ok(word);
+    assert.ok(cards.every((k) => (k.traitor ? k.word === null : k.word === word) && k.category === cards[0].category));
+    // Nobody sees who the traitor is yet.
+    assert.ok(views[0].players.every((p: { traitor: null; votes: null }) => p.traitor === null && p.votes === null));
+    assert.equal((await a.startParty()).status, 409);
+
+    const players = views[0].players as { id: number }[];
+    const traitorIdx = cards.findIndex((k) => k.traitor);
+    const traitorId = players[traitorIdx].id;
+    const someoneElse = players.find((_, i) => i !== traitorIdx)!.id;
+    // Can't vote for yourself.
+    assert.equal((await guests[traitorIdx].party(id, 'vote', { playerId: traitorId })).status, 400);
+    // The two others vote for the traitor; the traitor votes for someone else: all in, revealed.
+    for (let i = 0; i < 3; i++) {
+      const target = i === traitorIdx ? someoneElse : traitorId;
+      assert.equal((await guests[i].party(id, 'vote', { playerId: target })).status, 200);
+    }
+    const end = (await a.state()).body.party;
+    assert.equal(end.status, 'revealed');
+    assert.equal(end.result.caught, true);
+    assert.equal(end.result.word, word);
+    assert.equal(end.players[traitorIdx].traitor, true);
+    assert.equal(end.players[traitorIdx].votes, 2);
+    assert.equal((await guests[traitorIdx].state()).body.party.card.word, word); // shown to them at the end
+
+    // Play again: everyone comes along.
+    const again = (await b.startParty()).body.party;
+    assert.notEqual(again.id, id);
+    assert.equal(again.status, 'lobby');
+    assert.equal(again.players.length, 3);
+    assert.equal((await a.party(again.id, 'deal')).status, 200);
+    // Revealed before anyone votes: the traitor gets away.
+    const r = (await a.party(again.id, 'reveal')).body.party;
+    assert.equal(r.status, 'revealed');
+    assert.equal(r.result.caught, false);
   });
 });
 

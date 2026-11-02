@@ -641,21 +641,61 @@ export interface GameState {
   tableLabel: string;
   prizePct: number;
   lobbySeconds: number;
+  tableLobbySeconds: number;
   playSeconds: number;
   /** Won but not used yet: comes off the next order. */
   pendingPrizePct: number;
-  round: {
-    id: number;
-    status: GameRoundStatus;
-    startsInSeconds: number;
-    endsInSeconds: number;
-    tables: number;
-    joined: boolean;
-    submitted: boolean;
-    questions: GameQuestion[] | null;
-    players: { name: string; tableLabel: string; me: boolean; score: number | null; correct: number | null; wrong: number | null; winner: boolean }[];
-    myPrize: { pct: number; appliedPaise: number } | null;
-  } | null;
+  /** Already won the prize this visit: they play on for fun. */
+  prizeWon: boolean;
+  /** The all-tables round. */
+  round: GameRound | null;
+  /** This table's own round (no prize). */
+  tableRound: GameRound | null;
+  party: PartyGame | null;
+}
+
+export type GameScope = 'cafe' | 'table';
+
+export interface GameRound {
+  id: number;
+  scope: GameScope;
+  status: GameRoundStatus;
+  startsInSeconds: number;
+  endsInSeconds: number;
+  tables: number;
+  /** Gives (or gave) the prize: all tables, two or more of them. */
+  prize: boolean;
+  joined: boolean;
+  submitted: boolean;
+  questions: GameQuestion[] | null;
+  players: {
+    name: string;
+    tableLabel: string;
+    me: boolean;
+    score: number | null;
+    correct: number | null;
+    wrong: number | null;
+    /** Best score, prize or not. */
+    top: boolean;
+    winner: boolean;
+  }[];
+  myPrize: { pct: number; appliedPaise: number } | null;
+}
+
+/** Traitor, at one table. */
+export interface PartyGame {
+  id: number;
+  status: 'lobby' | 'playing' | 'revealed';
+  /** Left unfinished: a new game can be started over it. */
+  stale: boolean;
+  joined: boolean;
+  minPlayers: number;
+  maxPlayers: number;
+  players: { id: number; name: string; me: boolean; voted: boolean; votes: number | null; traitor: boolean | null }[];
+  /** This guest's card once dealt; the traitor's word is null until the reveal. */
+  card: { traitor: boolean; category: string; word: string | null } | null;
+  myVote: number | null;
+  result: { traitor: string; word: string; caught: boolean } | null;
 }
 
 export type ReservationStatus = 'booked' | 'seated' | 'finished' | 'cancelled' | 'no_show';

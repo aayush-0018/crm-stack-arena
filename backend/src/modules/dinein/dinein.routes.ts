@@ -9,7 +9,7 @@ import { idParam } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
 import { catalogueProducts } from '../catalogue/catalogue.repo';
 import { findShop } from '../shop/shop.repo';
-import { floorPlanSchema, gameAnswersSchema, guestOrderSchema, guestOtpRequestSchema, guestOtpVerifySchema, kitchenStatusSchema, markPaidSchema } from './dinein.schemas';
+import { floorPlanSchema, gameAnswersSchema, gameRoundSchema, guestOrderSchema, guestOtpRequestSchema, guestOtpVerifySchema, kitchenStatusSchema, markPaidSchema, partyVoteSchema } from './dinein.schemas';
 import * as game from './game.service';
 import * as guests from './guest.service';
 import * as service from './dinein.service';
@@ -228,7 +228,7 @@ publicTablesRouter.post(
     if (roundsBySession.retryAfter(key) > 0) throw new AppError(429, 'TOO_MANY_ROUNDS', 'Too many rounds just now. Please wait a few minutes.');
     roundsBySession.hit(key);
     noStore(res);
-    res.status(201).json(await game.startChallenge(token, session(req)));
+    res.status(201).json(await game.startChallenge(token, session(req), gameRoundSchema.parse(req.body ?? {}).scope));
   }),
 );
 
@@ -247,5 +247,32 @@ publicTablesRouter.post(
     const { token, id } = roundParam.parse(req.params);
     noStore(res);
     res.json(await game.submitAnswers(token, session(req), id, gameAnswersSchema.parse(req.body).answers));
+  }),
+);
+
+// Traitor, for the people at one table.
+const partiesBySession = createLimiter(10, 10 * 60_000);
+
+publicTablesRouter.post(
+  '/tables/:token/game/party',
+  ah(async (req, res) => {
+    const { token } = tokenParam.parse(req.params);
+    const key = session(req) ?? req.ip ?? 'unknown';
+    if (partiesBySession.retryAfter(key) > 0) throw new AppError(429, 'TOO_MANY_GAMES', 'Too many games just now. Please wait a few minutes.');
+    partiesBySession.hit(key);
+    noStore(res);
+    res.status(201).json(await game.startParty(token, session(req)));
+  }),
+);
+
+const partyActionParam = z.object({ token: tokenParam.shape.token, id: z.coerce.number().int().positive(), action: z.enum(['join', 'deal', 'vote', 'reveal']) });
+
+publicTablesRouter.post(
+  '/tables/:token/game/party/:id/:action',
+  ah(async (req, res) => {
+    const { token, id, action } = partyActionParam.parse(req.params);
+    noStore(res);
+    const act = action === 'vote' ? { kind: action, playerId: partyVoteSchema.parse(req.body).playerId } : { kind: action };
+    res.json(await game.partyAction(token, session(req), id, act));
   }),
 );

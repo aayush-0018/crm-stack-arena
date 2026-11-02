@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Coffee, Gamepad2, Timer, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, Check, Coffee, Eye, EyeOff, Gamepad2, Timer, Trophy, Users, VenetianMask } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -6,7 +6,7 @@ import { tableGuestApi } from '../../api/endpoints';
 import { read, SESSION_KEY, usePolling } from '../../components/tables/dinein';
 import Spinner from '../../components/ui/Spinner';
 import { formatINR } from '../../lib/money';
-import type { GameInk, GameQuestion, GameState } from '../../types';
+import type { GameInk, GameQuestion, GameRound, GameScope, GameState, PartyGame } from '../../types';
 
 const INK: Record<GameInk, string> = { red: '#d93a2b', blue: '#2563eb', green: '#1f8a3b', orange: '#e67e0f', purple: '#7c3aed' };
 const card = 'rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]';
@@ -146,7 +146,8 @@ function Play({
   );
 }
 
-function Players({ players, showScores }: { players: NonNullable<GameState['round']>['players']; showScores: boolean }) {
+function Players({ players, showScores }: { players: GameRound['players']; showScores: boolean }) {
+  const anyWinner = players.some((p) => p.winner);
   return (
     <ol className="mt-3 divide-y divide-[#f0ebe1] rounded-xl border border-[#ece6da]">
       {players.map((p, i) => (
@@ -157,11 +158,177 @@ function Players({ players, showScores }: { players: NonNullable<GameState['roun
             {p.me && <span className="text-[#8a8276]"> (you)</span>}
             <span className="text-[#8a8276]"> · Table {p.tableLabel}</span>
           </span>
-          {p.winner && <Trophy size={16} className="shrink-0 text-[#e0a21b]" />}
+          {(p.winner || (!anyWinner && p.top)) && <Trophy size={16} className="shrink-0 text-[#e0a21b]" />}
           {showScores && <span className="w-8 text-right font-semibold tabular-nums">{p.score ?? '–'}</span>}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Traitor at this table: lobby, the secret card and the vote, then the reveal. */
+function Traitor({
+  party,
+  busy,
+  onStart,
+  onAction,
+}: {
+  party: PartyGame | null;
+  busy: boolean;
+  onStart: () => void;
+  onAction: (action: 'join' | 'deal' | 'reveal' | 'vote', playerId?: number) => void;
+}) {
+  // The card stays covered until its owner looks, so the others can't glance at it.
+  const [showCard, setShowCard] = useState(false);
+  const gameId = party?.id;
+  useEffect(() => setShowCard(false), [gameId]);
+
+  const startButton = (label: string) => (
+    <button type="button" disabled={busy} onClick={onStart} className={`${primary} mt-4`}>
+      {busy && <Spinner className="h-4 w-4" />}
+      <VenetianMask size={17} /> {label}
+    </button>
+  );
+  const players = party?.players ?? [];
+
+  return (
+    <section className={`${card} mt-4`}>
+      <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8c2f1b]">Traitor · your table</p>
+
+      {(!party || (party.status === 'playing' && party.stale && !party.joined)) && (
+        <>
+          <p className="mt-2 text-[16px] font-medium">Who's bluffing?</p>
+          <p className="mt-1 text-[14px] text-[#5e574c]">
+            For 3 or more at your table. Everyone's phone shows the same secret word, except one person's: the traitor only sees the
+            category. Take turns saying one word about it, then vote for who's bluffing. Just for fun: no prize.
+          </p>
+          {startButton('Start Traitor')}
+        </>
+      )}
+
+      {party?.status === 'lobby' && (
+        <>
+          <p className="mt-2 text-[16px] font-medium">{party.joined ? 'Waiting for your table' : 'A game is starting at your table'}</p>
+          <p className="mt-1 text-[14px] text-[#5e574c]">
+            {party.joined
+              ? `Everyone joins on their own phone. Deal when you're all in (at least ${party.minPlayers}).`
+              : 'Join in on your phone.'}
+          </p>
+          <ol className="mt-3 divide-y divide-[#f0ebe1] rounded-xl border border-[#ece6da]">
+            {players.map((p) => (
+              <li key={p.id} className={`px-3.5 py-2.5 text-[14.5px] ${p.me ? 'bg-[#fbf7ef]' : ''}`}>
+                {p.name}
+                {p.me && <span className="text-[#8a8276]"> (you)</span>}
+              </li>
+            ))}
+          </ol>
+          {party.joined ? (
+            <button type="button" disabled={busy || players.length < party.minPlayers} onClick={() => onAction('deal')} className={`${primary} mt-4`}>
+              {busy && <Spinner className="h-4 w-4" />}
+              {players.length < party.minPlayers ? `Needs ${party.minPlayers - players.length} more` : 'Deal the cards'}
+            </button>
+          ) : (
+            <button type="button" disabled={busy || players.length >= party.maxPlayers} onClick={() => onAction('join')} className={`${primary} mt-4`}>
+              {busy && <Spinner className="h-4 w-4" />} Join the game
+            </button>
+          )}
+        </>
+      )}
+
+      {party?.status === 'playing' && party.joined && party.card && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowCard(!showCard)}
+            className={`mt-3 w-full rounded-2xl px-4 py-5 text-center ${showCard && party.card.traitor ? 'bg-[#1f1b16] text-white' : 'bg-[#faf8f4]'}`}
+          >
+            {!showCard ? (
+              <span className="flex items-center justify-center gap-2 text-[15px] font-medium">
+                <Eye size={17} /> Tap to see your card
+              </span>
+            ) : party.card.traitor ? (
+              <>
+                <VenetianMask size={28} className="mx-auto text-[#f6d48a]" />
+                <span className="mt-2 block text-[20px] font-bold">You're the traitor</span>
+                <span className="mt-1 block text-[14px] opacity-80">
+                  The category is <strong>{party.card.category}</strong>. Listen to the clues and bluff your way through.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="block text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">{party.card.category}</span>
+                <span className="mt-1 block text-[28px] font-bold">{party.card.word}</span>
+                <span className="mt-1 block text-[13.5px] text-[#8a8276]">Give one-word clues, but don't make it too easy.</span>
+              </>
+            )}
+            {showCard && (
+              <span className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] opacity-70">
+                <EyeOff size={14} /> Tap to hide
+              </span>
+            )}
+          </button>
+
+          <p className="mt-4 text-[15px] font-medium">Who's the traitor?</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {players
+              .filter((p) => !p.me)
+              .map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onAction('vote', p.id)}
+                  className={`h-12 truncate rounded-xl border px-3 text-[14.5px] font-medium ${
+                    party.myVote === p.id ? 'border-[#1f1b16] bg-[#1f1b16] text-white' : 'border-[#e6dfd2] bg-white'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+          </div>
+          <p className="mt-2 text-[13px] text-[#8a8276]">
+            {players.filter((p) => p.voted).length} of {players.length} have voted. You can change your vote until everyone's in.
+          </p>
+          <button type="button" disabled={busy} onClick={() => onAction('reveal')} className={`${secondary} mt-4`}>
+            Reveal now
+          </button>
+        </>
+      )}
+
+      {party?.status === 'playing' && !party.joined && !party.stale && (
+        <>
+          <p className="mt-2 text-[16px] font-medium">A game is on at your table</p>
+          <p className="mt-1 text-[14px] text-[#5e574c]">You can join the next one when they've voted.</p>
+        </>
+      )}
+
+      {party?.status === 'revealed' && party.result && (
+        <>
+          <div className="mt-3 rounded-xl bg-[#1f1b16] px-4 py-4 text-center text-white">
+            <VenetianMask size={28} className="mx-auto text-[#f6d48a]" />
+            <p className="mt-2 text-[20px] font-bold">{party.result.caught ? `Caught! It was ${party.result.traitor}.` : `${party.result.traitor} got away!`}</p>
+            <p className="mt-1 text-[14px] opacity-80">
+              {party.result.caught ? 'The table wins. ' : `${party.result.traitor} was the traitor. `}The word was <strong>{party.result.word}</strong>.
+            </p>
+          </div>
+          <ol className="mt-3 divide-y divide-[#f0ebe1] rounded-xl border border-[#ece6da]">
+            {players.map((p) => (
+              <li key={p.id} className={`flex items-center gap-3 px-3.5 py-2.5 text-[14.5px] ${p.me ? 'bg-[#fbf7ef]' : ''}`}>
+                <span className="min-w-0 flex-1 truncate">
+                  {p.name}
+                  {p.me && <span className="text-[#8a8276]"> (you)</span>}
+                </span>
+                {p.traitor && <VenetianMask size={16} className="shrink-0 text-[#8c2f1b]" />}
+                <span className="text-[13px] tabular-nums text-[#8a8276]">
+                  {p.votes} {p.votes === 1 ? 'vote' : 'votes'}
+                </span>
+              </li>
+            ))}
+          </ol>
+          {startButton('Play again')}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -177,24 +344,27 @@ export default function GuestGamePage() {
   const [practiceScore, setPracticeScore] = useState<{ right: number; wrong: number } | null>(null);
   // Challenge answers on their way to the server.
   const [sent, setSent] = useState<{ roundId: number; answers: number[] } | null>(null);
-  // Local times for the round's start and end, from the server's "seconds to go" (phone clocks drift).
-  const [times, setTimes] = useState<{ startsAt: number; endsAt: number } | null>(null);
+  // Local times for each round's start and end, from the server's "seconds to go" (phone clocks drift).
+  const [times, setTimes] = useState<Partial<Record<GameScope, { startsAt: number; endsAt: number }>>>({});
   const now = useTick(500);
 
   const take = useCallback((s: GameState) => {
     setState(s);
     setLoadError(null);
-    setTimes(s.round ? { startsAt: Date.now() + s.round.startsInSeconds * 1000, endsAt: Date.now() + s.round.endsInSeconds * 1000 } : null);
+    const at = (r: GameRound | null) => (r ? { startsAt: Date.now() + r.startsInSeconds * 1000, endsAt: Date.now() + r.endsInSeconds * 1000 } : undefined);
+    setTimes({ cafe: at(s.round), table: at(s.tableRound) });
   }, []);
 
-  const live = state?.round && ['lobby', 'playing', 'counting'].includes(state.round.status);
+  const live =
+    [state?.round, state?.tableRound].some((r) => r && ['lobby', 'playing', 'counting'].includes(r.status)) ||
+    (!!state?.party && state.party.status !== 'revealed');
   const load = useCallback(() => {
     if (!session) return;
     tableGuestApi.game(token, session).then(take, (e) =>
       setLoadError(e instanceof ApiError && e.status === 401 ? 'session' : e instanceof ApiError && e.status < 500 ? e.message : 'network'),
     );
   }, [token, session, take]);
-  // Quicker while a round is on, so the start and the results show up straight away.
+  // Quicker while a round or a Traitor game is on, so the start, the votes and the results show up straight away.
   usePolling(load, live ? 2000 : 8000);
 
   useEffect(() => {
@@ -308,73 +478,87 @@ export default function GuestGamePage() {
     );
   }
 
-  const r = state.round;
-  const startsIn = times ? times.startsAt - now : 0;
-  const endsIn = times ? times.endsAt - now : 0;
+  const rounds = [state.round, state.tableRound].filter((x): x is GameRound => !!x);
 
-  const send = (a: number[]) => {
-    if (!r) return;
+  const send = (r: GameRound, a: number[]) => {
     setSent({ roundId: r.id, answers: a });
     run(() => tableGuestApi.answer(token, session, r.id, a));
   };
 
-  // In a challenge: answering now, or sending the answers (again, if it failed).
-  if (r && r.joined && !r.submitted && (r.status === 'playing' || r.status === 'counting')) {
+  // In a round: answering now, or sending the answers (again, if it failed).
+  const answering = rounds.find((x) => x.joined && !x.submitted && (x.status === 'playing' || x.status === 'counting'));
+  if (answering) {
+    const r = answering;
     const mine = sent?.roundId === r.id ? sent.answers : null;
+    const t = times[r.scope];
     if (mine) {
       return shell(
         <div className={`${card} mt-5 text-center`}>
           <p className="text-[16px] font-medium">{busy ? 'Sending your answers…' : "Your answers didn't arrive"}</p>
           {!busy && (
-            <button type="button" onClick={() => send(mine)} className={`${primary} mt-4`}>
+            <button type="button" onClick={() => send(r, mine)} className={`${primary} mt-4`}>
               Send them again
             </button>
           )}
         </div>,
       );
     }
-    if (r.status === 'playing' && r.questions && times) {
+    if (r.status === 'playing' && r.questions && t) {
       return shell(
         <div className="mt-5">
           <p className="mb-3 text-center text-[14px] text-[#5e574c]">
-            Table challenge · {r.players.length} players at {r.tables} tables
+            {r.scope === 'cafe' ? `All tables · ${r.players.length} players at ${r.tables} tables` : `Table ${state.tableLabel} · ${r.players.length} players`}
           </p>
-          <Play key={r.id} questions={r.questions} endsAt={times.endsAt} seconds={state.playSeconds} feedback={false} onDone={send} />
+          <Play key={r.id} questions={r.questions} endsAt={t.endsAt} seconds={state.playSeconds} feedback={false} onDone={(a) => send(r, a)} />
         </div>,
       );
     }
   }
 
-  const me = r?.players.find((p) => p.me);
-  const startButton = (
-    <button type="button" disabled={busy} onClick={() => run(() => tableGuestApi.startRound(token, session))} className={`${primary} mt-4`}>
-      {busy && <Spinner className="h-4 w-4" />}
-      <Users size={17} /> Start a table challenge
-    </button>
-  );
+  const roundCard = (scope: GameScope) => {
+    const r = scope === 'cafe' ? state.round : state.tableRound;
+    const t = times[scope];
+    const startsIn = t ? t.startsAt - now : 0;
+    const endsIn = t ? t.endsAt - now : 0;
+    const me = r?.players.find((p) => p.me);
+    const winner = r?.players.find((p) => p.winner);
+    const top = r?.players.find((p) => p.top);
+    const start = () => run(() => tableGuestApi.startRound(token, session, scope));
+    const startButton = (label: string, style = primary) => (
+      <button type="button" disabled={busy} onClick={start} className={`${style} mt-4`}>
+        {busy && <Spinner className="h-4 w-4" />}
+        <Users size={17} /> {label}
+      </button>
+    );
 
-  return shell(
-    <>
-      {state.pendingPrizePct > 0 && (
-        <div className="mt-5 flex items-center gap-2.5 rounded-xl bg-[#fdf3e3] px-3.5 py-2.5 text-[14px] text-[#7a4c09]">
-          <Trophy size={16} className="shrink-0" />
-          <span>
-            You won! <strong>{state.pendingPrizePct}% off</strong> comes off your next order.
-          </span>
-        </div>
-      )}
+    return (
+      <section className={`${card} ${scope === 'cafe' ? 'mt-5' : 'mt-4'}`}>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8c2f1b]">
+          {scope === 'cafe' ? 'Quiz · all tables' : 'Quiz · just your table'}
+        </p>
 
-      <section className={`${card} mt-5`}>
-        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8c2f1b]">Table challenge</p>
-
-        {!r && (
+        {!r && scope === 'cafe' && (
           <>
             <p className="mt-2 text-[16px] font-medium">Take on the other tables</p>
             <p className="mt-1 text-[14px] text-[#5e574c]">
-              Start a round and everyone in the café has {state.lobbySeconds} seconds to join.
-              Then it's {state.playSeconds} seconds of quick questions. The top score wins <strong>{state.prizePct}% off</strong> their bill.
+              Start a round and everyone in the café has {state.lobbySeconds} seconds to join. Then it's {state.playSeconds} seconds of quick
+              questions. When two or more tables play, the top score wins <strong>{state.prizePct}% off</strong> their bill.
             </p>
-            {startButton}
+            {state.prizeWon && (
+              <p className="mt-2 text-[13.5px] text-[#7a4c09]">You've won your {state.prizePct}% this visit. Play on for fun: the prize goes to the best player who hasn't won yet.</p>
+            )}
+            {startButton('Start a round')}
+          </>
+        )}
+
+        {!r && scope === 'table' && (
+          <>
+            <p className="mt-2 text-[16px] font-medium">Play the people at your table</p>
+            <p className="mt-1 text-[14px] text-[#5e574c]">
+              Everyone at Table {state.tableLabel} has {state.tableLobbySeconds} seconds to join, then the same {state.playSeconds} seconds of questions.
+              Just for fun: no prize.
+            </p>
+            {startButton('Start a table round', secondary)}
           </>
         )}
 
@@ -384,7 +568,8 @@ export default function GuestGamePage() {
               Starts in <span className="tabular-nums">{clock(startsIn)}</span>
             </p>
             <p className="mt-1 text-[14px] text-[#5e574c]">
-              {r.joined ? "You're in. Stay on this page; it starts by itself." : 'A round is about to start. Join in!'} It needs players from at least two tables.
+              {r.joined ? "You're in. Stay on this page; it starts by itself." : 'A round is about to start. Join in!'}
+              {scope === 'cafe' && ` If two or more tables play, the winner gets ${state.prizePct}% off.`}
             </p>
             <Players players={r.players} showScores={false} />
             {!r.joined && (
@@ -420,9 +605,8 @@ export default function GuestGamePage() {
 
         {r?.status === 'called_off' && (
           <>
-            <p className="mt-2 text-[16px] font-medium">Not enough tables joined</p>
-            <p className="mt-1 text-[14px] text-[#5e574c]">A round needs players from at least two tables. Ask the next table over and try again!</p>
-            {startButton}
+            <p className="mt-2 text-[16px] font-medium">That round was called off</p>
+            {startButton('Start a new round')}
           </>
         )}
 
@@ -438,21 +622,52 @@ export default function GuestGamePage() {
               </div>
             ) : (
               <p className="mt-2 text-[16px] font-medium">
-                {r.players.some((p) => p.winner) ? `${r.players.find((p) => p.winner)!.name} at Table ${r.players.find((p) => p.winner)!.tableLabel} won!` : 'Nobody scored this time.'}
+                {winner
+                  ? `${winner.name} at Table ${winner.tableLabel} won ${state.prizePct}% off!`
+                  : top
+                    ? `${top.me ? 'You' : `${top.name}${scope === 'cafe' ? ` at Table ${top.tableLabel}` : ''}`} topped the round!`
+                    : 'Nobody scored this time.'}
               </p>
             )}
+            {winner && top && top !== winner && (
+              <p className="mt-1 text-[13.5px] text-[#5e574c]">{top.me ? 'You' : top.name} had the top score but already won this visit.</p>
+            )}
+            {scope === 'cafe' && !r.prize && top && <p className="mt-1 text-[13.5px] text-[#5e574c]">Only one table played, so there was no prize this time.</p>}
             {me && (
               <p className="mt-2 text-[14px] text-[#5e574c]">
                 You: {me.score ?? 0} points ({me.correct ?? 0} right, {me.wrong ?? 0} wrong)
               </p>
             )}
             <Players players={r.players} showScores />
-            <button type="button" disabled={busy} onClick={() => run(() => tableGuestApi.startRound(token, session))} className={`${secondary} mt-4`}>
-              {busy && <Spinner className="h-4 w-4" />} Start another round
-            </button>
+            {startButton('Start another round', secondary)}
           </>
         )}
       </section>
+    );
+  };
+
+  return shell(
+    <>
+      {state.pendingPrizePct > 0 && (
+        <div className="mt-5 flex items-center gap-2.5 rounded-xl bg-[#fdf3e3] px-3.5 py-2.5 text-[14px] text-[#7a4c09]">
+          <Trophy size={16} className="shrink-0" />
+          <span>
+            You won! <strong>{state.pendingPrizePct}% off</strong> comes off your next order.
+          </span>
+        </div>
+      )}
+
+      {roundCard('cafe')}
+      {roundCard('table')}
+
+      <Traitor
+        party={state.party}
+        busy={busy}
+        onStart={() => run(() => tableGuestApi.startParty(token, session))}
+        onAction={(action, playerId) =>
+          state.party && run(() => tableGuestApi.party(token, session, state.party!.id, action, playerId ? { playerId } : undefined))
+        }
+      />
 
       <section className={`${card} mt-4`}>
         <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8c2f1b]">Practice</p>
@@ -469,7 +684,8 @@ export default function GuestGamePage() {
       </section>
 
       <p className="mt-4 text-[12.5px] text-[#a39a8c]">
-        Right answers score a point and wrong ones take one off. Ties go to fewer wrong answers. One prize per round, taken off the winner's unpaid table order.
+        Right answers score a point and wrong ones take one off. Ties go to fewer wrong answers. The {state.prizePct}% is for all-tables rounds with two or
+        more tables, once per guest per visit, taken off the winner's unpaid table order.
       </p>
     </>,
   );

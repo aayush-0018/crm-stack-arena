@@ -104,3 +104,9 @@ export const guestOrderSchema = z.object({
 export const gameAnswersSchema = z.object({
   answers: z.array(z.number().int().min(0).max(3)).max(60),
 });
+
+/** A quiz round for the whole café (with the prize) or just this table. */
+export const gameRoundSchema = z.object({ scope: z.enum(['cafe', 'table']).default('cafe') });
+
+/** A Traitor vote: the player this guest thinks is the traitor. */
+export const partyVoteSchema = z.object({ playerId: z.number().int().positive() });

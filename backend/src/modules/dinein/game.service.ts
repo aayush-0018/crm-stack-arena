@@ -3,22 +3,29 @@ import { Db, pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError } from '../../lib/errors';
 import { discountFor, findSession, GuestSession, pendingPrize, SESSION_HOURS, sessionNeeded, tableOr404 } from './guest.service';
+import * as party from './party.service';
 import { makeQuestions, mark, QUESTION_COUNT, withoutAnswers } from './questions';
 
 /**
  * After ordering from a table: the branch asks for a Google review (when it has a review link) and
  * the game opens. The game never depends on the review: Google forbids rewarding reviews, and the
- * game has a prize. Guests can practise alone, or start a table challenge: other tables have LOBBY_SECONDS to join,
- * everyone answers the same questions for PLAY_SECONDS, and the top score wins PRIZE_PCT off.
+ * game has a prize. Guests can practise alone, play a quiz round with the whole café or just their
+ * table (any number of players, even one), or play Traitor with their table (party.service).
+ * Everyone in a round answers the same questions for PLAY_SECONDS. An all-tables round that players
+ * from two or more tables took part in gives PRIZE_PCT off to the best score; a guest wins it once
+ * a visit, and can keep playing after that just for fun.
  */
 export const PRIZE_PCT = 10;
 export const LOBBY_SECONDS = 90;
+/** Everyone's at the same table, so a table round starts sooner. */
+export const TABLE_LOBBY_SECONDS = 30;
 export const PLAY_SECONDS = 45;
 /** Answers sent this long after the end still count (slow phones, café Wi-Fi). */
 const GRACE_SECONDS = 10;
 /** A finished round stays on screen this long. */
 const SHOW_RESULT_MINUTES = 15;
 
+export type Scope = 'cafe' | 'table';
 type Locked = 'order' | null;
 
 async function guestAt(tableToken: string, sessionToken: string | undefined) {
@@ -60,6 +67,8 @@ export async function reviewOpened(tableToken: string, sessionToken: string | un
 interface Round {
   id: number;
   shopId: number;
+  /** null = all tables. */
+  tableId: number | null;
   seed: number;
   startsAt: string;
   endsAt: string;
@@ -73,58 +82,76 @@ interface Round {
   submitted: number;
 }
 
-const ROUND_COLS = `r.id, r.shop_id AS "shopId", r.seed, r.starts_at AS "startsAt", r.ends_at AS "endsAt",
+const ROUND_COLS = `r.id, r.shop_id AS "shopId", r.table_id AS "tableId", r.seed, r.starts_at AS "startsAt", r.ends_at AS "endsAt",
   r.finalized_at AS "finalizedAt", r.called_off AS "calledOff",
   EXTRACT(EPOCH FROM r.starts_at - now())::float AS "toStart", EXTRACT(EPOCH FROM r.ends_at - now())::float AS "toEnd",
   (SELECT count(DISTINCT e.table_label)::int FROM game_entries e WHERE e.round_id = r.id) AS tables,
   (SELECT count(*)::int FROM game_entries e WHERE e.round_id = r.id) AS players,
   (SELECT count(*)::int FROM game_entries e WHERE e.round_id = r.id AND e.submitted_at IS NOT NULL) AS submitted`;
 
-/** The branch's latest round, if it's still running or finished in the last few minutes. */
-async function latestRound(db: Db, shopId: number, lock = false): Promise<Round | null> {
+/** The latest all-tables round (tableId null) or the table's latest round, if it's still running or finished in the last few minutes. */
+async function latestRound(db: Db, shopId: number, tableId: number | null, lock = false): Promise<Round | null> {
   const { rows } = await db.query(
     `SELECT ${ROUND_COLS} FROM game_rounds r
-     WHERE r.shop_id = $1 AND r.ends_at > now() - interval '${SHOW_RESULT_MINUTES} minutes'
+     WHERE r.shop_id = $1 AND r.table_id IS NOT DISTINCT FROM $2::bigint AND r.ends_at > now() - interval '${SHOW_RESULT_MINUTES} minutes'
      ORDER BY r.ends_at DESC, r.id DESC LIMIT 1 ${lock ? 'FOR UPDATE OF r' : ''}`,
-    [shopId],
+    [shopId, tableId],
   );
+  return rows[0] ?? null;
+}
+
+async function roundById(db: Db, shopId: number, id: number, lock = false): Promise<Round | null> {
+  const { rows } = await db.query(`SELECT ${ROUND_COLS} FROM game_rounds r WHERE r.shop_id = $1 AND r.id = $2 ${lock ? 'FOR UPDATE OF r' : ''}`, [shopId, id]);
   return rows[0] ?? null;
 }
 
 type Status = 'lobby' | 'playing' | 'counting' | 'finished' | 'called_off';
 function statusOf(r: Round): Status {
+  // Only rounds from before 018 were ever called off.
   if (r.calledOff) return 'called_off';
   if (r.finalizedAt) return 'finished';
   if (r.toStart > 0) return 'lobby';
   return r.toEnd > 0 ? 'playing' : 'counting';
 }
 
-/** Results are due once the round can't change: it started with too few tables, or every answer is in, or time's up. */
-const isDue = (r: Round) => !r.finalizedAt && r.toStart <= 0 && (r.tables < 2 || r.submitted === r.players || r.toEnd <= -GRACE_SECONDS);
+/** Results are due once the round can't change: every answer is in, or time's up. */
+const isDue = (r: Round) => !r.finalizedAt && r.toStart <= 0 && (r.submitted === r.players || r.toEnd <= -GRACE_SECONDS);
+
+/** Only all-tables rounds that players from two or more tables took part in. */
+const givesPrize = (r: Round) => r.tableId === null && r.tables >= 2;
+
+/** Customers who already won the prize at this branch this visit: they play on for fun. */
+const WON_THIS_VISIT = `EXISTS (SELECT 1 FROM game_entries w JOIN game_rounds wr ON wr.id = w.round_id
+  WHERE w.customer_id = e.customer_id AND w.prize_pct > 0 AND wr.shop_id = $2 AND wr.finalized_at > now() - interval '${SESSION_HOURS} hours')`;
+
+async function wonThisVisit(db: Db, shopId: number, customerId: number) {
+  const { rows } = await db.query(`SELECT ${WON_THIS_VISIT} AS won FROM (SELECT $1::bigint AS customer_id) e`, [customerId, shopId]);
+  return rows[0].won as boolean;
+}
 
 /**
- * Counts the results once: called off with fewer than two tables, otherwise the best score above 0
- * wins (fewer wrong answers, then the earlier answers, break a tie) and the prize is taken off the
- * winner's unpaid table orders. Runs whenever someone looks at a due round; the row lock makes it once.
+ * Counts the results once. In a round that gives a prize, the best score above 0 among players who
+ * haven't won one this visit takes it (fewer wrong answers, then the earlier answers, break a tie),
+ * and it's taken off their unpaid table orders. Runs whenever someone looks at a due round; the row
+ * lock makes it once.
  */
-async function finalizeIfDue(shopId: number) {
-  const r = await latestRound(pool, shopId);
+async function finalizeIfDue(shopId: number, tableId: number | null) {
+  const r = await latestRound(pool, shopId, tableId);
   if (!r || !isDue(r)) return;
   await withTransaction(async (c) => {
-    const locked = await latestRound(c, shopId, true);
+    const locked = await latestRound(c, shopId, tableId, true);
     if (!locked || locked.id !== r.id || !isDue(locked)) return;
-    if (locked.tables < 2) {
-      await c.query(`UPDATE game_rounds SET called_off = true, finalized_at = now() WHERE id = $1`, [r.id]);
-      return;
-    }
-    const { rows } = await c.query(
-      `SELECT id, customer_id AS "customerId" FROM game_entries
-       WHERE round_id = $1 AND score > 0 ORDER BY score DESC, wrong, submitted_at, id LIMIT 1`,
-      [r.id],
-    );
-    if (rows[0]) {
-      await c.query(`UPDATE game_entries SET prize_pct = $2 WHERE id = $1`, [rows[0].id, PRIZE_PCT]);
-      await applyPrize(c, shopId, { id: Number(rows[0].id), customerId: Number(rows[0].customerId), pct: PRIZE_PCT });
+    if (givesPrize(locked)) {
+      const { rows } = await c.query(
+        `SELECT e.id, e.customer_id AS "customerId" FROM game_entries e
+         WHERE e.round_id = $1 AND e.score > 0 AND NOT ${WON_THIS_VISIT}
+         ORDER BY e.score DESC, e.wrong, e.submitted_at, e.id LIMIT 1`,
+        [r.id, shopId],
+      );
+      if (rows[0]) {
+        await c.query(`UPDATE game_entries SET prize_pct = $2 WHERE id = $1`, [rows[0].id, PRIZE_PCT]);
+        await applyPrize(c, shopId, { id: Number(rows[0].id), customerId: Number(rows[0].customerId), pct: PRIZE_PCT });
+      }
     }
     await c.query(`UPDATE game_rounds SET finalized_at = now() WHERE id = $1`, [r.id]);
   });
@@ -167,48 +194,62 @@ async function applyPrize(c: Db, shopId: number, entry: { id: number; customerId
 
 const firstName = (n: string) => n.trim().split(/\s+/)[0];
 
-export async function gameState(tableToken: string, sessionToken: string | undefined) {
-  const { table, session } = await guestAt(tableToken, sessionToken);
-  await finalizeIfDue(table.shopId);
-  const [{ review, locked }, r, prize] = await Promise.all([access(pool, session), latestRound(pool, table.shopId), pendingPrize(pool, session.customerId)]);
-
-  let round = null;
-  if (r) {
-    const status = statusOf(r);
-    const { rows: entries } = await pool.query(
-      `SELECT e.id, e.customer_id AS "customerId", e.name, e.table_label AS "tableLabel", e.correct, e.wrong, e.score,
-         e.submitted_at IS NOT NULL AS submitted, e.prize_pct AS "prizePct",
-         COALESCE((SELECT sum(p.amount_paise) FROM game_prizes p WHERE p.entry_id = e.id), 0)::int AS "prizePaise"
-       FROM game_entries e WHERE e.round_id = $1
-       ORDER BY e.score DESC NULLS LAST, e.wrong NULLS LAST, e.submitted_at NULLS LAST, e.id`,
-      [r.id],
-    );
-    const mine = entries.find((e: { customerId: number }) => Number(e.customerId) === Number(session.customerId));
-    const showScores = status === 'finished';
-    round = {
-      id: Number(r.id),
-      status,
-      startsInSeconds: Math.max(0, r.toStart),
-      endsInSeconds: Math.max(0, r.toEnd),
-      tables: r.tables,
-      joined: !!mine,
-      submitted: !!mine?.submitted,
-      // Only while playing, only to players still answering. Never the answers.
-      questions: status === 'playing' && mine && !mine.submitted ? withoutAnswers(makeQuestions(r.seed)) : null,
-      players: entries.map((e: { customerId: number; name: string; tableLabel: string; correct: number | null; wrong: number | null; score: number | null; prizePct: number }) => ({
+async function roundView(r: Round, session: GuestSession) {
+  const status = statusOf(r);
+  const { rows: entries } = await pool.query(
+    `SELECT e.id, e.customer_id AS "customerId", e.name, e.table_label AS "tableLabel", e.correct, e.wrong, e.score,
+       e.submitted_at IS NOT NULL AS submitted, e.prize_pct AS "prizePct",
+       COALESCE((SELECT sum(p.amount_paise) FROM game_prizes p WHERE p.entry_id = e.id), 0)::int AS "prizePaise"
+     FROM game_entries e WHERE e.round_id = $1
+     ORDER BY e.score DESC NULLS LAST, e.wrong NULLS LAST, e.submitted_at NULLS LAST, e.id`,
+    [r.id],
+  );
+  const isMe = (e: { customerId: number }) => Number(e.customerId) === Number(session.customerId);
+  const mine = entries.find(isMe);
+  const showScores = status === 'finished';
+  return {
+    id: Number(r.id),
+    scope: (r.tableId === null ? 'cafe' : 'table') as Scope,
+    status,
+    startsInSeconds: Math.max(0, r.toStart),
+    endsInSeconds: Math.max(0, r.toEnd),
+    tables: r.tables,
+    // Whether this round can still give (or gave) a prize: all tables, two or more of them.
+    prize: givesPrize(r),
+    joined: !!mine,
+    submitted: !!mine?.submitted,
+    // Only while playing, only to players still answering. Never the answers.
+    questions: status === 'playing' && mine && !mine.submitted ? withoutAnswers(makeQuestions(r.seed)) : null,
+    players: entries.map(
+      (e: { customerId: number; name: string; tableLabel: string; correct: number | null; wrong: number | null; score: number | null; prizePct: number }, i: number) => ({
         name: firstName(e.name),
         tableLabel: e.tableLabel,
-        me: Number(e.customerId) === Number(session.customerId),
+        me: isMe(e),
         // Kept hidden until everyone's done, so nobody knows the score to beat.
         score: showScores ? e.score : null,
-        correct: showScores || Number(e.customerId) === Number(session.customerId) ? e.correct : null,
-        wrong: showScores || Number(e.customerId) === Number(session.customerId) ? e.wrong : null,
+        correct: showScores || isMe(e) ? e.correct : null,
+        wrong: showScores || isMe(e) ? e.wrong : null,
+        // Best score, prize or not.
+        top: showScores && i === 0 && (e.score ?? 0) > 0,
         winner: e.prizePct > 0,
-      })),
-      // The prize this guest won in this round: how much came off their orders so far.
-      myPrize: mine && mine.prizePct > 0 ? { pct: mine.prizePct, appliedPaise: mine.prizePaise } : null,
-    };
-  }
+      }),
+    ),
+    // The prize this guest won in this round: how much came off their orders so far.
+    myPrize: mine && mine.prizePct > 0 ? { pct: mine.prizePct, appliedPaise: mine.prizePaise } : null,
+  };
+}
+
+export async function gameState(tableToken: string, sessionToken: string | undefined) {
+  const { table, session } = await guestAt(tableToken, sessionToken);
+  await Promise.all([finalizeIfDue(table.shopId, null), finalizeIfDue(table.shopId, table.id)]);
+  const [{ review, locked }, cafe, ours, prize, won, partyGame] = await Promise.all([
+    access(pool, session),
+    latestRound(pool, table.shopId, null),
+    latestRound(pool, table.shopId, table.id),
+    pendingPrize(pool, session.customerId),
+    wonThisVisit(pool, table.shopId, session.customerId),
+    party.partyState(pool, table, session),
+  ]);
 
   return {
     review,
@@ -216,9 +257,14 @@ export async function gameState(tableToken: string, sessionToken: string | undef
     tableLabel: table.label,
     prizePct: PRIZE_PCT,
     lobbySeconds: LOBBY_SECONDS,
+    tableLobbySeconds: TABLE_LOBBY_SECONDS,
     playSeconds: PLAY_SECONDS,
     pendingPrizePct: prize?.pct ?? 0,
-    round,
+    // Already won this visit: they can keep playing, but the prize goes to someone else.
+    prizeWon: won,
+    round: cafe ? await roundView(cafe, session) : null,
+    tableRound: ours ? await roundView(ours, session) : null,
+    party: partyGame,
   };
 }
 
@@ -247,23 +293,26 @@ async function addEntry(c: Db, roundId: number, table: { id: number; label: stri
   );
 }
 
-/** Opens a round for the whole branch (the starter is in it), or joins the one that's already open. */
-export async function startChallenge(tableToken: string, sessionToken: string | undefined) {
+/** Opens a round for the whole café or just this table (the starter is in it), or joins the one that's already open. */
+export async function startChallenge(tableToken: string, sessionToken: string | undefined, scope: Scope) {
   const { table, session } = await playable(tableToken, sessionToken);
-  await finalizeIfDue(table.shopId);
+  const tableId = scope === 'table' ? table.id : null;
+  await finalizeIfDue(table.shopId, tableId);
   await withTransaction(async (c) => {
-    // One round at a time per branch.
-    await c.query(`SELECT id FROM shops WHERE id = $1 FOR UPDATE`, [table.shopId]);
-    const r = await latestRound(c, table.shopId);
+    // One round at a time per branch, and one per table.
+    if (tableId === null) await c.query(`SELECT id FROM shops WHERE id = $1 FOR UPDATE`, [table.shopId]);
+    else await c.query(`SELECT id FROM dining_tables WHERE id = $1 FOR UPDATE`, [tableId]);
+    const r = await latestRound(c, table.shopId, tableId);
     const status = r && statusOf(r);
     if (r && status === 'lobby') return addEntry(c, r.id, table, session);
     if (status === 'playing' || status === 'counting') {
       throw new AppError(409, 'ROUND_RUNNING', 'A round is being played right now. Start the next one when it ends.');
     }
+    const lobby = tableId === null ? LOBBY_SECONDS : TABLE_LOBBY_SECONDS;
     const { rows } = await c.query(
-      `INSERT INTO game_rounds (shop_id, seed, starts_at, ends_at)
-       VALUES ($1, $2, now() + interval '${LOBBY_SECONDS} seconds', now() + interval '${LOBBY_SECONDS + PLAY_SECONDS} seconds') RETURNING id`,
-      [table.shopId, randomInt(1, 2 ** 31 - 1)],
+      `INSERT INTO game_rounds (shop_id, table_id, seed, starts_at, ends_at)
+       VALUES ($1, $2, $3, now() + interval '${lobby} seconds', now() + interval '${lobby + PLAY_SECONDS} seconds') RETURNING id`,
+      [table.shopId, tableId, randomInt(1, 2 ** 31 - 1)],
     );
     await addEntry(c, rows[0].id, table, session);
   });
@@ -273,8 +322,9 @@ export async function startChallenge(tableToken: string, sessionToken: string | 
 export async function joinChallenge(tableToken: string, sessionToken: string | undefined, roundId: number) {
   const { table, session } = await playable(tableToken, sessionToken);
   await withTransaction(async (c) => {
-    const r = await latestRound(c, table.shopId, true);
-    if (!r || Number(r.id) !== roundId) throw new AppError(404, 'NOT_FOUND', 'This round is over. Start a new one.');
+    const r = await roundById(c, table.shopId, roundId, true);
+    if (!r || statusOf(r) === 'finished' || statusOf(r) === 'called_off') throw new AppError(404, 'NOT_FOUND', 'This round is over. Start a new one.');
+    if (r.tableId !== null && Number(r.tableId) !== Number(table.id)) throw new AppError(403, 'OTHER_TABLE', 'This round is just for another table.');
     if (statusOf(r) !== 'lobby') throw new AppError(409, 'ROUND_STARTED', 'This round has already started. Join the next one.');
     await addEntry(c, r.id, table, session);
   });
@@ -284,8 +334,8 @@ export async function joinChallenge(tableToken: string, sessionToken: string | u
 /** One go per player: the answers (option index per question, in order) are marked here, never trusted. */
 export async function submitAnswers(tableToken: string, sessionToken: string | undefined, roundId: number, answers: number[]) {
   const { table, session } = await guestAt(tableToken, sessionToken);
-  const r = await latestRound(pool, table.shopId);
-  if (!r || Number(r.id) !== roundId) throw new AppError(404, 'NOT_FOUND', 'This round is over.');
+  const r = await roundById(pool, table.shopId, roundId);
+  if (!r) throw new AppError(404, 'NOT_FOUND', 'This round is over.');
   const status = statusOf(r);
   if (status === 'lobby') throw new AppError(409, 'ROUND_NOT_STARTED', "This round hasn't started yet.");
   if (status !== 'playing' && !(status === 'counting' && r.toEnd > -GRACE_SECONDS)) {
@@ -303,5 +353,30 @@ export async function submitAnswers(tableToken: string, sessionToken: string | u
       ? new AppError(409, 'ALREADY_SUBMITTED', 'Your answers are already in.')
       : new AppError(403, 'NOT_IN_ROUND', "You didn't join this round.");
   }
+  return gameState(tableToken, sessionToken);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Traitor (party.service): same table, ordered guests only
+// ---------------------------------------------------------------------------------------------
+
+export async function startParty(tableToken: string, sessionToken: string | undefined) {
+  const { table, session } = await playable(tableToken, sessionToken);
+  await party.startParty(table, session);
+  return gameState(tableToken, sessionToken);
+}
+
+/** join, deal, vote or reveal. */
+export async function partyAction(
+  tableToken: string,
+  sessionToken: string | undefined,
+  gameId: number,
+  action: { kind: 'join' } | { kind: 'deal' } | { kind: 'reveal' } | { kind: 'vote'; playerId: number },
+) {
+  const { table, session } = await playable(tableToken, sessionToken);
+  if (action.kind === 'join') await party.joinParty(table, session, gameId);
+  else if (action.kind === 'deal') await party.dealParty(table, session, gameId);
+  else if (action.kind === 'reveal') await party.revealParty(table, session, gameId);
+  else await party.voteParty(table, session, gameId, action.playerId);
   return gameState(tableToken, sessionToken);
 }

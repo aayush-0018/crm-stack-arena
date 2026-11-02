@@ -52,6 +52,7 @@ import type {
   ShareChannel,
   Shop,
   GameQuestion,
+  GameScope,
   GameState,
   User,
 } from '../types';
@@ -267,16 +268,21 @@ export const tableGuestApi = {
     api.with(guestHeaders(session)).post<{ guestToken: string; discountPaise: number }>(`/public/tables/${encodeURIComponent(token)}/orders`, body),
   view: (guestToken: string) => api.get<GuestOrderView>(`/public/table-orders/${encodeURIComponent(guestToken)}`),
   game: (token: string, session: string) => api.with(guestHeaders(session)).get<GameState>(`/public/tables/${encodeURIComponent(token)}/game`),
-  /** The guest is being sent to the Google review page: the game opens. */
+  /** The guest is being sent to the Google review page, so they aren't asked again. */
   reviewOpened: (token: string, session: string) => api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/review-opened`),
   practice: (token: string, session: string) =>
     api.with(guestHeaders(session)).get<{ seconds: number; questions: GameQuestion[] }>(`/public/tables/${encodeURIComponent(token)}/game/practice`),
-  /** Opens a table challenge, or joins the one already open. */
-  startRound: (token: string, session: string) => api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds`),
+  /** Opens a quiz round for all tables or just this one, or joins the one already open. */
+  startRound: (token: string, session: string, scope: GameScope) =>
+    api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds`, { scope }),
   joinRound: (token: string, session: string, id: number) =>
     api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds/${id}/join`),
   answer: (token: string, session: string, id: number, answers: number[]) =>
     api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/rounds/${id}/answers`, { answers }),
+  /** Traitor: opens a game at this table, or joins the one waiting to start. */
+  startParty: (token: string, session: string) => api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/party`),
+  party: (token: string, session: string, id: number, action: 'join' | 'deal' | 'reveal' | 'vote', body?: { playerId: number }) =>
+    api.with(guestHeaders(session)).post<GameState>(`/public/tables/${encodeURIComponent(token)}/game/party/${id}/${action}`, body),
 };
 
 export interface ReservationPayload {
