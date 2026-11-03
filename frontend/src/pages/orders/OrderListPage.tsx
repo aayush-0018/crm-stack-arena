@@ -1,8 +1,7 @@
 import { Download, X } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { dashboardApi, ordersApi } from '../../api/endpoints';
-import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
+import { ordersApi } from '../../api/endpoints';
 import BulkDelete from '../../components/data/BulkDelete';
 import type { ColumnFilter } from '../../components/data/HeaderFilter';
 import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
@@ -15,7 +14,6 @@ import { PageTop } from '../../components/ui/Tabs';
 import { useToast } from '../../context/ToastContext';
 import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
 import { useAsync } from '../../lib/hooks';
-import { formatINRCompact } from '../../lib/money';
 import type { OrderListItem, OrderStatus, PaymentStatus } from '../../types';
 
 const PAGE_SIZE = 25;
@@ -42,8 +40,6 @@ export default function OrderListPage() {
     setParams(next, { replace: true });
   };
 
-  const analytics = useAsync(() => dashboardApi.analytics(30), []);
-  const counts = useAsync(() => dashboardApi.summary(), []);
   const fetchPage = (p: number, pageSize: number) =>
     ordersApi.list({
       search: get('search') || undefined,
@@ -60,7 +56,6 @@ export default function OrderListPage() {
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
 
-  const a = analytics.data;
   const rows = list.data?.data ?? [];
   const filterCount = [status, paymentStatus, get('from'), get('to')].filter(Boolean).length;
   const clearFilters = () => {
@@ -85,11 +80,6 @@ export default function OrderListPage() {
     },
     date: { kind: 'date', from: get('from'), to: get('to'), onChange: (from, to) => update({ from: from || undefined, to: to || undefined }) },
   };
-  const orders30 = a?.summary.orders ?? 0;
-  const pending = (a?.payment ?? []).filter((p) => p.status !== 'paid').reduce((t, p) => t + p.orders, 0);
-  const cancelled30 = a?.status.find((x) => x.status === 'cancelled')?.orders ?? 0;
-  const all30 = (a?.status ?? []).reduce((t, x) => t + x.orders, 0);
-  const today = a?.daily[a.daily.length - 1];
 
   const exportCsv = (data: OrderListItem[]) =>
     downloadCsv(`orders-${new Date().toISOString().slice(0, 10)}.csv`, data, [
@@ -121,7 +111,7 @@ export default function OrderListPage() {
       <PageTop
         tabs={[
           { key: '', label: 'All orders' },
-          { key: 'open', label: 'Open', count: counts.data?.openOrders },
+          { key: 'open', label: 'Open' },
           { key: 'completed', label: 'Completed' },
           { key: 'cancelled', label: 'Cancelled' },
         ]}
@@ -132,39 +122,6 @@ export default function OrderListPage() {
         }}
         actions={<ButtonLink to="/orders/new">New order</ButtonLink>}
       />
-
-      {a && (
-        <StatStrip page="orders">
-          <Stat
-            label="Orders today"
-            value={String(today?.orders ?? 0)}
-            visual={<Sparkline values={a.daily.map((d) => d.orders)} label="Daily orders, last 30 days" />}
-          />
-          <Stat
-            label="Sales today"
-            value={formatINRCompact(today?.revenuePaise ?? 0)}
-            visual={<Sparkline values={a.daily.map((d) => d.revenuePaise)} label="Daily sales, last 30 days" />}
-          />
-          <Stat
-            label="Open orders"
-            value={String(counts.data?.openOrders ?? '—')}
-            suffix="to fulfil"
-            visual={<TickGauge value={orders30 ? (counts.data?.openOrders ?? 0) / orders30 : 0} label="Open orders as a share of the last 30 days" />}
-          />
-          <Stat
-            label="Payment pending"
-            value={String(pending)}
-            suffix={`${orders30 ? Math.round((pending / orders30) * 100) : 0}%`}
-            visual={<TickGauge value={orders30 ? pending / orders30 : 0} label="Unpaid or partially paid orders, last 30 days" />}
-          />
-          <Stat
-            label="Cancelled · 30d"
-            value={String(cancelled30)}
-            suffix={`${all30 ? Math.round((cancelled30 / all30) * 100) : 0}%`}
-            visual={<TickGauge value={all30 ? cancelled30 / all30 : 0} reference={0.05} label="Cancelled share of orders, last 30 days" />}
-          />
-        </StatStrip>
-      )}
 
       <Toolbar
         right={
@@ -181,8 +138,6 @@ export default function OrderListPage() {
                 onDone={() => {
                   setSelected(new Set());
                   list.reload();
-                  analytics.reload();
-                  counts.reload();
                 }}
                 warning="Each order is deleted permanently with its items and all its invoices. Order and invoice numbers are not reused. This can't be undone. Orders with payments recorded are kept: cancel those instead."
               />
