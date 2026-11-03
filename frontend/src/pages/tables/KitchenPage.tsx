@@ -1,9 +1,10 @@
-import { ArrowLeft, Bell, BellOff, ChefHat, Maximize, Minimize, Undo2 } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, CheckCheck, ChefHat, Maximize, Minimize, Trash2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
-import { kitchenApi } from '../../api/endpoints';
+import { kitchenApi, ordersApi } from '../../api/endpoints';
 import { KITCHEN_LABEL, minutesSince, NEXT_STATUS, PREV_STATUS, qty, since, usePolling, useNow } from '../../components/tables/dinein';
+import { ConfirmDialog } from '../../components/ui/Modal';
 import Spinner from '../../components/ui/Spinner';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -51,12 +52,15 @@ function Ticket({
   fresh,
   busy,
   onMove,
+  onDelete,
 }: {
   o: KitchenOrder;
   now: number;
   fresh: boolean;
   busy: boolean;
   onMove: (o: KitchenOrder, to: KitchenStatus) => void;
+  /** Owners only. */
+  onDelete?: (o: KitchenOrder) => void;
 }) {
   const age = minutesSince(o.createdAt, now);
   const late = age >= 20 ? 'border-l-red-500' : age >= 10 ? 'border-l-amber-400' : 'border-l-zinc-600';
@@ -111,6 +115,30 @@ function Ticket({
             {busy && <Spinner className="h-4 w-4" />} {action}
           </button>
         )}
+        {/* Skip the steps: straight to served, for when there's no time to tap each one. */}
+        {next && next !== 'served' && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onMove(o, 'served')}
+            title="Mark served now, skipping the steps in between"
+            className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 px-3 text-[14px] font-medium text-zinc-200 hover:bg-zinc-800 hover:text-white disabled:opacity-50"
+          >
+            <CheckCheck size={17} /> Served
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onDelete(o)}
+            title="Delete this order"
+            aria-label={`Delete order ${o.orderNumber}`}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+          >
+            <Trash2 size={17} />
+          </button>
+        )}
       </div>
     </article>
   );
@@ -121,7 +149,10 @@ function Ticket({
  * new orders chime and glow. Works on a tablet or a TV with a mouse.
  */
 export default function KitchenPage() {
-  const { shop } = useAuth();
+  const { shop, user } = useAuth();
+  const isOwner = user?.role === 'owner';
+  // The order being deleted (or cancelled, when it has a payment and can't be deleted).
+  const [removing, setRemoving] = useState<KitchenOrder | null>(null);
   const toast = useToast();
   const now = useNow(10_000);
   const [orders, setOrders] = useState<KitchenOrder[] | null>(null);
@@ -178,6 +209,22 @@ export default function KitchenPage() {
       load();
     } finally {
       setBusy(null);
+    }
+  };
+
+  const remove = async (o: KitchenOrder) => {
+    try {
+      if (o.amountPaidPaise > 0) {
+        await ordersApi.setStatus(o.id, 'cancelled');
+        toast('success', `${o.orderNumber} cancelled`);
+      } else {
+        const r = await ordersApi.remove(o.id);
+        toast('success', `${r.orderNumber} deleted`);
+      }
+      setRemoving(null);
+      load();
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'Could not remove the order. Check the connection.');
     }
   };
 
@@ -254,7 +301,7 @@ export default function KitchenPage() {
                       {col.status === 'new' ? 'No new orders' : col.status === 'preparing' ? 'Nothing cooking' : 'Nothing waiting'}
                     </p>
                   ) : (
-                    list.map((o) => <Ticket key={o.id} o={o} now={now} fresh={fresh.has(o.id)} busy={busy === o.id} onMove={move} />)
+                    list.map((o) => <Ticket key={o.id} o={o} now={now} fresh={fresh.has(o.id)} busy={busy === o.id} onMove={move} onDelete={isOwner ? setRemoving : undefined} />)
                   )}
                 </div>
               </section>
@@ -281,6 +328,20 @@ export default function KitchenPage() {
           )}
         </main>
       )}
+
+      <ConfirmDialog
+        open={!!removing}
+        title={removing && removing.amountPaidPaise > 0 ? 'Cancel this order?' : 'Delete this order?'}
+        message={
+          removing && removing.amountPaidPaise > 0
+            ? `${removing.orderNumber} has a payment recorded, so it can't be deleted (that would erase the money trail). Cancelling takes it off the kitchen screen and the bill; refund the guest from the order page if needed.`
+            : `${removing?.orderNumber ?? ''}${removing?.tableLabel ? ` (Table ${removing.tableLabel})` : ''} will be removed for good, from the kitchen and from your orders. This can't be undone.`
+        }
+        confirmLabel={removing && removing.amountPaidPaise > 0 ? 'Cancel order' : 'Delete order'}
+        danger
+        onConfirm={() => (removing ? remove(removing) : undefined)}
+        onClose={() => setRemoving(null)}
+      />
     </div>
   );
 }
