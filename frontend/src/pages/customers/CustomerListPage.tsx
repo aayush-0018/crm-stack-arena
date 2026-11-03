@@ -2,14 +2,12 @@ import { Download, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { customersApi } from '../../api/endpoints';
-import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import BulkDelete from '../../components/data/BulkDelete';
 import DataTable, { Column } from '../../components/data/DataTable';
 import ImportCsvModal from '../../components/data/ImportCsvModal';
-import { ClearFilters, CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
+import { CustomizeButton, SearchBox, Toolbar, useHiddenColumns } from '../../components/data/Toolbar';
 import Avatar from '../../components/ui/Avatar';
-import { SEGMENT_LABEL, SegmentBadge } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
@@ -19,7 +17,7 @@ import { downloadCsv, fetchAllPages, ImportColumn, rupees } from '../../lib/csv'
 import { relativeDays } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
-import type { Customer, CustomerSegment } from '../../types';
+import type { Customer } from '../../types';
 
 const PAGE_SIZE = 25;
 const IMPORT_COLUMNS: ImportColumn[] = [
@@ -53,13 +51,11 @@ const COLUMNS: Column<Customer>[] = [
   { key: 'lastOrder', header: 'Last order', sortKey: 'lastOrder', optional: true, hideBelow: 'md', cell: (c) => <span className="text-ink">{relativeDays(c.lastOrderDate)}</span> },
   { key: 'spent', header: 'Total spent', sortKey: 'spent', align: 'right', optional: true, hideBelow: 'lg', cell: (c) => formatINR(c.totalSpentPaise ?? 0) },
   { key: 'due', header: 'Due', align: 'right', optional: true, hideBelow: 'lg', cell: (c) => <span className="text-ink-2">{c.duePaise ? formatINR(c.duePaise) : '—'}</span> },
-  { key: 'status', header: 'Status', cell: (c) => (c.segment ? <SegmentBadge segment={c.segment} /> : null) },
 ];
 
 export default function CustomerListPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const segment = (params.get('segment') ?? '') as CustomerSegment | '';
   const search = params.get('search') ?? '';
   const sort = (params.get('sort') as SortKey) || 'name';
   const dir = (params.get('dir') as 'asc' | 'desc') || DEFAULT_DIR[sort];
@@ -78,28 +74,11 @@ export default function CustomerListPage() {
   };
 
   const summary = useAsync(() => customersApi.summary(), []);
-  const fetchPage = (p: number, pageSize: number) => customersApi.list({ segment, search: search || undefined, sort, dir, page: p, pageSize });
-  const list = useAsync(() => fetchPage(page, PAGE_SIZE), [segment, search, sort, dir, page]);
+  const fetchPage = (p: number, pageSize: number) => customersApi.list({ search: search || undefined, sort, dir, page: p, pageSize });
+  const list = useAsync(() => fetchPage(page, PAGE_SIZE), [search, sort, dir, page]);
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-
-  const columns = COLUMNS.map((c) =>
-    c.key === 'status'
-      ? {
-          ...c,
-          filter: {
-            kind: 'options' as const,
-            value: segment,
-            options: (Object.keys(SEGMENT_LABEL) as CustomerSegment[]).map((k) => ({ value: k, label: SEGMENT_LABEL[k] })),
-            onChange: (v: string) => {
-              setSelected(new Set());
-              update({ segment: v || undefined });
-            },
-          },
-        }
-      : c,
-  );
 
   const s = summary.data;
   const rows = list.data?.data ?? [];
@@ -121,10 +100,9 @@ export default function CustomerListPage() {
       { header: 'Last order', value: (c) => c.lastOrderDate },
       { header: 'Total spent (Rs)', value: (c) => rupees(c.totalSpentPaise) },
       { header: 'Due (Rs)', value: (c) => rupees(c.duePaise) },
-      { header: 'Status', value: (c) => (c.segment ? SEGMENT_LABEL[c.segment] : '') },
     ]);
 
-  // Export covers every customer matching the current tab, search and sort, not just this page.
+  // Export covers every customer matching the current search and sort, not just this page.
   const exportAll = async () => {
     setExporting(true);
     try {
@@ -139,55 +117,18 @@ export default function CustomerListPage() {
   return (
     <>
       <PageTop
-        tabs={[
-          { key: '', label: 'All customers', count: s?.total },
-          { key: 'active', label: 'Active', count: s ? s.total - s.new - s.vip - s.forgotten : undefined },
-          { key: 'new', label: 'New', count: s?.new },
-          { key: 'vip', label: 'VIP', count: s?.vip },
-          { key: 'forgotten', label: 'Forgotten', count: s?.forgotten },
-        ]}
-        value={segment}
-        onChange={(k) => {
-          setSelected(new Set());
-          update({ segment: k || undefined });
-        }}
-        actions={<ButtonLink to="/customers/new">Add customer</ButtonLink>}
+        title="Customers"
+        actions={
+          <>
+            {s && (
+              <span className="mr-2 text-[13.5px] text-ink-2">
+                Total customers <span className="font-medium tabular-nums text-ink">{s.total}</span>
+              </span>
+            )}
+            <ButtonLink to="/customers/new">Add customer</ButtonLink>
+          </>
+        }
       />
-
-      {s && (
-        <StatStrip page="customers">
-          <Stat
-            label="Total customers"
-            value={String(s.total)}
-            trend={s.trend.length > 1 && s.trend[s.trend.length - 1].total > s.trend[0].total ? 'up' : undefined}
-            visual={<Sparkline values={s.trend.map((t) => t.total)} label="Total customers, last 12 weeks" />}
-          />
-          <Stat
-            label="Active customers"
-            value={String(s.active)}
-            suffix={`${s.total ? Math.round((s.active / s.total) * 100) : 0}%`}
-            trend={s.trend.length > 1 && s.trend[s.trend.length - 1].active >= s.trend[s.trend.length - 2].active ? 'up' : 'down'}
-            visual={<Sparkline values={s.trend.map((t) => t.active)} label="Customers who ordered in the trailing 60 days, weekly" />}
-          />
-          <Stat
-            label="Forgotten"
-            value={String(s.forgotten)}
-            suffix={`${s.total ? Math.round((s.forgotten / s.total) * 100) : 0}%`}
-            visual={<TickGauge value={s.total ? s.forgotten / s.total : 0} label="Share of customers with no order in 60+ days" />}
-          />
-          <Stat
-            label="Visit gap"
-            value={`${Math.round(s.avgGapDays)}d`}
-            suffix={s.avgGapDays <= 30 ? 'Normal' : 'Slow'}
-            visual={<TickGauge value={Math.min(1, s.avgGapDays / 60)} reference={0.5} label="Average days between a customer's orders, out of 60" />}
-          />
-          <Stat
-            label="Repeat rate"
-            value={`${s.buyers ? Math.round((s.repeaters / s.buyers) * 100) : 0}%`}
-            visual={<TickGauge value={s.buyers ? s.repeaters / s.buyers : 0} label="Share of buyers with 2+ orders" />}
-          />
-        </StatStrip>
-      )}
 
       <Toolbar
         right={
@@ -226,7 +167,6 @@ export default function CustomerListPage() {
         }
       >
         <SearchBox value={search} onChange={(v) => update({ search: v || undefined })} placeholder="Search name or phone" />
-        {segment && <ClearFilters count={1} onClear={() => update({ segment: undefined })} />}
       </Toolbar>
 
       {list.loading && !list.data ? (
@@ -234,12 +174,8 @@ export default function CustomerListPage() {
       ) : list.error ? (
         <ErrorState error={list.error} onRetry={list.reload} />
       ) : !rows.length ? (
-        search || segment ? (
-          <EmptyState
-            title="No matching customers"
-            description="Try a different search or filter."
-            action={segment ? <Button variant="secondary" onClick={() => update({ segment: undefined })}>Clear filter</Button> : undefined}
-          />
+        search ? (
+          <EmptyState title="No matching customers" description="Try a different search." />
         ) : (
           <EmptyState title="No customers yet" description="Add your first customer to start taking orders." action={<ButtonLink to="/customers/new">Add customer</ButtonLink>} />
         )
@@ -248,7 +184,7 @@ export default function CustomerListPage() {
           <DataTable
             label="Customers"
             rows={rows}
-            columns={columns}
+            columns={COLUMNS}
             rowKey={(c) => c.id}
             hidden={hidden}
             selected={selected}

@@ -1,11 +1,10 @@
-import { AtSign, Calendar, IndianRupee, MapPin, Phone, ShoppingBag, Tag } from 'lucide-react';
+import { AtSign, Calendar, IndianRupee, MapPin, Phone, ShoppingBag } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { customersApi } from '../../api/endpoints';
 import { relativeDays } from '../../lib/date';
 import { formatINR } from '../../lib/money';
 import type { Customer } from '../../types';
 import Avatar from '../ui/Avatar';
-import { SegmentBadge } from '../ui/Badge';
 import Button, { ButtonLink } from '../ui/Button';
 import MessageComposer from './MessageComposer';
 
@@ -72,7 +71,6 @@ export default function CustomerHoverCard({
   const due = data?.duePaise ?? data?.outstandingPaise ?? 0;
   const rows: { icon: ReactNode; label: string; value: ReactNode }[] = data
     ? [
-        ...(data.segment ? [{ icon: <Tag size={15} />, label: 'Status', value: <SegmentBadge segment={data.segment} /> }] : []),
         { icon: <Phone size={15} />, label: 'Phone', value: data.phone },
         { icon: <AtSign size={15} />, label: 'Email', value: data.email || '—' },
         { icon: <MapPin size={15} />, label: 'Address', value: data.address || '—' },
