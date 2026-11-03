@@ -367,7 +367,29 @@ export interface DashboardSummary {
   unpaidOrders: number;
 }
 
-export type AnalyticsDays = 7 | 30 | 90 | 180;
+export type AnalyticsDays = 1 | 7 | 30 | 90 | 180;
+
+export interface CustomerAnalytics {
+  days: AnalyticsDays;
+  summary: {
+    total: number;
+    newCustomers: number;
+    prevNewCustomers: number;
+    /** Customers who ordered in the window; firstTime + returning. */
+    buyers: number;
+    prevBuyers: number;
+    firstTime: number;
+    returning: number;
+    /** Buyers of the previous window who ordered again in this one. */
+    retained: number;
+    /** All time: customers with 2+ orders, out of everBought. */
+    repeaters: number;
+    everBought: number;
+    avgGapDays: number;
+  };
+  daily: { date: string; newCustomers: number; buyers: number }[];
+  topCustomers: { id: number; name: string; orders: number; revenuePaise: number }[];
+}
 
 export interface Analytics {
   days: AnalyticsDays;

@@ -1,39 +1,60 @@
+import { Bell } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { customersApi, dashboardApi, ordersApi } from '../api/endpoints';
-import { Sparkline, Stat, StatStrip, TickGauge } from '../components/charts/StatStrip';
-import CustomerHoverCard from '../components/customers/CustomerHoverCard';
+import { dashboardApi, ordersApi } from '../api/endpoints';
+import DailySummaryModal from '../components/layout/DailySummaryModal';
+import { Sparkline, Stat, StatStrip } from '../components/charts/StatStrip';
 import OrdersTable from '../components/orders/OrdersTable';
-import Avatar from '../components/ui/Avatar';
 import { PaymentBadge } from '../components/ui/Badge';
 import { ButtonLink } from '../components/ui/Button';
 import { SectionHeader } from '../components/ui/Card';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States';
 import { PageTop } from '../components/ui/Tabs';
+import { useAuth } from '../context/AuthContext';
+import { useDailySummary } from '../lib/dailySummary';
 import { relativeDays } from '../lib/date';
 import { useAsync } from '../lib/hooks';
 import { formatINR, formatINRCompact } from '../lib/money';
+import type { AnalyticsDays } from '../types';
 
-const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+const PERIODS: [AnalyticsDays, string][] = [
+  [1, 'Today'],
+  [7, '7 days'],
+  [30, '30 days'],
+  [90, '90 days'],
+];
 const change = (cur: number, prev: number) => (prev ? `${cur >= prev ? '+' : '−'}${Math.abs(((cur - prev) / prev) * 100).toFixed(0)}%` : undefined);
+
+/** Opens the 10 pm daily summary; shows a dot until it's been read. */
+function BellButton({ unread, onClick }: { unread: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={unread ? 'Notifications: daily summary ready' : 'Notifications'}
+      title="Daily summary"
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 hover:bg-hover hover:text-ink"
+    >
+      <Bell size={18} strokeWidth={1.6} />
+      {unread && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-critical ring-2 ring-surface" />}
+    </button>
+  );
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const analytics = useAsync(() => dashboardApi.analytics(30), []);
-  const customers = useAsync(() => customersApi.summary(), []);
+  const { shop } = useAuth();
+  const [days, setDays] = useState<AnalyticsDays>(1);
+  const analytics = useAsync(() => dashboardApi.analytics(days), [days]);
   const recent = useAsync(() => ordersApi.list({ pageSize: 8 }), []);
-  const forgotten = useAsync(() => customersApi.list({ segment: 'forgotten', sort: 'spent', dir: 'desc', pageSize: 5 }), []);
   const unpaid = useAsync(() => ordersApi.list({ due: 'true', sort: 'date', dir: 'asc', pageSize: 5 }), []);
+  const daily = useDailySummary(shop?.id);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const a = analytics.data;
   const s = a?.summary;
-  const c = customers.data;
-  const daily = a?.daily ?? [];
-  // 7-day rolling average order value
-  const aov = daily.map((_, i) => {
-    const w = daily.slice(Math.max(0, i - 6), i + 1);
-    const orders = w.reduce((t, d) => t + d.orders, 0);
-    return orders ? w.reduce((t, d) => t + d.revenuePaise, 0) / orders : 0;
-  });
+  const series = a?.daily ?? [];
+  const label = days === 1 ? 'today' : `${days}d`;
 
   return (
     <>
@@ -41,6 +62,27 @@ export default function DashboardPage() {
         title="Overview"
         actions={
           <>
+            <div role="radiogroup" aria-label="Period" className="flex rounded-lg border border-line p-0.5">
+              {PERIODS.map(([d, l]) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={days === d}
+                  onClick={() => setDays(d)}
+                  className={`h-7 rounded-md px-2.5 text-[13px] ${days === d ? 'bg-ink text-on-ink' : 'text-ink-2 hover:bg-hover'}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <BellButton
+              unread={daily.unread}
+              onClick={() => {
+                setSummaryOpen(true);
+                daily.markSeen();
+              }}
+            />
             <ButtonLink to="/customers/new" variant="secondary">
               Add customer
             </ButtonLink>
@@ -54,39 +96,22 @@ export default function DashboardPage() {
       ) : !s ? (
         <LoadingState />
       ) : (
-        <StatStrip page="dashboard">
+        <StatStrip page="dashboard" dim={analytics.loading}>
           <Stat
-            label="Total sales · 30d"
+            label={`Total sales · ${label}`}
             value={formatINRCompact(s.revenuePaise)}
             suffix={change(s.revenuePaise, s.prevRevenuePaise)}
             trend={s.revenuePaise >= s.prevRevenuePaise ? 'up' : 'down'}
-            visual={<Sparkline values={daily.map((d) => d.revenuePaise)} label="Daily sales, last 30 days" />}
+            visual={<Sparkline values={series.map((d) => d.revenuePaise)} label={`Daily sales, last ${days} days`} />}
           />
           <Stat
-            label="Total orders · 30d"
+            label={`Total orders · ${label}`}
             value={String(s.orders)}
             suffix={change(s.orders, s.prevOrders)}
             trend={s.orders >= s.prevOrders ? 'up' : 'down'}
-            visual={<Sparkline values={daily.map((d) => d.orders)} label="Daily orders, last 30 days" />}
+            visual={<Sparkline values={series.map((d) => d.orders)} label={`Daily orders, last ${days} days`} />}
           />
-          <Stat
-            label="Average bill value"
-            value={formatINR(s.orders ? Math.round(s.revenuePaise / s.orders) : 0).replace(/\.\d+$/, '')}
-            suffix="30d"
-            visual={<Sparkline values={aov} label="Average order value, 7-day rolling" />}
-          />
-          <Stat
-            label="Collection rate"
-            value={`${pct(s.collectedPaise, s.revenuePaise)}%`}
-            suffix={`${formatINRCompact(s.outstandingPaise)} due`}
-            visual={<TickGauge value={s.revenuePaise ? s.collectedPaise / s.revenuePaise : 0} reference={0.9} label="Share of revenue collected; target 90%" />}
-          />
-          <Stat
-            label="Active customers"
-            value={String(c?.active ?? '—')}
-            suffix={c ? `${pct(c.active, c.total)}%` : undefined}
-            visual={c && <TickGauge value={c.total ? c.active / c.total : 0} label="Customers who ordered in the last 60 days" />}
-          />
+          <Stat label={`Total customers · ${label}`} value={String(s.activeCustomers)} />
         </StatStrip>
       )}
 
@@ -112,35 +137,7 @@ export default function DashboardPage() {
         </section>
 
         <aside className="border-t border-line lg:border-t-0">
-          <SectionHeader title="Customers to win back" />
-          {forgotten.data?.data.length ? (
-            <ul className="py-1.5">
-              {forgotten.data.data.map((cu) => (
-                <li key={cu.id}>
-                  <div
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => navigate(`/customers/${cu.id}`)}
-                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/customers/${cu.id}`)}
-                    className="flex h-[52px] w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-wash sm:px-6"
-                  >
-                    <Avatar name={cu.name} />
-                    <span className="min-w-0 flex-1">
-                      <CustomerHoverCard customerId={cu.id} customer={cu}>
-                        <span className="block truncate text-[14px] text-ink">{cu.name}</span>
-                      </CustomerHoverCard>
-                      <span className="block text-[12.5px] text-ink-3">Last order {relativeDays(cu.lastOrderDate).toLowerCase()}</span>
-                    </span>
-                    <span className="text-[13px] tabular-nums text-ink-2">{formatINRCompact(cu.totalSpentPaise ?? 0)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-6 py-6 text-[13px] text-ink-3">{forgotten.loading ? 'Loading…' : 'No forgotten customers. Nice!'}</p>
-          )}
-
-          <SectionHeader title="Oldest unpaid orders" className="border-t" />
+          <SectionHeader title="Oldest unpaid orders" />
           {unpaid.data?.data.length ? (
             <ul className="py-1.5">
               {unpaid.data.data.map((o) => (
@@ -167,6 +164,15 @@ export default function DashboardPage() {
           )}
         </aside>
       </div>
+
+      <DailySummaryModal
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        summary={daily.summary}
+        loading={daily.loading}
+        error={daily.error}
+        onRetry={daily.retry}
+      />
     </>
   );
 }

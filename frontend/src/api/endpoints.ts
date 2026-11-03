@@ -29,6 +29,7 @@ import type {
   AnalyticsDays,
   Customer,
   CustomerDetail,
+  CustomerAnalytics,
   CustomerSegment,
   DailySummary,
   CustomersSummary,
@@ -195,6 +196,7 @@ export const invoicesApi = {
 export const dashboardApi = {
   summary: () => api.get<DashboardSummary>('/dashboard/summary'),
   analytics: (days: AnalyticsDays) => api.get<Analytics>('/dashboard/analytics', { days }),
+  customers: (days: AnalyticsDays) => api.get<CustomerAnalytics>('/dashboard/customers', { days }),
   dailySummary: (date: string) => api.get<DailySummary>('/dashboard/daily-summary', { date }),
 };
 

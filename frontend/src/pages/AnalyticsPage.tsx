@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { dashboardApi } from '../api/endpoints';
 import BarList from '../components/charts/BarList';
 import PaymentBreakdown from '../components/charts/PaymentBreakdown';
@@ -13,7 +12,7 @@ import { useAsync } from '../lib/hooks';
 import { formatINR, formatINRCompact } from '../lib/money';
 import type { AnalyticsDays, OrderStatus } from '../types';
 
-const PERIODS: AnalyticsDays[] = [7, 30, 90, 180];
+const PERIODS: AnalyticsDays[] = [1, 7, 30, 90, 180];
 type Metric = 'revenue' | 'orders';
 
 const change = (cur: number, prev: number) => (prev ? `${cur >= prev ? '+' : '−'}${Math.abs(((cur - prev) / prev) * 100).toFixed(1)}%` : 'no prior data');
@@ -26,7 +25,7 @@ export default function AnalyticsPage() {
 
   const top = (
     <PageTop
-      tabs={PERIODS.map((d) => ({ key: String(d), label: `Last ${d} days` }))}
+      tabs={PERIODS.map((d) => ({ key: String(d), label: d === 1 ? 'Today' : `Last ${d} days` }))}
       value={String(days)}
       onChange={(k) => setDays(Number(k) as AnalyticsDays)}
     />
@@ -84,65 +83,68 @@ export default function AnalyticsPage() {
         />
       </StatStrip>
 
-      <section className={`border-b border-line transition-opacity ${a.loading ? 'opacity-50' : ''}`}>
-        <SectionHeader
-          title={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
-          className="border-b-0"
-          actions={
-            <div role="radiogroup" aria-label="Metric" className="flex rounded-lg border border-line p-0.5">
-              {(['revenue', 'orders'] as Metric[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={metric === m}
-                  onClick={() => setMetric(m)}
-                  className={`h-7 rounded-md px-2.5 text-[13px] ${metric === m ? 'bg-ink text-on-ink' : 'text-ink-2 hover:bg-hover'}`}
-                >
-                  {m === 'revenue' ? 'Sales' : 'Orders'}
-                </button>
-              ))}
-            </div>
-          }
-        />
-        <div className="px-4 pb-4 sm:px-6">
-          <TrendChart
-            data={trend}
-            label={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
-            formatAxis={(v) => (metric === 'revenue' ? formatINRCompact(v) : String(v))}
-            formatValue={(v) => (metric === 'revenue' ? formatINR(v) : `${v} order${v === 1 ? '' : 's'}`)}
+      {/* One day is a single point: no daily chart. */}
+      {days > 1 && (
+        <section className={`border-b border-line transition-opacity ${a.loading ? 'opacity-50' : ''}`}>
+          <SectionHeader
+            title={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
+            className="border-b-0"
+            actions={
+              <div role="radiogroup" aria-label="Metric" className="flex rounded-lg border border-line p-0.5">
+                {(['revenue', 'orders'] as Metric[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={metric === m}
+                    onClick={() => setMetric(m)}
+                    className={`h-7 rounded-md px-2.5 text-[13px] ${metric === m ? 'bg-ink text-on-ink' : 'text-ink-2 hover:bg-hover'}`}
+                  >
+                    {m === 'revenue' ? 'Sales' : 'Orders'}
+                  </button>
+                ))}
+              </div>
+            }
           />
-          <button type="button" className="mt-1 text-[12.5px] text-ink-3 underline-offset-2 hover:text-ink hover:underline" onClick={() => setShowTable((t) => !t)}>
-            {showTable ? 'Hide table' : 'Show as table'}
-          </button>
-          {showTable && (
-            <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
-              <table className="w-full text-[13.5px]">
-                <thead className="sticky top-0 bg-surface text-left text-[11px] uppercase tracking-[0.06em] text-ink-3">
-                  <tr className="border-b border-line">
-                    <th className="px-3 py-2 font-medium">Date</th>
-                    <th className="px-3 py-2 text-right font-medium">Orders</th>
-                    <th className="px-3 py-2 text-right font-medium">Sales</th>
-                    <th className="px-3 py-2 text-right font-medium">Received</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {[...d.daily].reverse().map((r) => (
-                    <tr key={r.date}>
-                      <td className="px-3 py-1.5">{r.date}</td>
-                      <td className="px-3 py-1.5 text-right">{r.orders}</td>
-                      <td className="px-3 py-1.5 text-right">{formatINR(r.revenuePaise)}</td>
-                      <td className="px-3 py-1.5 text-right">{formatINR(r.receivedPaise)}</td>
+          <div className="px-4 pb-4 sm:px-6">
+            <TrendChart
+              data={trend}
+              label={metric === 'revenue' ? 'Daily sales' : 'Daily orders'}
+              formatAxis={(v) => (metric === 'revenue' ? formatINRCompact(v) : String(v))}
+              formatValue={(v) => (metric === 'revenue' ? formatINR(v) : `${v} order${v === 1 ? '' : 's'}`)}
+            />
+            <button type="button" className="mt-1 text-[12.5px] text-ink-3 underline-offset-2 hover:text-ink hover:underline" onClick={() => setShowTable((t) => !t)}>
+              {showTable ? 'Hide table' : 'Show as table'}
+            </button>
+            {showTable && (
+              <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
+                <table className="w-full text-[13.5px]">
+                  <thead className="sticky top-0 bg-surface text-left text-[11px] uppercase tracking-[0.06em] text-ink-3">
+                    <tr className="border-b border-line">
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 text-right font-medium">Orders</th>
+                      <th className="px-3 py-2 text-right font-medium">Sales</th>
+                      <th className="px-3 py-2 text-right font-medium">Received</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </section>
+                  </thead>
+                  <tbody className="tabular-nums">
+                    {[...d.daily].reverse().map((r) => (
+                      <tr key={r.date}>
+                        <td className="px-3 py-1.5">{r.date}</td>
+                        <td className="px-3 py-1.5 text-right">{r.orders}</td>
+                        <td className="px-3 py-1.5 text-right">{formatINR(r.revenuePaise)}</td>
+                        <td className="px-3 py-1.5 text-right">{formatINR(r.receivedPaise)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
-      <div className={`grid transition-opacity lg:grid-cols-3 lg:divide-x lg:divide-line ${a.loading ? 'opacity-50' : ''}`}>
+      <div className={`grid transition-opacity lg:grid-cols-2 lg:divide-x lg:divide-line ${a.loading ? 'opacity-50' : ''}`}>
         <section className="border-b border-line lg:border-b-0">
           <SectionHeader title="Payment collection status" />
           <div className="px-4 py-5 sm:px-6">
@@ -156,29 +158,6 @@ export default function AnalyticsPage() {
                 </div>
               ))}
             </dl>
-          </div>
-        </section>
-        <section className="border-b border-line lg:border-b-0">
-          <SectionHeader title="Highest-spending customers" />
-          <div className="px-4 py-5 sm:px-6">
-            {d.topCustomers.length ? (
-              <BarList
-                ariaLabel="Highest-spending customers by sales"
-                rows={d.topCustomers.map((c) => ({
-                  key: c.id,
-                  label: (
-                    <Link to={`/customers/${c.id}`} className="hover:underline">
-                      {c.name}
-                    </Link>
-                  ),
-                  value: c.revenuePaise,
-                  valueLabel: formatINRCompact(c.revenuePaise),
-                  detail: `${c.orders} order${c.orders === 1 ? '' : 's'}`,
-                }))}
-              />
-            ) : (
-              <p className="text-[13px] text-ink-3">No orders in this period.</p>
-            )}
           </div>
         </section>
         <section>

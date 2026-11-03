@@ -4,6 +4,7 @@ import { pool } from '../../db/pool';
 import { ah } from '../../lib/asyncHandler';
 import { auth } from '../../middleware/auth';
 import { dateInput } from '../../lib/validation';
+import { customersSummary } from '../customers/customers.repo';
 
 export const dashboardRouter = Router();
 
@@ -25,7 +26,7 @@ dashboardRouter.get(
 );
 
 const analyticsQuery = z.object({
-  days: z.coerce.number().pipe(z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(180)])).default(30),
+  days: z.coerce.number().pipe(z.union([z.literal(1), z.literal(7), z.literal(30), z.literal(90), z.literal(180)])).default(30),
 });
 
 // Window = the last `days` calendar days in IST, ending today (a future-dated order counts from
@@ -113,6 +114,71 @@ dashboardRouter.get(
       status: status.rows,
       topCustomers: customers.rows,
       topItems: items.rows,
+    });
+  }),
+);
+
+// Who bought in the window: new vs returning buyers, how many of the previous window's buyers came
+// back (retention), new sign-ups per day and the biggest spenders. Walk-in sales have no customer.
+dashboardRouter.get(
+  '/customers',
+  ah(async (req, res) => {
+    const { days } = analyticsQuery.parse(req.query);
+    const shopId = auth(req).shopId;
+    const today = `(now() AT TIME ZONE 'Asia/Kolkata')::date`;
+    const params = [shopId, days];
+    const visits = `
+      WITH v AS (
+        SELECT customer_id, order_date FROM orders
+        WHERE shop_id = $1 AND status <> 'cancelled' AND customer_id IS NOT NULL AND order_date <= ${today}
+      ), f AS (SELECT customer_id, min(order_date) AS first FROM v GROUP BY customer_id),
+      cur AS (SELECT DISTINCT customer_id FROM v WHERE order_date > ${today} - $2::int),
+      prev AS (SELECT DISTINCT customer_id FROM v WHERE order_date > ${today} - 2 * $2::int AND order_date <= ${today} - $2::int)`;
+
+    const [summary, daily, top, allTime] = await Promise.all([
+      pool.query(
+        `${visits}
+         SELECT
+           (SELECT count(*) FROM customers WHERE shop_id = $1 AND deleted_at IS NULL)::int AS total,
+           (SELECT count(*) FROM customers WHERE shop_id = $1 AND deleted_at IS NULL
+              AND (created_at AT TIME ZONE 'Asia/Kolkata')::date > ${today} - $2::int)::int AS "newCustomers",
+           (SELECT count(*) FROM customers WHERE shop_id = $1 AND deleted_at IS NULL
+              AND (created_at AT TIME ZONE 'Asia/Kolkata')::date > ${today} - 2 * $2::int
+              AND (created_at AT TIME ZONE 'Asia/Kolkata')::date <= ${today} - $2::int)::int AS "prevNewCustomers",
+           (SELECT count(*) FROM cur)::int AS buyers,
+           (SELECT count(*) FROM prev)::int AS "prevBuyers",
+           (SELECT count(*) FROM cur JOIN f USING (customer_id) WHERE f.first > ${today} - $2::int)::int AS "firstTime",
+           (SELECT count(*) FROM cur JOIN prev USING (customer_id))::int AS retained`,
+        params,
+      ),
+      pool.query(
+        `WITH days AS (
+           SELECT generate_series(${today} - ($2::int - 1), ${today}, interval '1 day')::date AS d
+         )
+         SELECT to_char(days.d, 'YYYY-MM-DD') AS date,
+           (SELECT count(*) FROM customers c WHERE c.shop_id = $1 AND c.deleted_at IS NULL
+              AND (c.created_at AT TIME ZONE 'Asia/Kolkata')::date = days.d)::int AS "newCustomers",
+           (SELECT count(DISTINCT o.customer_id) FROM orders o WHERE o.shop_id = $1 AND o.status <> 'cancelled'
+              AND o.customer_id IS NOT NULL AND o.order_date = days.d)::int AS buyers
+         FROM days ORDER BY days.d`,
+        params,
+      ),
+      pool.query(
+        `SELECT c.id, c.name, count(o.id)::int AS orders, sum(o.total_paise)::bigint AS "revenuePaise"
+         FROM orders o JOIN customers c ON c.id = o.customer_id
+         WHERE o.shop_id = $1 AND o.status <> 'cancelled' AND o.order_date > ${today} - $2::int AND o.order_date <= ${today}
+         GROUP BY c.id, c.name ORDER BY "revenuePaise" DESC, c.id LIMIT 5`,
+        params,
+      ),
+      customersSummary(pool, shopId),
+    ]);
+
+    const s = summary.rows[0];
+    res.json({
+      days,
+      summary: { ...s, returning: s.buyers - s.firstTime, repeaters: allTime.repeaters, everBought: allTime.buyers, avgGapDays: allTime.avgGapDays },
+      daily: daily.rows,
+      topCustomers: top.rows,
     });
   }),
 );
