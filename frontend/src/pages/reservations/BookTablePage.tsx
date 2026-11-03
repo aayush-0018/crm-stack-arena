@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { bookingApi } from '../../api/endpoints';
 import { addDays, DAY_LONG, DAY_SHORT, durationLabel, people, timeLabel, weekdayOf } from '../../components/reservations/reservations';
+import { numericOnly } from '../../components/ui/Field';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import type { BookingPage, BookingTimes } from '../../types';
@@ -331,7 +332,7 @@ export default function BookTablePage() {
                       maxLength={k === 'name' ? 60 : k === 'phone' ? 16 : 254}
                       value={form[k]}
                       onChange={(e) => {
-                        setForm({ ...form, [k]: e.target.value });
+                        setForm({ ...form, [k]: k === 'phone' ? numericOnly('tel', e.target.value) : e.target.value });
                         if (errors[k]) setErrors({ ...errors, [k]: '' });
                       }}
                       aria-invalid={!!errors[k]}

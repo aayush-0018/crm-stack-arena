@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { customersApi, ordersApi } from '../../api/endpoints';
+import { ApiError } from '../../api/client';
+import { customersApi, ordersApi, settleApi } from '../../api/endpoints';
 import { parseCustomer } from '../../components/customers/CustomerForm';
-import CustomerPicker, { CustomerChoice } from '../../components/customers/CustomerPicker';
+import CustomerPicker, { CustomerChoice, earlierDuePaise } from '../../components/customers/CustomerPicker';
 import OrderForm, { emptyOrderForm } from '../../components/orders/OrderForm';
 import BackButton from '../../components/ui/BackButton';
 import { PageTop } from '../../components/ui/Tabs';
 import { LoadingState } from '../../components/ui/States';
 import { useToast } from '../../context/ToastContext';
 import { todayIST } from '../../lib/date';
+import { formatINR, paiseToInput } from '../../lib/money';
 import { uuid } from '../../lib/uuid';
 
 export default function OrderCreatePage() {
@@ -20,6 +22,14 @@ export default function OrderCreatePage() {
   const [loadingPreset, setLoadingPreset] = useState(!!presetId);
   // One key per form session: a retry after a dropped connection can't create a duplicate order.
   const idempotencyKey = useRef(uuid());
+  const settleKey = useRef(uuid());
+  // Collect what the customer owes on earlier orders along with this one. Unticked whenever the customer changes.
+  const [includeDues, setIncludeDues] = useState(false);
+  const pickCustomer = (c: CustomerChoice) => {
+    setChoice(c);
+    setIncludeDues(false);
+  };
+  const duePaise = choice.mode === 'existing' && choice.customer ? earlierDuePaise(choice.customer) : 0;
 
   useEffect(() => {
     if (!presetId) return;
@@ -48,8 +58,9 @@ export default function OrderCreatePage() {
       <OrderForm
         initial={emptyOrderForm(todayIST())}
         customerChoice={choice}
-        customerSection={(errors) => <CustomerPicker value={choice} onChange={setChoice} errors={errors} />}
+        customerSection={(errors) => <CustomerPicker value={choice} onChange={pickCustomer} errors={errors} />}
         validateExtra={validateCustomer}
+        earlierDues={{ amountPaise: duePaise, include: includeDues, onToggle: setIncludeDues }}
         submitLabel="Save order"
         onCancel={() => navigate(-1)}
         submit={async (payload) => {
@@ -60,7 +71,25 @@ export default function OrderCreatePage() {
                 ? { customerId: choice.customer!.id }
                 : { newCustomer: parseCustomer(choice.values).payload! };
           const order = await ordersApi.create({ ...payload, ...customerPart, idempotencyKey: idempotencyKey.current });
-          toast('success', `Order ${order.orderNumber} saved`);
+          if (includeDues && duePaise > 0 && choice.mode === 'existing' && choice.customer) {
+            // Recorded after the order is saved; both calls carry a retry key, so saving again can't collect twice.
+            try {
+              await settleApi.save(choice.customer.id, {
+                amount: paiseToInput(duePaise),
+                method: payload.paymentMethod ?? 'cash',
+                paidOn: todayIST(),
+                reference: null,
+                note: `Collected with ${order.orderNumber}`,
+                idempotencyKey: settleKey.current,
+              });
+              toast('success', `Order ${order.orderNumber} saved, and ${formatINR(duePaise)} of earlier dues recorded`);
+            } catch (err) {
+              toast(
+                'error',
+                `Order ${order.orderNumber} saved, but the earlier dues weren't recorded${err instanceof ApiError ? `: ${err.message}` : ''}. Settle them from the customer's page.`,
+              );
+            }
+          } else toast('success', `Order ${order.orderNumber} saved`);
           navigate(`/orders/${order.id}`, { replace: true, state: { justCreated: true } });
         }}
       />

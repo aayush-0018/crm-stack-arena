@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { customersApi } from '../../api/endpoints';
 import { useDebounced } from '../../lib/hooks';
 import type { CustomerFormValues } from '../../schemas';
-import type { Customer } from '../../types';
+import { formatINR } from '../../lib/money';
+import type { Customer, CustomerDetail } from '../../types';
 import Button from '../ui/Button';
 import { TextField } from '../ui/Field';
 import Spinner from '../ui/Spinner';
@@ -12,6 +13,9 @@ export type CustomerChoice =
   | { mode: 'existing'; customer: Customer | null }
   | { mode: 'new'; values: CustomerFormValues }
   | { mode: 'walkin' };
+
+/** What the customer still owes on earlier orders (the search list and the detail record carry it differently). */
+export const earlierDuePaise = (c: Customer | CustomerDetail): number => Number(('stats' in c ? c.stats.outstandingPaise : c.duePaise) ?? 0);
 
 export default function CustomerPicker({
   value,
@@ -80,6 +84,7 @@ export default function CustomerPicker({
 
   if (value.customer) {
     const c = value.customer;
+    const due = earlierDuePaise(c);
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-wash px-4 py-3">
         <div>
@@ -88,6 +93,7 @@ export default function CustomerPicker({
             {c.phone}
             {c.email ? ` · ${c.email}` : ''}
           </p>
+          {due > 0 && <p className="mt-0.5 text-sm text-danger">{formatINR(due)} due from earlier orders</p>}
         </div>
         <Button variant="secondary" size="sm" onClick={() => onChange({ mode: 'existing', customer: null })}>
           Change
@@ -125,7 +131,10 @@ export default function CustomerPicker({
                   className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-wash"
                 >
                   <span className="font-medium">{c.name}</span>
-                  <span className="text-sm text-ink-3">{c.phone}</span>
+                  <span className="text-right text-sm text-ink-3">
+                    {c.phone}
+                    {earlierDuePaise(c) > 0 && <span className="block text-[12px] text-danger">{formatINR(earlierDuePaise(c))} due</span>}
+                  </span>
                 </button>
               </li>
             ))}

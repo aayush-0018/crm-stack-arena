@@ -35,15 +35,39 @@ function Wrap({ id, label, error, hint, required, className = '', children }: Wr
   );
 }
 
-export function TextField({ label, error, hint, required, className, ...rest }: WrapProps & InputHTMLAttributes<HTMLInputElement>) {
+/**
+ * Drops what a number box can't hold, so letters never get in: digits only for counts and codes, one decimal point for
+ * amounts and quantities, and digits with spaces and a leading + for phone numbers.
+ */
+export function numericOnly(mode: 'numeric' | 'decimal' | 'tel', value: string): string {
+  if (mode === 'numeric') return value.replace(/\D/g, '');
+  if (mode === 'tel') return value.replace(/[^\d+ ]/g, '').replace(/(?!^)\+/g, '');
+  const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.');
+  return rest.length ? `${whole}.${rest.join('')}` : whole;
+}
+
+export function TextField({ label, error, hint, required, className, type, inputMode, onChange, ...rest }: WrapProps & InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
+  // type="number" still lets e, + and - in, so it becomes a text box that only takes digits.
+  const mode = inputMode ?? (type === 'number' ? 'numeric' : type === 'tel' ? 'tel' : undefined);
+  const filter = mode === 'numeric' || mode === 'decimal' || mode === 'tel' ? mode : null;
   return (
     <Wrap id={id} label={label} error={error} hint={hint} required={required} className={className}>
       <input
         id={id}
+        type={type === 'number' ? 'text' : type}
+        inputMode={mode}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-err` : undefined}
         className={controlClass(!!error, 'h-9')}
+        onChange={
+          filter && onChange
+            ? (e) => {
+                e.target.value = numericOnly(filter, e.target.value);
+                onChange(e);
+              }
+            : onChange
+        }
         {...rest}
       />
     </Wrap>

@@ -57,6 +57,7 @@ export default function OrderForm({
   customerChoice,
   paidSoFarPaise,
   heldStock,
+  earlierDues,
 }: {
   initial: OrderFormState;
   customerSection: (errors: Record<string, string>) => ReactNode;
@@ -69,8 +70,11 @@ export default function OrderForm({
   paidSoFarPaise?: number;
   /** Edit mode: stock the saved order already holds, per product (milli-units). */
   heldStock?: Record<number, number>;
+  /** New order for a customer who owes on earlier orders: offer to collect that too. */
+  earlierDues?: { amountPaise: number; include: boolean; onToggle: (include: boolean) => void };
 }) {
   const editing = paidSoFarPaise !== undefined;
+  const dues = !editing && earlierDues && earlierDues.amountPaise > 0 ? earlierDues : null;
   const [state, setState] = useState(initial);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -231,8 +235,32 @@ export default function OrderForm({
               <dt className="text-ink-2">Balance due</dt>
               <dd className="font-medium tabular-nums">{formatINR(Math.max(0, totals.balance))}</dd>
             </div>
+            {dues && (
+              <div className="space-y-3 border-t border-line pt-3">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 accent-ink"
+                    checked={dues.include}
+                    onChange={(e) => dues.onToggle(e.target.checked)}
+                  />
+                  <span>
+                    <span className="text-ink">Also collect {formatINR(dues.amountPaise)} due from earlier orders</span>
+                    <span className="mt-0.5 block text-[12.5px] text-ink-3">
+                      Recorded against the oldest unpaid orders first, with its own receipt. This order's total stays the same.
+                    </span>
+                  </span>
+                </label>
+                {dues.include && (
+                  <div className="flex justify-between text-[16px]">
+                    <dt className="font-medium">Collecting now</dt>
+                    <dd className="font-medium tabular-nums">{formatINR(totals.paid + dues.amountPaise)}</dd>
+                  </div>
+                )}
+              </div>
+            )}
           </dl>
-          {!editing && totals.paid > 0 && (
+          {!editing && (totals.paid > 0 || dues?.include) && (
             <div className="mt-4">
               <MethodPicker value={method} onChange={setMethod} />
             </div>

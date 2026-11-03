@@ -3,6 +3,7 @@ import { formatINR, lineTotalPaise, paiseToInput } from '../../lib/money';
 import { uuid } from '../../lib/uuid';
 import { formatStock } from '../products/ProductParts';
 import Button from '../ui/Button';
+import { numericOnly } from '../ui/Field';
 import ProductPicker from './ProductPicker';
 
 export interface ItemRow {
@@ -99,7 +100,7 @@ export default function LineItemsEditor({
                 placeholder="Qty"
                 className={input(!!err(i, 'quantity'))}
                 value={r.quantity}
-                onChange={(e) => update(i, { quantity: e.target.value })}
+                onChange={(e) => update(i, { quantity: numericOnly('decimal', e.target.value) })}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
               />
               {err(i, 'quantity') && <p className="mt-1 text-xs text-danger">{err(i, 'quantity')}</p>}
@@ -111,7 +112,7 @@ export default function LineItemsEditor({
                 placeholder="0.00"
                 className={input(!!err(i, 'unitPrice'))}
                 value={r.unitPrice}
-                onChange={(e) => update(i, { unitPrice: e.target.value })}
+                onChange={(e) => update(i, { unitPrice: numericOnly('decimal', e.target.value) })}
                 onKeyDown={addOnEnter(i)}
               />
               {err(i, 'unitPrice') && <p className="mt-1 text-xs text-danger">{err(i, 'unitPrice')}</p>}

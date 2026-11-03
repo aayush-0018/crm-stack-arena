@@ -8,7 +8,7 @@ import { uuid } from '../../lib/uuid';
 import type { Order, PaymentMethod, ReturnCondition, ReturnPreview } from '../../types';
 import Button from '../ui/Button';
 import { SectionHeader } from '../ui/Card';
-import { SelectField, TextField } from '../ui/Field';
+import { numericOnly, SelectField, TextField } from '../ui/Field';
 import { Modal } from '../ui/Modal';
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from './Payments';
 
@@ -169,7 +169,7 @@ export function ReturnModal({ open, order, onClose, onSaved }: { open: boolean; 
                         disabled={remaining <= 0}
                         placeholder={remaining > 0 ? '0' : 'All returned'}
                         value={l.quantity}
-                        onChange={(e) => edit(i, { quantity: e.target.value })}
+                        onChange={(e) => edit(i, { quantity: numericOnly('decimal', e.target.value) })}
                         className={`h-9 w-28 rounded-lg border bg-surface px-3 text-[14px] text-ink placeholder:text-ink-4 shadow-soft focus:outline-none focus:ring-[3px] disabled:opacity-50 ${
                           errors[`line.${i}`] ? 'border-danger-line-2 focus:ring-danger/10' : 'border-line focus:border-ink-4 focus:ring-ink/5'
                         }`}
