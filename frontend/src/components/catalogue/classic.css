@@ -411,6 +411,17 @@
 .cc-tone-3 { --tone-bg: #dfe3ee; --tone-fg: #34416b; }
 .cc-tone-4 { --tone-bg: #f1dfe3; --tone-fg: #7d3448; }
 .cc-tone-5 { --tone-bg: #ece8d2; --tone-fg: #5e5a23; }
+.cc-tile-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cc-tile-img ~ .cc-tile-unit {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
 .cc-tile-mark {
   font-family: var(--serif);
   font-size: 46px;

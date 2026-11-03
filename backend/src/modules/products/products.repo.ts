@@ -13,6 +13,7 @@ export interface Product {
   trackStock: boolean;
   lowStockMilli: number | null;
   active: boolean;
+  imageKey: string | null;
   stockMilli: number;
   /** Tracked, and at/below its warning level — or below zero. */
   low: boolean;
@@ -26,7 +27,7 @@ const FROM = `FROM products p
     ON s.product_id = p.id`;
 const LOW = `(p.track_stock AND COALESCE(s.qty, 0) <= COALESCE(p.low_stock_milli, -1))`;
 const COLS = `p.id, p.name, p.sku, p.category, p.unit, p.price_paise AS "pricePaise", p.cost_paise AS "costPaise",
-  p.track_stock AS "trackStock", p.low_stock_milli AS "lowStockMilli", p.active,
+  p.track_stock AS "trackStock", p.low_stock_milli AS "lowStockMilli", p.active, p.image_key AS "imageKey",
   COALESCE(s.qty, 0)::bigint AS "stockMilli", ${LOW} AS low,
   p.created_at AS "createdAt", p.updated_at AS "updatedAt"`;
 

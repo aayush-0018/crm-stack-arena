@@ -1,8 +1,7 @@
-import { Download, X } from 'lucide-react';
+import { Download, FileText, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { invoicesApi } from '../../api/endpoints';
-import { Sparkline, Stat, StatStrip, TickGauge } from '../../components/charts/StatStrip';
 import CustomerHoverCard from '../../components/customers/CustomerHoverCard';
 import DataTable, { Column } from '../../components/data/DataTable';
 import BulkDelete from '../../components/data/BulkDelete';
@@ -18,7 +17,7 @@ import { useToast } from '../../context/ToastContext';
 import { downloadCsv, fetchAllPages, rupees } from '../../lib/csv';
 import { formatDate } from '../../lib/date';
 import { useAsync } from '../../lib/hooks';
-import { formatINR, formatINRCompact } from '../../lib/money';
+import { formatINR } from '../../lib/money';
 import type { InvoiceListItem, InvoiceStatus } from '../../types';
 
 const PAGE_SIZE = 25;
@@ -97,6 +96,7 @@ export default function InvoiceListPage() {
   const list = useAsync(() => fetchPage(page, PAGE_SIZE), [status, search, from, to, page]);
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
+  const rows = list.data?.data ?? [];
   const filterCount = [status, from, to].filter(Boolean).length;
   const clearFilters = () => {
     setSelected(new Set());
@@ -114,9 +114,35 @@ export default function InvoiceListPage() {
     },
     date: { kind: 'date', from, to, onChange: (f, t) => update({ from: f || undefined, to: t || undefined }) },
   };
-  const columns = COLUMNS.map((c) => (filters[c.key] ? { ...c, filter: filters[c.key] } : c));
+  // The order changed after the invoice was issued: reissue it from here, as a new revision.
+  const [reissuing, setReissuing] = useState<number | null>(null);
+  const reissue = async (i: InvoiceListItem) => {
+    setReissuing(i.id);
+    try {
+      const inv = await invoicesApi.generate(i.orderId, true);
+      toast('success', `${inv.invoiceNumber} reissued as Rev ${inv.revision}`);
+      navigate(`/invoices/${inv.id}`);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Could not reissue the invoice');
+    } finally {
+      setReissuing(null);
+    }
+  };
+  const actionColumn: Column<InvoiceListItem> = {
+    key: 'action',
+    header: '',
+    align: 'right',
+    cell: (i) =>
+      i.outdated ? (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="secondary" loading={reissuing === i.id} disabled={reissuing !== null} onClick={() => reissue(i)}>
+            <FileText size={14} /> Reissue
+          </Button>
+        </span>
+      ) : null,
+  };
+  const columns = [...COLUMNS.map((c) => (filters[c.key] ? { ...c, filter: filters[c.key] } : c)), ...(rows.some((r) => r.outdated) ? [actionColumn] : [])];
   const s = summary.data;
-  const rows = list.data?.data ?? [];
 
   const exportCsv = (data: InvoiceListItem[]) =>
     downloadCsv(`invoices-${new Date().toISOString().slice(0, 10)}.csv`, data, [
@@ -160,37 +186,6 @@ export default function InvoiceListPage() {
         actions={<ButtonLink to="/orders?status=open">Create invoice</ButtonLink>}
       />
 
-      {s && (
-        <StatStrip page="invoices">
-          <Stat
-            label="Invoiced · 30d"
-            value={formatINRCompact(s.invoiced30Paise)}
-            visual={<Sparkline values={s.daily.map((d) => d.amountPaise)} label="Invoiced amount per day, last 30 days" />}
-          />
-          <Stat
-            label="Invoices · 30d"
-            value={String(s.issued30)}
-            visual={<Sparkline values={s.daily.map((d) => d.count)} label="Invoices issued per day, last 30 days" />}
-          />
-          <Stat
-            label="Due on invoices"
-            value={formatINRCompact(s.duePaise)}
-            suffix={s.issuedTotalPaise ? `${Math.round((s.duePaise / s.issuedTotalPaise) * 100)}%` : undefined}
-            visual={<TickGauge value={s.issuedTotalPaise ? s.duePaise / s.issuedTotalPaise : 0} label="Share of invoiced amount still due" />}
-          />
-          <Stat
-            label="Needs reissue"
-            value={String(s.outdated)}
-            suffix={s.outdated ? 'order changed' : 'all current'}
-            visual={<TickGauge value={s.total ? s.outdated / s.total : 0} label="Issued invoices whose order changed afterwards" />}
-          />
-          <Stat
-            label="Replaced / cancelled"
-            value={String(s.replaced)}
-            visual={<TickGauge value={s.total ? s.replaced / s.total : 0} label="Share of invoices replaced or cancelled" />}
-          />
-        </StatStrip>
-      )}
 
       <Toolbar
         right={

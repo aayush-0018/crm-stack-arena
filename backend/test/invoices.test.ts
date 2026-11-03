@@ -24,6 +24,8 @@ describe('invoice lifecycle', () => {
     await api.put(`/orders/${o.id}`, { items: [{ itemName: 'Rice', quantity: '3', unitPrice: '50' }], discount: '0' });
     const order = (await api.get(`/orders/${o.id}`)).body;
     assert.equal(order.invoice.outdated, true);
+    // The invoice page knows too, for its Reissue button.
+    assert.equal((await api.get(`/invoices/${first.id}`)).body.outdated, true);
 
     assert.equal((await api.post(`/orders/${o.id}/invoice`)).status, 409); // needs explicit reissue
     const second = (await api.post(`/orders/${o.id}/invoice?reissue=true`)).body;
@@ -31,6 +33,8 @@ describe('invoice lifecycle', () => {
     assert.equal(second.revision, 2);
     assert.equal(second.totalPaise, 15000);
     assert.equal((await api.get(`/invoices/${first.id}`)).body.status, 'superseded');
+    assert.equal((await api.get(`/invoices/${first.id}`)).body.outdated, false);
+    assert.equal((await api.get(`/invoices/${second.id}`)).body.outdated, false);
     // the old snapshot is unchanged
     assert.equal((await api.get(`/invoices/${first.id}`)).body.totalPaise, 10000);
   });

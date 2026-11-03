@@ -1,6 +1,7 @@
 import { Download, MapPin, MessageCircle, Phone, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { logoUrl } from '../../lib/logo';
+import { productImageUrl } from '../../lib/productImage';
 import type { PublicCatalogue } from '../../types';
 import { addressLines, CatalogueProduct, groupByCategory, initials, mapsUrl, telHref, whatsappNumber } from './catalogueData';
 import './classic.css';
@@ -28,11 +29,17 @@ function Logo({ cat, size }: { cat: PublicCatalogue; size: 'lg' | 'sm' }) {
 }
 
 function ProductCard({ p, tone, showPrices, whatsapp }: { p: CatalogueProduct; tone: number; showPrices: boolean; whatsapp: string | null }) {
+  const src = productImageUrl(p.imageKey);
+  const [failed, setFailed] = useState<string | null>(null);
   const ask = `Hello! I saw your catalogue and would like to order: ${p.name}${p.pricePaise !== null ? ` (${price(p.pricePaise)} / ${p.unit})` : ''}.`;
   return (
     <article className={`cc-card${p.available ? '' : ' cc-card-out'}`}>
       <div className={`cc-tile cc-tone-${tone}`}>
-        <span className="cc-tile-mark">{initials(p.name)}</span>
+        {src && failed !== src ? (
+          <img className="cc-tile-img" src={src} alt={p.name} loading="lazy" onError={() => setFailed(src)} />
+        ) : (
+          <span className="cc-tile-mark">{initials(p.name)}</span>
+        )}
         <span className="cc-tile-unit">per {p.unit}</span>
         {!p.available && <span className="cc-tile-flag">Out of stock</span>}
       </div>

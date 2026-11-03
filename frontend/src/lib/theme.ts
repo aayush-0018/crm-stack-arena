@@ -1,23 +1,22 @@
 /**
- * Light / dark / follow-the-device theme, remembered per device. The palette lives in index.css; this only
+ * Light or dark theme, remembered per device. The palette lives in index.css; this only
  * toggles the "dark" class on <html>. index.html applies the saved choice before first paint so nothing flashes.
  */
-export type ThemePref = 'light' | 'dark' | 'system';
+export type ThemePref = 'light' | 'dark';
 
 const KEY = 'crm.theme';
-const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 
 export function getThemePref(): ThemePref {
   try {
-    const v = localStorage.getItem(KEY);
-    return v === 'dark' || v === 'system' ? v : 'light';
+    // An old "same as device" choice now means light.
+    return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light';
   } catch {
     return 'light';
   }
 }
 
 export function applyTheme(pref: ThemePref = getThemePref()) {
-  document.documentElement.classList.toggle('dark', pref === 'dark' || (pref === 'system' && darkQuery().matches));
+  document.documentElement.classList.toggle('dark', pref === 'dark');
 }
 
 export function setThemePref(pref: ThemePref) {
@@ -30,10 +29,9 @@ export function setThemePref(pref: ThemePref) {
   applyTheme(pref);
 }
 
-/** Follows the device when set to "system", and always prints on light colours. */
+/** Always prints on light colours. */
 export function initTheme() {
   applyTheme();
-  darkQuery().addEventListener('change', () => applyTheme());
   window.addEventListener('beforeprint', () => document.documentElement.classList.remove('dark'));
   window.addEventListener('afterprint', () => applyTheme());
 }

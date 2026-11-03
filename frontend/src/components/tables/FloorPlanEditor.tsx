@@ -194,6 +194,7 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
 
   const remove = () => {
     if (!sel) return;
+    if (sel.kind === 'table' && !window.confirm(`Remove table ${sel.item.label}? Its QR code stops working once you save the plan.`)) return;
     setDraft((d) => (sel.kind === 'table' ? { ...d, tables: d.tables.filter((_, i) => i !== sel.index) } : { ...d, decor: d.decor.filter((_, i) => i !== sel.index) }));
     setSelected(null);
   };

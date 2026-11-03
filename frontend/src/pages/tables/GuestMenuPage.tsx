@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { tableGuestApi } from '../../api/endpoints';
 import { read, SESSION_KEY, write } from '../../components/tables/dinein';
 import { numericOnly } from '../../components/ui/Field';
+import { productImageUrl } from '../../lib/productImage';
 import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import { formatINR } from '../../lib/money';
@@ -28,7 +29,7 @@ function Shell({ menu, children }: { menu: TableMenu; children: React.ReactNode 
     <div className="theme-light min-h-screen bg-[#faf8f4] px-4 pb-10 pt-6 text-[#1f1b16]">
       <div className="mx-auto max-w-md">
         <div className="flex items-center gap-3">
-          <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} />
+          <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{menu.shop.name}</h1>
             <p className="text-[13px] text-[#8a8276]">{menu.table.floorName ? `${menu.table.floorName} · ` : ''}Table {menu.table.label}</p>
@@ -364,7 +365,7 @@ export default function GuestMenuPage() {
     <div className="theme-light min-h-screen bg-[#faf8f4] pb-28 text-[#1f1b16]">
       <header className="mx-auto max-w-2xl px-4 pb-3 pt-5">
         <div className="flex items-center gap-3">
-          <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} />
+          <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{menu.shop.name}</h1>
             <p className="truncate text-[13px] text-[#8a8276]">
@@ -449,6 +450,9 @@ export default function GuestMenuPage() {
             <ul className="divide-y divide-[#ece6da]">
               {s.products.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 py-3.5">
+                  {productImageUrl(p.imageKey) && (
+                    <img src={productImageUrl(p.imageKey)!} alt="" loading="lazy" className="h-16 w-16 shrink-0 rounded-xl bg-[#f3efe7] object-cover" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[16px] leading-snug">{p.name}</p>
                     <p className="mt-0.5 text-[14px] font-medium tabular-nums text-[#5e574c]">{price(p)}</p>

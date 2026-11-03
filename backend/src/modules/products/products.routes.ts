@@ -11,6 +11,7 @@ import { createProductSchema, listProductsQuery, productInput, stockEntrySchema 
 import { recordStockEntry } from './stock.service';
 import { parseImportBody } from '../../lib/importRows';
 import { importProducts } from './products.import';
+import { decodeProductImage, removeProductImage, saveProductImage } from './productImage';
 
 export const productsRouter = Router();
 
@@ -89,6 +90,28 @@ productsRouter.put(
     // Past orders keep their own copy of name and price, so editing here never changes them.
     const ok = await repo.updateProduct(pool, shopId, id, productInput.parse(req.body)).catch(friendlyConflict);
     if (!ok) throw notFound('Product');
+    res.json(await detail(shopId, id));
+  }),
+);
+
+/** A photo for the catalogue and the table menu, sent as a small JPEG or PNG data URL. */
+productsRouter.put(
+  '/:id/image',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const shopId = auth(req).shopId;
+    const { dataUrl } = z.object({ dataUrl: z.string() }).parse(req.body);
+    if (!(await saveProductImage(shopId, id, decodeProductImage(dataUrl)))) throw notFound('Product');
+    res.json(await detail(shopId, id));
+  }),
+);
+
+productsRouter.delete(
+  '/:id/image',
+  ah(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const shopId = auth(req).shopId;
+    if (!(await removeProductImage(shopId, id))) throw notFound('Product');
     res.json(await detail(shopId, id));
   }),
 );

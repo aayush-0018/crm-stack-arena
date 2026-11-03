@@ -8,7 +8,7 @@
       // Apply the saved theme before first paint (see src/lib/theme.ts).
       try {
         var t = localStorage.getItem('crm.theme');
-        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        if (t === 'dark') document.documentElement.classList.add('dark');
       } catch (e) {}
     </script>
   </head>

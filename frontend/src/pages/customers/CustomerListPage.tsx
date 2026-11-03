@@ -121,8 +121,8 @@ export default function CustomerListPage() {
         actions={
           <>
             {s && (
-              <span className="mr-2 text-[13.5px] text-ink-2">
-                Total customers <span className="font-medium tabular-nums text-ink">{s.total}</span>
+              <span className="mr-3 flex items-baseline gap-2 text-[14px] text-ink-2">
+                Total customers <span className="text-[24px] font-semibold leading-none tabular-nums text-ink">{s.total}</span>
               </span>
             )}
             <ButtonLink to="/customers/new">Add customer</ButtonLink>

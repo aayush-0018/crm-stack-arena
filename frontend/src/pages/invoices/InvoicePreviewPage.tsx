@@ -1,4 +1,4 @@
-import { Download, Printer, Send, Trash2 } from 'lucide-react';
+import { Download, FileText, Printer, Send, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -23,6 +23,7 @@ export default function InvoicePreviewPage() {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reissueBusy, setReissueBusy] = useState(false);
   const isOwner = useAuth().user?.role === 'owner';
   const navigate = useNavigate();
   const toast = useToast();
@@ -58,6 +59,19 @@ export default function InvoicePreviewPage() {
     }
   };
 
+  const reissue = async () => {
+    setReissueBusy(true);
+    try {
+      const next = await invoicesApi.generate(inv.orderId, true);
+      toast('success', `${next.invoiceNumber} reissued as Rev ${next.revision}`);
+      navigate(`/invoices/${next.id}`, { replace: true });
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Could not reissue the invoice');
+    } finally {
+      setReissueBusy(false);
+    }
+  };
+
   return (
     <>
       <PageTop
@@ -81,6 +95,11 @@ export default function InvoicePreviewPage() {
             {inv.shares[0] && (
               <span className="hidden text-[12.5px] text-ink-3 lg:inline">Sent {formatDateTime(inv.shares[0].createdAt)}</span>
             )}
+            {inv.outdated && (
+              <Button onClick={reissue} loading={reissueBusy}>
+                <FileText size={15} /> Reissue
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => window.print()}>
               <Printer size={15} /> Print
             </Button>
@@ -98,8 +117,14 @@ export default function InvoicePreviewPage() {
         }
       />
 
-      {(inv.status !== 'issued' || pdfError) && (
+      {(inv.status !== 'issued' || inv.outdated || pdfError) && (
         <div className="no-print space-y-2 border-b border-line px-4 py-3 sm:px-6">
+          {inv.outdated && (
+            <Alert tone="warning">
+              Order {inv.orderSnapshot.orderNumber} changed after this invoice was issued, so it shows old amounts. Reissue it to make Rev{' '}
+              {inv.revision + 1} with the current order; this one is then marked replaced.
+            </Alert>
+          )}
           {inv.status !== 'issued' && (
             <Alert tone="warning">
               This invoice is {inv.status}.{' '}

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KitchenOrder, KitchenStatus } from '../../types';
 
-export const KITCHEN_LABEL: Record<KitchenStatus, string> = { new: 'New', preparing: 'Preparing', ready: 'Ready', served: 'Served' };
-export const NEXT_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = { new: 'preparing', preparing: 'ready', ready: 'served' };
-export const PREV_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = { preparing: 'new', ready: 'preparing', served: 'ready' };
+// Three steps: New, Preparing, Ready. Ready is the final state, saved as 'served' (the server's "done");
+// 'ready' is an old in-between step that orders no longer enter, shown like Preparing.
+export const KITCHEN_LABEL: Record<KitchenStatus, string> = { new: 'New', preparing: 'Preparing', ready: 'Preparing', served: 'Ready' };
+export const NEXT_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = { new: 'preparing', preparing: 'served', ready: 'served' };
+export const PREV_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = { preparing: 'new', ready: 'new', served: 'preparing' };
 
 /** "2.000" -> "2" */
 export const qty = (q: string | number) => String(Number(q));
@@ -32,7 +34,7 @@ export const TABLE_STATE: Record<TableState, { label: string; tone: string; dot:
   free: { label: 'Free', tone: 'border-line-strong bg-surface text-ink', dot: 'bg-ink-4' },
   new: { label: 'New order', tone: 'border-warn-line bg-warn-bg-2 text-warn-strong', dot: 'bg-warn-strong' },
   preparing: { label: 'Preparing', tone: 'border-info-line bg-info-bg-2 text-info-strong', dot: 'bg-info-strong' },
-  ready: { label: 'Ready to serve', tone: 'border-success-line bg-success-bg-2 text-success-strong animate-pulse', dot: 'bg-success-strong' },
+  ready: { label: 'Ready', tone: 'border-success-line bg-success-bg-2 text-success-strong animate-pulse', dot: 'bg-success-strong' },
   unpaid: { label: 'Awaiting payment', tone: 'border-danger-line-2 bg-danger-bg-2 text-danger-text', dot: 'bg-danger' },
   reserved: { label: 'Reserved', tone: 'border-dashed border-ink-3 bg-wash text-ink', dot: 'bg-ink-3' },
 };

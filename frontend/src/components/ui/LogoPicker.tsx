@@ -34,7 +34,7 @@ export default function LogoPicker({
         {preview ? (
           <img src={preview} alt="New logo preview" className="h-14 w-14 shrink-0 rounded-[11px] border border-line bg-white object-contain" />
         ) : (
-          <ShopLogo logoKey={savedKey} size={56} />
+          <ShopLogo logoKey={savedKey} size={56} zoom />
         )}
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" size="sm" onClick={() => input.current?.click()} loading={busy}>

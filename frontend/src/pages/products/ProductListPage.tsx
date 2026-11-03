@@ -14,6 +14,7 @@ import { PageTop } from '../../components/ui/Tabs';
 import { ImportColumn } from '../../lib/csv';
 import { useAsync } from '../../lib/hooks';
 import { formatINR } from '../../lib/money';
+import ProductThumb from '../../components/products/ProductThumb';
 import type { Product } from '../../types';
 
 const PAGE_SIZE = 25;
@@ -36,9 +37,12 @@ const COLUMNS: Column<Product>[] = [
     key: 'name',
     header: 'Product',
     cell: (p) => (
-      <span className="block min-w-0">
-        <span className="block truncate text-ink">{p.name}</span>
-        {(p.sku || p.category) && <span className="block truncate text-[12.5px] text-ink-3">{[p.sku, p.category].filter(Boolean).join(' · ')}</span>}
+      <span className="flex min-w-0 items-center gap-2.5">
+        <ProductThumb product={p} size={32} />
+        <span className="block min-w-0">
+          <span className="block truncate text-ink">{p.name}</span>
+          {(p.sku || p.category) && <span className="block truncate text-[12.5px] text-ink-3">{[p.sku, p.category].filter(Boolean).join(' · ')}</span>}
+        </span>
       </span>
     ),
   },

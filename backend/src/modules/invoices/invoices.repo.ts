@@ -18,6 +18,8 @@ export interface InvoiceSummary {
 }
 
 export interface Invoice extends InvoiceSummary {
+  /** Set by findInvoice: issued, but the order changed since. */
+  outdated?: boolean;
   shopSnapshot: Record<string, string | null>;
   customerSnapshot: { name: string; phone: string | null; email: string | null; address: string | null }; // phone null = walk-in
   orderSnapshot: { orderNumber: string; orderDate: string; status: OrderStatus; notes: string | null };
@@ -63,10 +65,12 @@ export async function listInvoicesForOrder(db: Db, shopId: number, orderId: numb
 }
 
 export async function findInvoice(db: Db, shopId: number, id: number): Promise<Invoice | null> {
-  const { rows } = await db.query(`SELECT ${FULL_COLS} FROM invoices i WHERE i.shop_id = $1 AND i.id = $2`, [
-    shopId,
-    id,
-  ]);
+  // outdated: the order changed after this invoice was issued, so it needs reissuing.
+  const { rows } = await db.query(
+    `SELECT ${FULL_COLS}, COALESCE(i.status = 'issued' AND i.order_version <> o.version, false) AS outdated
+     FROM invoices i LEFT JOIN orders o ON o.id = i.order_id WHERE i.shop_id = $1 AND i.id = $2`,
+    [shopId, id],
+  );
   return rows[0] ?? null;
 }
 

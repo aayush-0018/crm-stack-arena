@@ -19,6 +19,7 @@ import { receiptsRouter } from './modules/receipts/receipts.routes';
 import { reportsRouter } from './modules/reports/reports.routes';
 import { returnsRouter } from './modules/returns/returns.routes';
 import { publicLogoRouter } from './modules/shop/logo';
+import { publicProductImageRouter } from './modules/products/productImage';
 import { branchesRouter, shopRouter } from './modules/shop/shop.routes';
 
 export const app = express();
@@ -27,14 +28,18 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 // Comma-separated, so production and Vercel preview URLs can both be allowed.
 app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()) }));
-// Logos are uploaded as base64 PNG (up to 400 KB -> ~540 KB of JSON); everything else stays small.
+// Logos and product photos are uploaded as base64 (up to 400 KB -> ~540 KB of JSON); everything else stays small.
 const smallJson = express.json({ limit: '100kb' });
 const logoJson = express.json({ limit: '600kb' });
 // CSV imports send up to 1,000 rows at once.
 const importJson = express.json({ limit: '1mb' });
 const IMPORT_PATHS = new Set(['/api/customers/import', '/api/products/import']);
 app.use((req, res, next) =>
-  (req.path === '/api/shop/logo' ? logoJson : IMPORT_PATHS.has(req.path) ? importJson : smallJson)(req, res, next),
+  (req.path === '/api/shop/logo' || /^\/api\/products\/\d+\/image$/.test(req.path) ? logoJson : IMPORT_PATHS.has(req.path) ? importJson : smallJson)(
+    req,
+    res,
+    next,
+  ),
 );
 
 app.get(
@@ -48,6 +53,7 @@ app.get(
 app.use('/api/auth', authRouter);
 app.use('/api/public', publicInvoicesRouter);
 app.use('/api/public', publicLogoRouter);
+app.use('/api/public', publicProductImageRouter);
 app.use('/api/public', publicCatalogueRouter);
 app.use('/api/public', publicTablesRouter);
 app.use('/api/public', publicBookingRouter);

@@ -1,20 +1,17 @@
 import { Bell } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { dashboardApi, ordersApi } from '../api/endpoints';
 import DailySummaryModal from '../components/layout/DailySummaryModal';
 import { Sparkline, Stat, StatStrip } from '../components/charts/StatStrip';
 import OrdersTable from '../components/orders/OrdersTable';
-import { PaymentBadge } from '../components/ui/Badge';
 import { ButtonLink } from '../components/ui/Button';
 import { SectionHeader } from '../components/ui/Card';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States';
 import { PageTop } from '../components/ui/Tabs';
 import { useAuth } from '../context/AuthContext';
 import { useDailySummary } from '../lib/dailySummary';
-import { relativeDays } from '../lib/date';
 import { useAsync } from '../lib/hooks';
-import { formatINR, formatINRCompact } from '../lib/money';
+import { formatINRCompact } from '../lib/money';
 import type { AnalyticsDays } from '../types';
 
 const PERIODS: [AnalyticsDays, string][] = [
@@ -42,12 +39,10 @@ function BellButton({ unread, onClick }: { unread: boolean; onClick: () => void 
 }
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const { shop } = useAuth();
   const [days, setDays] = useState<AnalyticsDays>(1);
   const analytics = useAsync(() => dashboardApi.analytics(days), [days]);
   const recent = useAsync(() => ordersApi.list({ pageSize: 8 }), []);
-  const unpaid = useAsync(() => ordersApi.list({ due: 'true', sort: 'date', dir: 'asc', pageSize: 5 }), []);
   const daily = useDailySummary(shop?.id);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
@@ -96,7 +91,7 @@ export default function DashboardPage() {
       ) : !s ? (
         <LoadingState />
       ) : (
-        <StatStrip page="dashboard" dim={analytics.loading}>
+        <StatStrip page="dashboard" dim={analytics.loading} even={3}>
           <Stat
             label={`Total sales · ${label}`}
             value={formatINRCompact(s.revenuePaise)}
@@ -115,8 +110,8 @@ export default function DashboardPage() {
         </StatStrip>
       )}
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="min-w-0 lg:border-r lg:border-line">
+      <div>
+        <section className="min-w-0">
           <SectionHeader
             title="Recent orders"
             actions={
@@ -136,33 +131,6 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <aside className="border-t border-line lg:border-t-0">
-          <SectionHeader title="Oldest unpaid orders" />
-          {unpaid.data?.data.length ? (
-            <ul className="py-1.5">
-              {unpaid.data.data.map((o) => (
-                <li key={o.id}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/orders/${o.id}`)}
-                    className="flex h-[52px] w-full items-center gap-3 px-4 text-left hover:bg-wash sm:px-6"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] text-ink">
-                        {o.orderNumber} · {o.customerName}
-                      </span>
-                      <span className="block text-[12.5px] text-ink-3">{relativeDays(o.orderDate)}</span>
-                    </span>
-                    <PaymentBadge status={o.paymentStatus} />
-                    <span className="w-20 text-right text-[13px] tabular-nums text-ink">{formatINR(o.totalPaise - o.amountPaidPaise)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-6 py-6 text-[13px] text-ink-3">{unpaid.loading ? 'Loading…' : 'All orders are paid.'}</p>
-          )}
-        </aside>
       </div>
 
       <DailySummaryModal

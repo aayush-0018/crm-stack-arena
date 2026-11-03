@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { productsApi } from '../../api/endpoints';
 import { Stat, StatStrip } from '../../components/charts/StatStrip';
 import { formatStock, StockBadge, StockEntryModal } from '../../components/products/ProductParts';
+import ProductImagePicker from '../../components/products/ProductImagePicker';
 import BackButton from '../../components/ui/BackButton';
 import Button, { ButtonLink } from '../../components/ui/Button';
 import { SectionHeader } from '../../components/ui/Card';
@@ -88,6 +89,11 @@ export default function ProductDetailPage() {
       {(p.sku || p.category) && (
         <p className="border-b border-line px-4 py-3 text-[13.5px] text-ink-2 sm:px-6">{[p.sku && `SKU ${p.sku}`, p.category].filter(Boolean).join(' · ')}</p>
       )}
+
+      <SectionHeader title="Photo" />
+      <div className="border-b border-line px-4 py-4 sm:px-6">
+        <ProductImagePicker product={p} onChange={product.setData} />
+      </div>
 
       <SectionHeader title="Stock history" />
       {!p.movements.length ? (

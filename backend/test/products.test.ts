@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
-import { Client, newOrder, newShop, sql, start, stop } from './helpers';
+import { apiBase, Client, client, newOrder, newShop, sql, start, stop } from './helpers';
 
 before(start);
 after(async () => {
@@ -214,5 +214,44 @@ describe('products are shop-private', () => {
     const r = await b.api.post('/orders', { newCustomer: { name: 'X', phone: '9866666666' }, items: [line(p, '1')] });
     assert.equal(r.status, 400);
     assert.equal(await stockOf(a.api, p.id), 10000);
+  });
+});
+
+describe('product photos', () => {
+  // A 1x1 JPEG and PNG.
+  const JPEG =
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  test('upload, show publicly and in the catalogue, replace and remove', async () => {
+    const { api } = await newShop();
+    const p = await product(api, { trackStock: false });
+    assert.equal(p.imageKey, null);
+
+    const up = await api.put(`/products/${p.id}/image`, { dataUrl: JPEG });
+    assert.equal(up.status, 200);
+    assert.match(up.body.imageKey, /^[A-Za-z0-9_-]{22}$/);
+    const img = await fetch(`${apiBase()}/public/product-images/${up.body.imageKey}`);
+    assert.equal(img.status, 200);
+    assert.equal(img.headers.get('content-type'), 'image/jpeg');
+
+    const cat = (await api.post('/catalogue')).body;
+    const pub = (await client().get(`/public/catalogues/${cat.token}`)).body;
+    assert.equal(pub.products.find((x: { id: number }) => x.id === p.id).imageKey, up.body.imageKey);
+
+    const again = (await api.put(`/products/${p.id}/image`, { dataUrl: PNG })).body;
+    assert.notEqual(again.imageKey, up.body.imageKey);
+    assert.equal((await api.del(`/products/${p.id}/image`)).body.imageKey, null);
+  });
+
+  test('only small JPEG or PNG images, and only for your own products', async () => {
+    const a = await newShop();
+    const b = await newShop();
+    const p = await product(a.api, { trackStock: false });
+    assert.equal((await a.api.put(`/products/${p.id}/image`, { dataUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' })).status, 400);
+    // Says JPEG, isn't one.
+    assert.equal((await a.api.put(`/products/${p.id}/image`, { dataUrl: `data:image/jpeg;base64,${Buffer.from('hello').toString('base64')}` })).status, 400);
+    assert.equal((await b.api.put(`/products/${p.id}/image`, { dataUrl: PNG })).status, 404);
+    assert.equal((await a.api.get(`/products/${p.id}`)).body.imageKey, null);
   });
 });

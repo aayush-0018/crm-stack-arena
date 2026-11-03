@@ -342,6 +342,8 @@ export interface Invoice {
   shopSnapshot: Omit<Shop, 'id'>;
   customerSnapshot: { name: string; phone: string | null; email: string | null; address: string | null };
   orderSnapshot: { orderNumber: string; orderDate: string; status: OrderStatus; notes: string | null };
+  /** Issued, but the order changed since: needs reissuing. */
+  outdated?: boolean;
   itemsSnapshot: OrderItem[];
   subtotalPaise: number;
   discountPaise: number;
@@ -452,6 +454,8 @@ export interface Product {
   trackStock: boolean;
   lowStockMilli: number | null;
   active: boolean;
+  /** The product's photo (public URL from productImageUrl), or null. */
+  imageKey: string | null;
   stockMilli: number;
   /** Tracked and at/below its warning level, or below zero. */
   low: boolean;
@@ -528,7 +532,7 @@ export interface PublicCatalogue {
   showPrices: boolean;
   shop: CatalogueAddress & { name: string; email: string | null; logoKey: string | null };
   branches: (CatalogueAddress & { id: number; name: string })[];
-  products: { id: number; name: string; sku: string | null; category: string | null; unit: string; pricePaise: number | null; available: boolean }[];
+  products: { id: number; name: string; sku: string | null; category: string | null; unit: string; pricePaise: number | null; imageKey: string | null; available: boolean }[];
   truncated: boolean;
   generatedAt: string;
 }
@@ -609,7 +613,7 @@ export interface TableMenu {
   firstOrderDiscountPct: number;
   /** null until the guest has confirmed their email; the menu stays empty until then. */
   guest: { name: string; phone: string; email: string; discountPct: number; prizePct: number } | null;
-  products: { id: number; name: string; category: string | null; unit: string; pricePaise: number }[];
+  products: { id: number; name: string; category: string | null; unit: string; pricePaise: number; imageKey: string | null }[];
 }
 
 /** One of a guest's orders, as the guest sees it. */

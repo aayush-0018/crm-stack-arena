@@ -1,4 +1,4 @@
-import { Check, ChefHat, CookingPot, Download, Gamepad2, HandPlatter, MessageCircle, Receipt, Star } from 'lucide-react';
+import { Check, CookingPot, Download, Gamepad2, HandPlatter, MessageCircle, Receipt, Star } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -16,8 +16,7 @@ const REVIEW_COUNTDOWN = 4;
 const STEPS: { status: KitchenStatus; label: string; hint: string; Icon: typeof Check }[] = [
   { status: 'new', label: 'Order received', hint: 'The kitchen has your order.', Icon: Receipt },
   { status: 'preparing', label: 'Preparing', hint: 'Your food is being made.', Icon: CookingPot },
-  { status: 'ready', label: 'Ready', hint: 'Coming to your table now.', Icon: ChefHat },
-  { status: 'served', label: 'Served', hint: 'Enjoy your meal!', Icon: HandPlatter },
+  { status: 'served', label: 'Ready', hint: 'Your order is ready. Enjoy your meal!', Icon: HandPlatter },
 ];
 
 /** The guest's view of one order: progress, items and whether it's paid. Refreshes itself. */
@@ -25,7 +24,7 @@ export default function GuestOrderPage() {
   const { guestToken = '' } = useParams();
   const [o, setO] = useState<GuestOrderView | null>(null);
   const [missing, setMissing] = useState(false);
-  // Stop refreshing once it's over: cancelled, or served, paid and the bill sent.
+  // Stop refreshing once it's over: cancelled, or ready, paid and the bill sent.
   const done = o && (o.status === 'cancelled' || (o.kitchenStatus === 'served' && o.paymentStatus === 'paid' && !!o.billToken));
 
   const load = useCallback(() => {
@@ -90,14 +89,14 @@ export default function GuestOrderPage() {
     );
   }
 
-  const at = STEPS.findIndex((s) => s.status === o.kitchenStatus);
+  const at = STEPS.findIndex((s) => s.status === (o.kitchenStatus === 'ready' ? 'preparing' : o.kitchenStatus));
   const owed = o.totalPaise - o.amountPaidPaise;
 
   return (
     <div className="theme-light min-h-screen bg-[#faf8f4] px-4 pb-10 pt-6 text-[#1f1b16]">
       <div className="mx-auto max-w-md">
         <div className="flex items-center gap-3">
-          <ShopLogo logoKey={o.logoKey} name={o.shopName} size={40} />
+          <ShopLogo logoKey={o.logoKey} name={o.shopName} size={40} zoom />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] font-semibold">{o.shopName}</p>
             <p className="text-[13px] text-[#8a8276]">

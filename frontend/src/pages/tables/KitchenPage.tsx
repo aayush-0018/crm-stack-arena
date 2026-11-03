@@ -10,10 +10,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import type { KitchenOrder, KitchenStatus } from '../../types';
 
-const COLUMNS: { status: KitchenStatus; title: string; action: string; accent: string }[] = [
-  { status: 'new', title: 'New', action: 'Start preparing', accent: 'bg-amber-400' },
-  { status: 'preparing', title: 'Preparing', action: 'Mark ready', accent: 'bg-sky-400' },
-  { status: 'ready', title: 'Ready to serve', action: 'Served', accent: 'bg-emerald-400' },
+const COLUMNS: { statuses: KitchenStatus[]; title: string; action: string; accent: string }[] = [
+  { statuses: ['new'], title: 'New', action: 'Start preparing', accent: 'bg-amber-400' },
+  { statuses: ['preparing', 'ready'], title: 'Preparing', action: 'Mark ready', accent: 'bg-sky-400' },
 ];
 
 const SOUND_KEY = 'crm.kitchenSound';
@@ -66,7 +65,7 @@ function Ticket({
   const late = age >= 20 ? 'border-l-red-500' : age >= 10 ? 'border-l-amber-400' : 'border-l-zinc-600';
   const next = NEXT_STATUS[o.kitchenStatus];
   const prev = PREV_STATUS[o.kitchenStatus];
-  const action = COLUMNS.find((c) => c.status === o.kitchenStatus)?.action;
+  const action = COLUMNS.find((c) => c.statuses.includes(o.kitchenStatus))?.action;
   return (
     <article className={`rounded-xl border border-zinc-800 border-l-[6px] bg-zinc-900 p-4 ${late} ${fresh ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-zinc-950 animate-[pulse_1.2s_ease-in-out_3]' : ''}`}>
       <header className="flex items-start justify-between gap-3">
@@ -115,16 +114,16 @@ function Ticket({
             {busy && <Spinner className="h-4 w-4" />} {action}
           </button>
         )}
-        {/* Skip the steps: straight to served, for when there's no time to tap each one. */}
+        {/* Skip a step: straight to Ready, for when there's no time to tap each one. */}
         {next && next !== 'served' && (
           <button
             type="button"
             disabled={busy}
             onClick={() => onMove(o, 'served')}
-            title="Mark served now, skipping the steps in between"
+            title="Mark ready now, skipping Preparing"
             className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 px-3 text-[14px] font-medium text-zinc-200 hover:bg-zinc-800 hover:text-white disabled:opacity-50"
           >
-            <CheckCheck size={17} /> Served
+            <CheckCheck size={17} /> Ready
           </button>
         )}
         {onDelete && (
@@ -251,7 +250,7 @@ export default function KitchenPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sound]);
 
-  const served = (orders ?? []).filter((o) => o.kitchenStatus === 'served').reverse();
+  const done = (orders ?? []).filter((o) => o.kitchenStatus === 'served').reverse();
   const headBtn = 'flex h-10 items-center gap-2 rounded-lg border border-zinc-800 px-3 text-[13.5px] text-zinc-300 hover:bg-zinc-900 hover:text-white';
 
   return (
@@ -287,9 +286,9 @@ export default function KitchenPage() {
       ) : (
         <main className="grid gap-4 p-4 sm:p-6 lg:grid-cols-3">
           {COLUMNS.map((col) => {
-            const list = orders.filter((o) => o.kitchenStatus === col.status);
+            const list = orders.filter((o) => col.statuses.includes(o.kitchenStatus));
             return (
-              <section key={col.status} aria-label={col.title} className="min-w-0">
+              <section key={col.title} aria-label={col.title} className="min-w-0">
                 <h2 className="mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
                   <span className={`h-2.5 w-2.5 rounded-full ${col.accent}`} />
                   {col.title}
@@ -298,7 +297,7 @@ export default function KitchenPage() {
                 <div className="space-y-3">
                   {list.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-zinc-800 px-4 py-10 text-center text-[14px] text-zinc-600">
-                      {col.status === 'new' ? 'No new orders' : col.status === 'preparing' ? 'Nothing cooking' : 'Nothing waiting'}
+                      {col.statuses.includes('new') ? 'No new orders' : 'Nothing cooking'}
                     </p>
                   ) : (
                     list.map((o) => <Ticket key={o.id} o={o} now={now} fresh={fresh.has(o.id)} busy={busy === o.id} onMove={move} onDelete={isOwner ? setRemoving : undefined} />)
@@ -307,25 +306,34 @@ export default function KitchenPage() {
               </section>
             );
           })}
-          {served.length > 0 && (
-            <section className="lg:col-span-3" aria-label="Recently served">
-              <h2 className="mb-2 mt-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Served in the last 30 minutes</h2>
-              <div className="flex flex-wrap gap-2">
-                {served.map((o) => (
+          {/* The final state. Kept here for 30 minutes so a slip can be undone. */}
+          <section aria-label="Ready" className="min-w-0">
+            <h2 className="mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              Ready
+              <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[12px] tabular-nums text-zinc-200">{done.length}</span>
+            </h2>
+            {done.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-zinc-800 px-4 py-10 text-center text-[14px] text-zinc-600">Nothing ready in the last 30 minutes</p>
+            ) : (
+              <div className="space-y-2">
+                {done.map((o) => (
                   <button
                     key={o.id}
                     type="button"
-                    onClick={() => move(o, 'ready')}
-                    title="Served by mistake? Move it back to Ready"
-                    className="flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-[13px] text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                    onClick={() => move(o, 'preparing')}
+                    title="Marked ready by mistake? Move it back to Preparing"
+                    className="flex w-full items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2.5 text-left text-[13.5px] text-zinc-400 hover:bg-zinc-900 hover:text-white"
                   >
-                    {o.tableLabel ? `Table ${o.tableLabel}` : o.orderNumber} · {o.items.length} {o.items.length === 1 ? 'item' : 'items'}
+                    <span className="min-w-0 flex-1 truncate">
+                      {o.tableLabel ? `Table ${o.tableLabel}` : 'Counter'} · {o.orderNumber} · {o.items.length} {o.items.length === 1 ? 'item' : 'items'}
+                    </span>
                     <Undo2 size={13} />
                   </button>
                 ))}
               </div>
-            </section>
-          )}
+            )}
+          </section>
         </main>
       )}
 

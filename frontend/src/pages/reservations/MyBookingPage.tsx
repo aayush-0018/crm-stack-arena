@@ -64,7 +64,7 @@ export default function MyBookingPage() {
     <div className="theme-light min-h-screen bg-[#faf8f4] px-4 pb-10 pt-6 text-[#1f1b16]">
       <div className="mx-auto max-w-md">
         <div className="flex items-center gap-3">
-          <ShopLogo logoKey={b.shop.logoKey} name={b.shop.name} size={40} />
+          <ShopLogo logoKey={b.shop.logoKey} name={b.shop.name} size={40} zoom />
           <p className="min-w-0 flex-1 truncate text-[17px] font-semibold">{b.shop.name}</p>
         </div>
 

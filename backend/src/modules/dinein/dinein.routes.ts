@@ -125,7 +125,7 @@ publicTablesRouter.get(
       // The menu opens only after the guest has confirmed their email.
       guest: s ? { name: s.name, phone: s.phone, email: s.email, discountPct, prizePct } : null,
       products: s
-        ? (await catalogueProducts(pool, table.shopId, true)).map(({ id, name, category, unit, pricePaise }) => ({ id, name, category, unit, pricePaise }))
+        ? (await catalogueProducts(pool, table.shopId, true)).map(({ id, name, category, unit, pricePaise, imageKey }) => ({ id, name, category, unit, pricePaise, imageKey }))
         : [],
     });
   }),

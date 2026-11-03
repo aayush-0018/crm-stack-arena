@@ -1,4 +1,4 @@
-import { CalendarClock, ChefHat, Download, ExternalLink, Printer, RefreshCw, Users, X } from 'lucide-react';
+import { CalendarClock, ChefHat, Download, ExternalLink, Pencil, Printer, RefreshCw, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -8,12 +8,14 @@ import ReservationsBoard from '../../components/reservations/ReservationsBoard';
 import { clock, people } from '../../components/reservations/reservations';
 import FloorCanvas from '../../components/tables/FloorCanvas';
 import FloorPlanEditor from '../../components/tables/FloorPlanEditor';
+import TableOrderEditor from '../../components/tables/TableOrderEditor';
 import QrImage, { useQrDataUrl } from '../../components/tables/QrImage';
 import { KITCHEN_LABEL, NEXT_STATUS, qty, since, TABLE_STATE, tableState, tableUrl, usePolling, useNow } from '../../components/tables/dinein';
 import { Pill } from '../../components/ui/Badge';
 import Button, { ButtonLink } from '../../components/ui/Button';
 import { controlClass } from '../../components/ui/Field';
 import ShopLogo from '../../components/ui/ShopLogo';
+import { ConfirmDialog } from '../../components/ui/Modal';
 import { Alert, EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { PageTop } from '../../components/ui/Tabs';
 import { useAuth } from '../../context/AuthContext';
@@ -97,6 +99,7 @@ function TablePanel({
   const now = useNow();
   const [method, setMethod] = useState<Exclude<PaymentMethod, 'unrecorded'>>('cash');
   const [busy, setBusy] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const act = async (id: number, fn: () => Promise<unknown>, done: string) => {
     setBusy(id);
     try {
@@ -136,7 +139,7 @@ function TablePanel({
                   <span className="text-[12px] text-ink-3">{since(o.createdAt, now)}</span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  <Pill tone={o.kitchenStatus === 'ready' ? 'green' : o.kitchenStatus === 'new' ? 'amber' : o.kitchenStatus === 'served' ? 'gray' : 'blue'}>{KITCHEN_LABEL[o.kitchenStatus]}</Pill>
+                  <Pill tone={o.kitchenStatus === 'served' ? 'green' : o.kitchenStatus === 'new' ? 'amber' : 'blue'}>{KITCHEN_LABEL[o.kitchenStatus]}</Pill>
                   <Pill tone={o.paymentStatus === 'paid' ? 'green' : o.paymentStatus === 'partial' ? 'amber' : 'red'}>{o.paymentStatus === 'paid' ? 'Paid' : owed < o.totalPaise ? `${formatINR(owed)} due` : 'Unpaid'}</Pill>
                 </div>
                 <ul className="mt-2 space-y-0.5 text-ink-2">
@@ -152,6 +155,9 @@ function TablePanel({
                     {formatINR(o.totalPaise)}
                     {o.discountPaise > 0 && <span className="ml-1.5 text-[12px] font-normal text-success-text">incl. {formatINR(o.discountPaise)} off</span>}
                   </span>
+                  <Button size="sm" variant="ghost" disabled={busy === o.id} onClick={() => setEditing(o.id)}>
+                    <Pencil size={13} /> Edit
+                  </Button>
                   {next && (
                     <Button size="sm" variant="secondary" loading={busy === o.id} onClick={() => act(o.id, () => kitchenApi.setStatus(o.id, next), `Marked ${KITCHEN_LABEL[next].toLowerCase()}`)}>
                       Mark {KITCHEN_LABEL[next].toLowerCase()}
@@ -179,6 +185,16 @@ function TablePanel({
             </label>
           )}
         </div>
+      )}
+      {editing !== null && (
+        <TableOrderEditor
+          orderId={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            onChange(null);
+          }}
+        />
       )}
     </div>
   );
@@ -349,16 +365,16 @@ function QrCard({ shopName, logoKey, label, token }: { shopName: string; logoKey
 function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan) => void }) {
   const { shop, user } = useAuth();
   const toast = useToast();
-  const [confirm, setConfirm] = useState<number | null>(null);
+  // The table whose QR code is about to be replaced.
+  const [confirm, setConfirm] = useState<{ id: number; label: string } | null>(null);
   const localOnly = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
   if (!plan.floors.some((f) => f.tables.length)) {
     return <EmptyState title="No tables yet" description="Each table you add to the floor plan gets its own QR code." action={<ButtonLink to="/tables?tab=plan">Draw floor plan</ButtonLink>} />;
   }
   const replace = async (id: number) => {
-    if (confirm !== id) return setConfirm(id);
-    setConfirm(null);
     try {
       onChange(await floorPlanApi.newQr(id));
+      setConfirm(null);
       toast('success', 'New QR code ready. Print it: the old one no longer works.');
     } catch (e) {
       toast('error', e instanceof ApiError ? e.message : 'Could not replace the QR code');
@@ -387,8 +403,8 @@ function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan)
           <div key={t.id} className="break-inside-avoid">
             <QrCard shopName={shop?.name ?? ''} logoKey={shop?.logoKey ?? null} label={t.label} token={t.qrToken} />
             {user?.role === 'owner' && (
-              <button type="button" onClick={() => replace(t.id)} className="no-print mt-1 w-full text-center text-[11.5px] text-ink-3 hover:text-danger-text">
-                {confirm === t.id ? 'Click again: the printed code will stop working' : 'Replace QR code'}
+              <button type="button" onClick={() => setConfirm({ id: t.id, label: t.label })} className="no-print mt-1 w-full text-center text-[11.5px] text-ink-3 hover:text-danger-text">
+                Replace QR code
               </button>
             )}
           </div>
@@ -396,6 +412,15 @@ function QrSheet({ plan, onChange }: { plan: FloorPlan; onChange: (p: FloorPlan)
       </div>
       </section>
       ))}
+      <ConfirmDialog
+        open={!!confirm}
+        title={`Replace the QR code for table ${confirm?.label ?? ''}?`}
+        message="A new code is made for this table and the printed one stops working straight away. Guests scanning the old sticker won't be able to order until you print and stick the new one."
+        confirmLabel="Replace QR code"
+        danger
+        onConfirm={() => (confirm ? replace(confirm.id) : undefined)}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }

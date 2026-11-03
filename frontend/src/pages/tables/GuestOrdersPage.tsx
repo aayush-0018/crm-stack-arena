@@ -185,7 +185,7 @@ export default function GuestOrdersPage() {
         )}
         {earlier.length > 0 && (
           <section className="mt-5" aria-label="Earlier">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">Served and earlier</p>
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">Ready and earlier</p>
             <ul className="space-y-3">
               {earlier.map((o) => (
                 <OrderCard key={o.guestToken} o={o} />

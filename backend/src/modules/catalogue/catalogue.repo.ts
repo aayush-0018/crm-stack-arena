@@ -69,6 +69,7 @@ export interface CatalogueProduct {
   category: string | null;
   unit: string;
   pricePaise: number;
+  imageKey: string | null;
   available: boolean;
 }
 
@@ -78,7 +79,7 @@ export const CATALOGUE_MAX_PRODUCTS = 2000;
 /** Active products by category (uncategorised last), then name. Never includes cost or stock levels. */
 export async function catalogueProducts(db: Db, shopId: number, hideOutOfStock: boolean): Promise<CatalogueProduct[]> {
   const { rows } = await db.query(
-    `SELECT p.id, p.name, p.sku, p.category, p.unit, p.price_paise AS "pricePaise",
+    `SELECT p.id, p.name, p.sku, p.category, p.unit, p.price_paise AS "pricePaise", p.image_key AS "imageKey",
        (NOT p.track_stock OR COALESCE(s.qty, 0) > 0) AS available
      FROM products p
      LEFT JOIN (SELECT product_id, sum(qty_milli) AS qty FROM stock_movements WHERE shop_id = $1 GROUP BY product_id) s

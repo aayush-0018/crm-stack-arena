@@ -184,7 +184,7 @@ export default function BookTablePage() {
     <div className="theme-light min-h-screen bg-[#faf8f4] px-4 pb-10 pt-6 text-[#1f1b16]">
       <div className="mx-auto max-w-md">
         <div className="flex items-center gap-3">
-          <ShopLogo logoKey={page.shop.logoKey} name={page.shop.name} size={44} />
+          <ShopLogo logoKey={page.shop.logoKey} name={page.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{page.shop.name}</h1>
             <p className="text-[13px] text-[#8a8276]">Book a table</p>

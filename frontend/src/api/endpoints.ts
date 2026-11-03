@@ -221,6 +221,8 @@ export const productsApi = {
   importRows: (rows: Record<string, string>[], dryRun: boolean) => api.post<ImportResult>('/products/import', { rows, dryRun }),
   update: (id: number | string, body: ProductPayload) => api.put<ProductDetail>(`/products/${id}`, body),
   setActive: (id: number | string, active: boolean) => api.patch<ProductDetail>(`/products/${id}/active`, { active }),
+  uploadImage: (id: number | string, dataUrl: string) => api.put<ProductDetail>(`/products/${id}/image`, { dataUrl }),
+  removeImage: (id: number | string) => api.delete<ProductDetail>(`/products/${id}/image`),
   addStock: (
     id: number | string,
     body: { kind: 'receipt' | 'write_off' | 'stocktake'; qty: string; note: string | null; idempotencyKey: string },

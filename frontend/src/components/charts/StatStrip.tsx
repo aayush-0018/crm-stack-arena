@@ -6,7 +6,7 @@ import { usePageNumbers } from '../../context/PrivacyContext';
 const StripHidden = createContext(false);
 
 /** Row of headline numbers at the top of a page, with hide (eye) and collapse controls. */
-export function StatStrip({ page, children, dim }: { page: string; children: ReactNode; dim?: boolean }) {
+export function StatStrip({ page, children, dim, even }: { page: string; children: ReactNode; dim?: boolean; even?: 3 }) {
   // Each page remembers its own hide / collapse state.
   const { hideNumbers, toggleHideNumbers, collapsed, toggleCollapsed } = usePageNumbers(page);
   const iconBtn = 'flex h-7 w-7 items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink';
@@ -46,7 +46,7 @@ export function StatStrip({ page, children, dim }: { page: string; children: Rea
         </button>
       ) : (
         <div
-          className={`grid grid-cols-2 gap-x-6 gap-y-7 px-4 py-6 transition-opacity sm:grid-cols-3 sm:px-6 lg:grid-cols-5 lg:gap-x-10 ${
+          className={`grid grid-cols-2 gap-x-6 gap-y-7 px-4 py-6 transition-opacity sm:grid-cols-3 sm:px-6 lg:gap-x-10 ${even === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-5'} ${
             dim ? 'opacity-50' : ''
           }`}
         >
