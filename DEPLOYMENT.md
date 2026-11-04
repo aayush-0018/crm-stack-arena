@@ -325,6 +325,7 @@ The runner skips files already applied, so it's safe to run any time.
 | `017_reviews_and_games.sql` | `shops.google_review_url`, `guest_sessions.review_opened_at`, `game_rounds`, `game_entries`, `game_prizes` | Google review step and the table game — **run before deploying**: login and Settings read the shop's review link, and guest orders read prizes |
 | `018_table_rounds_and_traitor.sql` | `game_rounds.table_id`, `party_games`, `party_players` | Just-your-table quiz rounds and Traitor — **run before deploying**: the game page reads them |
 | `019_product_images.sql` | `product_images`, `products.image_key` | Product photos — **run before deploying**: every product list, the catalogue and the table menu read `image_key` |
+| `020_staff_attendance.sql` | `employees`, `attendance` | Staff attendance — run before deploying: only the new Staff attendance page reads them |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -333,7 +334,7 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/003_branches.sql
 psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 ```
 
-**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items`, `catalogues`, `floor_plans`, `dining_tables`, `floors`, `guest_otps`, `guest_sessions`, `reservation_settings`, `reservations`, `game_rounds`, `game_entries`, `game_prizes`, `party_games`, `party_players` and `product_images` too.
+**Each new table also needs the Data API protection from Phase 1.** If you chose RLS rather than switching the Data API off, enable it on `invoice_shares`, `shop_members`, `shop_logos`, `password_resets`, `payments`, `products`, `stock_movements`, `receipts`, `order_returns`, `order_return_items`, `catalogues`, `floor_plans`, `dining_tables`, `floors`, `guest_otps`, `guest_sessions`, `reservation_settings`, `reservations`, `game_rounds`, `game_entries`, `game_prizes`, `party_games`, `party_players`, `product_images`, `employees` and `attendance` too.
 
 **011–012 (receipts, returns):** additive; existing rows keep their values (`returned_paise` starts at 0). Rehearsed by the upgrade test in `migrations.test.ts`. Rollback: redeploy the previous code; don't drop the tables (they hold receipt and return history).
 
@@ -346,6 +347,8 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 **017 (reviews, table game):** additive; every shop starts with no review link (no review step). Rollback: redeploy the previous code; keep the tables (prizes point at orders).
 
 **019 (product photos):** additive; products without a photo look as before. Rollback: redeploy the previous code (it ignores the new column and table).
+
+**020 (staff attendance):** additive, two new tables only; nothing existing reads them. The Growth page needs no migration. Rollback: redeploy the previous code; keep the tables (they hold the attendance history).
 
 **018 (table rounds, Traitor):** additive; existing rounds stay all-tables rounds. Rollback: redeploy the previous code (it ignores the new column and tables).
 

@@ -6,6 +6,7 @@ import { AppError } from '../../lib/errors';
 import { todayIST } from '../../lib/numbering';
 import { dateInput } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
+import { growthQuery, growthReport } from './growth';
 
 export const reportsRouter = Router();
 
@@ -116,5 +117,15 @@ reportsRouter.get(
       byDate: dates.map((date) => ({ date, ...sum(rowsOut.filter((r) => r.date === date)) })),
       totals: sum(rowsOut),
     });
+  }),
+);
+
+/** Month-on-month, quarter-on-quarter and year-on-year growth, with a breakdown by one dimension. */
+reportsRouter.get(
+  '/growth',
+  ah(async (req, res) => {
+    const shopId = auth(req).shopId;
+    const q = growthQuery.parse(req.query);
+    res.json(await growthReport(shopId, await todayIST(pool), q));
   }),
 );

@@ -56,6 +56,14 @@ import type {
   GameScope,
   GameState,
   User,
+  AttendanceDay,
+  AttendanceMonth,
+  AttendanceStatus,
+  Employee,
+  GrowthBasis,
+  GrowthDimension,
+  GrowthGrain,
+  GrowthReport,
 } from '../types';
 import { api } from './client';
 
@@ -365,4 +373,35 @@ export const returnsApi = {
 export const reportsApi = {
   ageing: (q: { from?: string; to?: string }) => api.get<AgeingReport>('/reports/ageing', q),
   collections: (q: { from?: string; to?: string }) => api.get<CollectionsReport>('/reports/collections', q),
+  growth: (q: { grain: GrowthGrain; basis: GrowthBasis; by: GrowthDimension }) => api.get<GrowthReport>('/reports/growth', q),
+};
+
+export interface EmployeePayload {
+  name: string;
+  phone: string;
+  jobTitle: string;
+  dailyWage: string;
+  joinedOn: string;
+}
+
+export interface MarkPayload {
+  employeeId: number;
+  status: AttendanceStatus | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  note?: string | null;
+}
+
+export const staffApi = {
+  list: () => api.get<Employee[]>('/staff'),
+  create: (body: EmployeePayload) => api.post<Employee>('/staff', body),
+  update: (id: number, body: EmployeePayload) => api.put<Employee>(`/staff/${id}`, body),
+  setActive: (id: number, active: boolean) => api.patch<Employee>(`/staff/${id}/active`, { active }),
+  remove: (id: number) => api.delete<void>(`/staff/${id}`),
+};
+
+export const attendanceApi = {
+  day: (date?: string) => api.get<AttendanceDay>('/attendance/day', { date }),
+  save: (date: string, marks: MarkPayload[]) => api.put<AttendanceDay>('/attendance/day', { date, marks }),
+  month: (month?: string) => api.get<AttendanceMonth>('/attendance/month', { month }),
 };

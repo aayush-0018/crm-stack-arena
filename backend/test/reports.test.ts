@@ -109,3 +109,85 @@ describe('collections (payment reconciliation)', () => {
     assert.equal((await api.get(`/reports/collections?from=2026-02-31`)).status, 400);
   });
 });
+
+describe('growth (MoM, QoQ, YoY)', () => {
+  test('like-for-like ranges handle short months, quarters and the last full period', async () => {
+    const { comparisonRanges } = await import('../src/modules/reports/growth');
+    const m = comparisonRanges('month', 'to_date', '2026-03-31');
+    assert.deepEqual([m.current.from, m.current.to], ['2026-03-01', '2026-03-31']);
+    assert.deepEqual([m.previous.from, m.previous.to], ['2026-02-01', '2026-02-28'], 'capped at the end of February');
+    assert.deepEqual([m.lastYear.from, m.lastYear.to], ['2025-03-01', '2025-03-31']);
+    const d = comparisonRanges('month', 'to_date', '2026-11-04');
+    assert.deepEqual([d.previous.from, d.previous.to, d.previous.label], ['2026-10-01', '2026-10-04', 'Oct 2026 (to 4 Oct)']);
+    const q = comparisonRanges('quarter', 'last_full', '2026-05-10');
+    assert.deepEqual([q.current.from, q.current.to, q.current.label], ['2026-01-01', '2026-03-31', 'Q1 2026']);
+    assert.deepEqual([q.previous.from, q.previous.to], ['2025-10-01', '2025-12-31']);
+    assert.deepEqual([q.lastYear.from, q.lastYear.to], ['2025-01-01', '2025-03-31']);
+    const y = comparisonRanges('year', 'to_date', '2026-02-10');
+    assert.deepEqual([y.previous.from, y.previous.to], ['2025-01-01', '2025-02-10']);
+  });
+
+  test('sales, orders, customers and money received per period; cancelled and future orders left out', async () => {
+    const { addMonths, startOf } = await import('../src/modules/reports/growth');
+    const { api } = await newShop();
+    const today = await daysFromToday(0);
+    const thisMonth = startOf('month', today);
+    const lastMonth = addMonths(thisMonth, -1);
+    const lastYear = addMonths(thisMonth, -12);
+
+    const a = await newOrder(api, { items: item('100'), amountPaid: '100' }); // today
+    await newOrder(api, { items: item('300'), orderDate: thisMonth, customerId: a.customerId });
+    await newOrder(api, { items: item('200'), orderDate: lastMonth, customerId: a.customerId });
+    await newOrder(api, { items: item('50'), orderDate: lastYear });
+    await newOrder(api, { items: item('999'), orderDate: await daysFromToday(2) }); // future: not yet
+    const x = await newOrder(api, { items: item('700') });
+    await api.patch(`/orders/${x.id}/status`, { status: 'cancelled' });
+    await api.post('/orders', { walkIn: true, items: item('40'), discount: '0', amountPaid: '0' });
+
+    const r = (await api.get('/reports/growth?grain=month&by=channel')).body;
+    assert.equal(r.summary.current.revenuePaise, 10000 + 30000 + 4000);
+    assert.equal(r.summary.current.orders, 3);
+    assert.equal(r.summary.current.aovPaise, Math.round(44000 / 3));
+    assert.equal(r.summary.current.customers, 1, 'walk-ins are not counted as customers');
+    assert.equal(r.summary.current.receivedPaise, 10000);
+    assert.equal(r.summary.previous.revenuePaise, 20000, 'the 1st of last month is always inside the like-for-like range');
+    assert.equal(r.summary.lastYear.revenuePaise, 5000);
+    assert.equal(r.summary.lastYear.newCustomers, 1);
+    assert.equal(r.summary.previous.newCustomers, 1, "customer a's first order was last month");
+    assert.equal(r.summary.current.newCustomers, 0);
+
+    // Twelve months, oldest first, each carrying the month before and the same month last year.
+    assert.equal(r.series.length, 12);
+    const cur = r.series.at(-1);
+    assert.equal(cur.start, thisMonth);
+    assert.equal(cur.partial, true);
+    assert.equal(cur.revenuePaise, 44000);
+    assert.equal(cur.previous.revenuePaise, 20000);
+    assert.equal(cur.lastYear.start, lastYear);
+    assert.equal(cur.lastYear.revenuePaise, 5000);
+
+    assert.deepEqual(
+      r.breakdown.rows.map((b: any) => [b.label, b.current]),
+      [['Customer orders', 40000], ['Walk-in sales', 4000]],
+    );
+
+    const full = (await api.get('/reports/growth?grain=month&basis=last_full&by=category')).body;
+    assert.equal(full.ranges.current.from, lastMonth);
+    assert.equal(full.summary.current.revenuePaise, 20000);
+    assert.deepEqual(full.breakdown.rows[0], { label: 'No category', current: 20000, previous: 0, lastYear: 0 });
+
+    const years = (await api.get('/reports/growth?grain=year&by=payment')).body;
+    assert.equal(years.series.length, 5);
+    assert.equal(years.breakdown.rows[0].current, 10000);
+    assert.equal((await api.get('/reports/growth?grain=week')).status, 400);
+  });
+
+  test('another shop sees nothing', async () => {
+    const a = await newShop();
+    await newOrder(a.api, { items: item('100') });
+    const b = await newShop('Other');
+    const r = (await b.api.get('/reports/growth')).body;
+    assert.equal(r.summary.current.revenuePaise, 0);
+    assert.deepEqual(r.breakdown.rows, []);
+  });
+});

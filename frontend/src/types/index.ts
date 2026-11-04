@@ -790,3 +790,83 @@ export interface GuestBooking {
 }
 
 export type LiveFloor = FloorPlan & { orders: KitchenOrder[]; reservations: Reservation[] };
+
+// ---------------------------------------------------------------------------
+// Staff and attendance
+// ---------------------------------------------------------------------------
+export type AttendanceStatus = 'present' | 'half_day' | 'absent' | 'leave' | 'week_off';
+
+/** Someone who works at the branch (no login needed). Wages are null for non-owners. */
+export interface Employee {
+  id: number;
+  name: string;
+  phone: string | null;
+  jobTitle: string | null;
+  dailyWagePaise: number | null;
+  joinedOn: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface AttendanceMark {
+  status: AttendanceStatus;
+  checkIn: string | null;
+  checkOut: string | null;
+  note: string | null;
+}
+
+export interface AttendanceDay {
+  date: string;
+  today: string;
+  staff: (Employee & { mark: (AttendanceMark & { updatedAt: string }) | null })[];
+  counts: Record<AttendanceStatus | 'unmarked', number>;
+}
+
+export interface AttendanceMonth {
+  month: string;
+  today: string;
+  days: string[];
+  staff: (Employee & {
+    marks: Record<string, AttendanceMark>;
+    present: number;
+    halfDay: number;
+    absent: number;
+    leave: number;
+    weekOff: number;
+    unmarked: number;
+    workedDays: number;
+    payPaise: number | null;
+  })[];
+}
+
+// ---------------------------------------------------------------------------
+// Growth (MoM / QoQ / YoY)
+// ---------------------------------------------------------------------------
+export type GrowthGrain = 'month' | 'quarter' | 'year';
+export type GrowthBasis = 'to_date' | 'last_full';
+export type GrowthDimension = 'category' | 'product' | 'channel' | 'payment';
+
+export interface GrowthMetrics {
+  revenuePaise: number;
+  orders: number;
+  aovPaise: number;
+  customers: number;
+  newCustomers: number;
+  receivedPaise: number;
+}
+
+export interface GrowthPeriod extends GrowthMetrics {
+  start: string;
+  label: string;
+  partial: boolean;
+}
+
+export interface GrowthReport {
+  grain: GrowthGrain;
+  basis: GrowthBasis;
+  today: string;
+  ranges: Record<'current' | 'previous' | 'lastYear', { from: string; to: string; label: string }>;
+  summary: Record<'current' | 'previous' | 'lastYear', GrowthMetrics>;
+  series: (GrowthPeriod & { previous: GrowthPeriod | null; lastYear: GrowthPeriod })[];
+  breakdown: { by: GrowthDimension; rows: { label: string; current: number; previous: number; lastYear: number }[] };
+}

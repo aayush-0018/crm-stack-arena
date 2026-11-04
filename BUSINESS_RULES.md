@@ -121,6 +121,7 @@ All figures are per branch. All money figures exclude cancelled orders unless st
 | Due on invoices | Live balance due of orders that have an issued invoice | Now |
 | **Outstanding & ageing** (report) | Every non-cancelled order with a balance above zero. Age = today − order date (there are no due dates; a future-dated order is 0 days). Buckets 0–30, 31–60, 61–90, 90+ days. By customer (walk-ins grouped) or by order | As of today; the date filter is on the order date |
 | **Collections** (report) | Received, refunded and net per payment date and method, from the ledger (removed entries excluded). Each entry counts once on its own date, so a settlement split over orders adds up to what was collected | Payment date (default the last 30 days; at most 366) |
+| **Growth** (MoM / QoQ / YoY) | Sales (order totals after discounts and returns, cancelled excluded, by order date), orders, average order (sales ÷ orders), customers who ordered (walk-ins not counted), new customers (first ever non-cancelled order in the period) and money received (payments − refunds by payment date). Calendar months, quarters and years. **So far** compares the current period up to today with the same number of days of the previous period and of the same period last year (capped at that period's end); **Last full** compares the last complete period. Breakdowns: category and product use line amounts before order-level discounts, less returns; channel = table orders / walk-in sales / customer orders; payment method uses the payment ledger | Order date (payments: payment date). Future-dated orders are not counted until their date |
 | 10 pm summary | Orders, sales, payments and new customers **entered** between 10 pm yesterday and 10 pm today (late entries roll into the next summary) | Entry time |
 
 - Comparisons use the previous window of the same length. When that window is empty, the change shows "no prior data" instead of a percentage.
@@ -198,6 +199,14 @@ All booking times are India time (+05:30).
 | Prize | Only in an all-tables round that players from two or more tables took part in. The best score above 0 among players who haven't won the prize at this branch in the last 12 hours wins 10% off (so each guest wins it once a visit; past winners can keep playing for fun, and the prize goes to the next best). Taken off the subtotal of the winner's open table orders from the last 12 hours that have no payment yet, after the first-order discount (never more than what's left). If they have none, it comes off their next table order instead (once, within 12 hours). Shown on the order and bill as part of the discount, and to the guest as "Table game prize" |
 | Shown to others | Players see each other's first name and table only |
 | Traitor | A party game for one table, for 3 to 12 players who have ordered. Someone starts it, the others at the table join, and any player deals: the server picks a random word (with its category) and one random traitor. Everyone's card shows the word, except the traitor's, which shows only the category. They give clues at the table, then vote on their phones (not for themselves; a vote can change). It's revealed once everyone has voted, or when a player taps "Reveal now". The traitor is caught if they got more votes than anyone else. "Play again" brings the same players into a new game. A game left unrevealed for 20 minutes can be started over. No prize |
+
+## 6e. Staff attendance
+
+| Rule | Detail |
+|---|---|
+| **Staff register** | Per branch. Staff don't need a login. Only an **owner** can add, edit, mark as left or remove someone; removing deletes their attendance too, so "Mark as left" is the way to keep history. Mobile is optional (a 10-digit Indian mobile when given). Daily wage is optional and only owners see it |
+| **Marking** | Anyone on the branch can mark. One mark per person per day: Present, Half day, Absent, Leave or Week off. Tapping the chosen mark again clears it. Future days can't be marked. Check-in / check-out times only apply to Present and Half day (check-out can't be before check-in); marking someone present **today** stamps the check-in time unless one is set |
+| **Month view** | Days worked = present + half days × ½. Not marked = days up to today with no mark. Estimated pay (owners only) = days worked × daily wage. People who have left show only in months where they have marks |
 
 ## 7. Input validation (server-side; the browser repeats it for quick feedback)
 
