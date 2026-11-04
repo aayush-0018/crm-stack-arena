@@ -170,7 +170,7 @@ export default function AppShell() {
         <SectionLabel>Analytics</SectionLabel>
         <NavItem to="/analytics/customers" icon={<Users {...ICON} />} label="Customer analytics" />
         <NavItem to="/analytics" end icon={<ChartLine {...ICON} />} label="Order analytics" />
-        <NavItem to="/reports" icon={<Wallet {...ICON} />} label="Reports" />
+        <NavItem to="/analytics/reports" icon={<Wallet {...ICON} />} label="Analytics and reports" />
 
         <SectionLabel>Shop</SectionLabel>
         <NavItem to="/settings" icon={<Settings {...ICON} />} label="Settings" />
