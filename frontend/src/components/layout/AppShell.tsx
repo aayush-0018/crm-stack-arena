@@ -1,7 +1,6 @@
 import {
   ArrowLeftRight,
   Armchair,
-  ChefHat,
   ChartLine,
   Contact,
   FileText,
@@ -162,7 +161,6 @@ export default function AppShell() {
         <NavItem to="/" end icon={<LayoutGrid {...ICON} />} label="Dashboard" />
         <NavItem to="/orders" icon={<ArrowLeftRight {...ICON} />} label="Orders" count={counts.open} />
         <NavItem to="/tables" icon={<Armchair {...ICON} />} label="Tables" />
-        <NavItem to="/kitchen" icon={<ChefHat {...ICON} />} label="Kitchen screen" />
         <NavItem to="/invoices" icon={<FileText {...ICON} />} label="Invoices" count={counts.outdated} />
         <NavItem to="/products" icon={<Package {...ICON} />} label="Products" count={counts.lowStock} />
         <NavItem to="/customers" icon={<Contact {...ICON} />} label="Customers" />
