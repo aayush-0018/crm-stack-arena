@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { pool } from '../../db/pool';
+import { fyName, fyStartMonth, fyStartYear } from '../../lib/fy';
 
 /**
  * Growth: month-on-month, quarter-on-quarter and year-on-year.
  *
  * Money follows the dashboard: sales = order totals (after discounts and returns) by order date,
- * cancelled orders left out; money received = payments minus refunds by payment date. Calendar
- * quarters and years. Orders dated in the future are not counted yet.
+ * cancelled orders left out; money received = payments minus refunds by payment date. Quarters and
+ * years follow the shop's financial year (`fy` = the month it starts in; 1 = calendar year).
+ * Orders dated in the future are not counted yet.
  */
 
 export const GRAINS = ['month', 'quarter', 'year'] as const;
@@ -40,20 +42,28 @@ export const addDays = (iso: string, n: number) => fmt(new Date(parse(iso).getTi
 const daysBetween = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / 86_400_000);
 const minDate = (a: string, b: string) => (a < b ? a : b);
 
-export function startOf(grain: Grain, iso: string) {
+const ymd = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}-01`;
+
+/** First day of the month, quarter or (financial) year that `iso` falls in. */
+export function startOf(grain: Grain, iso: string, fy = 1) {
   const [y, m] = iso.split('-').map(Number);
-  if (grain === 'year') return `${y}-01-01`;
-  const month = grain === 'quarter' ? Math.floor((m - 1) / 3) * 3 + 1 : m;
-  return `${y}-${String(month).padStart(2, '0')}-01`;
+  if (grain === 'month') return ymd(y, m);
+  if (grain === 'year') return ymd(fyStartYear(iso, fy), fy);
+  // Months since the year started, rounded down to a quarter.
+  const back = ((m - fy + 12) % 12) % 3;
+  return addMonths(ymd(y, m), -back);
 }
 const endOf = (grain: Grain, start: string) => addDays(addMonths(start, STEP[grain]), -1);
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-export function periodLabel(grain: Grain, start: string) {
+/** "Nov 2026"; "Q3 2026" / "2026" for calendar years; "Q3 FY 2026-27" / "FY 2026-27" otherwise. */
+export function periodLabel(grain: Grain, start: string, fy = 1) {
   const [y, m] = start.split('-').map(Number);
-  if (grain === 'year') return String(y);
-  if (grain === 'quarter') return `Q${Math.floor((m - 1) / 3) + 1} ${y}`;
-  return `${MONTHS[m - 1]} ${y}`;
+  if (grain === 'month') return `${MONTHS[m - 1]} ${y}`;
+  const name = fyName(fyStartYear(start, fy), fy);
+  const year = fy === 1 ? name : `FY ${name}`;
+  if (grain === 'year') return year;
+  return `Q${Math.floor(((m - fy + 12) % 12) / 3) + 1} ${year}`;
 }
 
 export interface Range {
@@ -66,13 +76,13 @@ export interface Range {
  * The three ranges compared. "So far" compares like for like: if today is the 10th day of the
  * month, it's the first 10 days of last month, and of this month a year ago.
  */
-export function comparisonRanges(grain: Grain, basis: 'to_date' | 'last_full', today: string) {
-  const curStart = startOf(grain, today);
+export function comparisonRanges(grain: Grain, basis: 'to_date' | 'last_full', today: string, fy = 1) {
+  const curStart = startOf(grain, today, fy);
   if (basis === 'to_date') {
     const elapsed = daysBetween(curStart, today);
     const prevStart = addMonths(curStart, -STEP[grain]);
     const lyStart = addMonths(curStart, -12);
-    const tag = (start: string, to: string) => `${periodLabel(grain, start)}${to === endOf(grain, start) ? '' : ` (to ${parse(to).getUTCDate()} ${MONTHS[parse(to).getUTCMonth()]})`}`;
+    const tag = (start: string, to: string) => `${periodLabel(grain, start, fy)}${to === endOf(grain, start) ? '' : ` (to ${parse(to).getUTCDate()} ${MONTHS[parse(to).getUTCMonth()]})`}`;
     const prevTo = minDate(addDays(prevStart, elapsed), endOf(grain, prevStart));
     const lyTo = minDate(addDays(lyStart, elapsed), endOf(grain, lyStart));
     return {
@@ -84,7 +94,7 @@ export function comparisonRanges(grain: Grain, basis: 'to_date' | 'last_full', t
   const start = addMonths(curStart, -STEP[grain]);
   const prevStart = addMonths(start, -STEP[grain]);
   const lyStart = addMonths(start, -12);
-  const full = (s: string): Range => ({ from: s, to: endOf(grain, s), label: periodLabel(grain, s) });
+  const full = (s: string): Range => ({ from: s, to: endOf(grain, s), label: periodLabel(grain, s, fy) });
   return { current: full(start), previous: full(prevStart), lastYear: full(lyStart) };
 }
 
@@ -123,34 +133,36 @@ async function metricsFor(shopId: number, r: Range): Promise<Metrics> {
 }
 
 /** One row per period, oldest first, with enough history for a year-on-year figure on every shown period. */
-async function series(shopId: number, grain: Grain, today: string) {
+async function series(shopId: number, grain: Grain, today: string, fy: number) {
   const lag = 12 / STEP[grain];
-  const curStart = startOf(grain, today);
+  const curStart = startOf(grain, today, fy);
   const first = addMonths(curStart, -STEP[grain] * (SHOWN[grain] + lag - 1));
   const unit = grain;
+  // Quarters and years start in the shop's financial-year month: shift back, truncate, shift forward.
+  const trunc = (col: string) => `(date_trunc($5, (${col} - $7::int * interval '1 month')::timestamp) + $7::int * interval '1 month')::date`;
   const { rows } = await pool.query(
     `WITH periods AS (
        SELECT generate_series($2::date, $3::date, $4::interval)::date AS p
      ), o AS (
-       SELECT date_trunc($5, order_date::timestamp)::date AS p, sum(total_paise)::bigint AS rev, count(*)::int AS n,
+       SELECT ${trunc('order_date')} AS p, sum(total_paise)::bigint AS rev, count(*)::int AS n,
          count(DISTINCT customer_id)::int AS buyers
        FROM orders WHERE shop_id = $1 AND status <> 'cancelled' AND order_date >= $2::date AND order_date <= $6::date GROUP BY 1
      ), f AS (
-       SELECT date_trunc($5, d::timestamp)::date AS p, count(*)::int AS n FROM (${FIRST_ORDERS}) x
+       SELECT ${trunc('d')} AS p, count(*)::int AS n FROM (${FIRST_ORDERS}) x
        WHERE d >= $2::date AND d <= $6::date GROUP BY 1
      ), pay AS (
-       SELECT date_trunc($5, paid_on::timestamp)::date AS p, sum(${NET})::bigint AS r FROM payments
+       SELECT ${trunc('paid_on')} AS p, sum(${NET})::bigint AS r FROM payments
        WHERE shop_id = $1 AND voided_at IS NULL AND paid_on >= $2::date AND paid_on <= $6::date GROUP BY 1
      )
      SELECT to_char(periods.p, 'YYYY-MM-DD') AS start, COALESCE(o.rev, 0)::bigint AS rev, COALESCE(o.n, 0)::int AS n,
        COALESCE(o.buyers, 0)::int AS buyers, COALESCE(f.n, 0)::int AS fresh, COALESCE(pay.r, 0)::bigint AS r
      FROM periods LEFT JOIN o USING (p) LEFT JOIN f USING (p) LEFT JOIN pay USING (p)
      ORDER BY periods.p`,
-    [shopId, first, curStart, `${STEP[grain]} months`, unit, today],
+    [shopId, first, curStart, `${STEP[grain]} months`, unit, today, grain === 'month' ? 0 : fy - 1],
   );
   const all = rows.map((x) => ({
     start: x.start as string,
-    label: periodLabel(grain, x.start),
+    label: periodLabel(grain, x.start, fy),
     partial: x.start === curStart,
     ...withAov({ revenuePaise: Number(x.rev), orders: x.n, customers: x.buyers, newCustomers: x.fresh, receivedPaise: Number(x.r) }),
   }));
@@ -198,17 +210,19 @@ async function breakdown(shopId: number, by: Dimension, ranges: { current: Range
 }
 
 export async function growthReport(shopId: number, today: string, q: z.infer<typeof growthQuery>) {
-  const ranges = comparisonRanges(q.grain, q.basis, today);
+  const fy = await fyStartMonth(pool, shopId);
+  const ranges = comparisonRanges(q.grain, q.basis, today, fy);
   const [current, previous, lastYear, trend, rows] = await Promise.all([
     metricsFor(shopId, ranges.current),
     metricsFor(shopId, ranges.previous),
     metricsFor(shopId, ranges.lastYear),
-    series(shopId, q.grain, today),
+    series(shopId, q.grain, today, fy),
     breakdown(shopId, q.by, ranges),
   ]);
   return {
     grain: q.grain,
     basis: q.basis,
+    fyStartMonth: fy,
     today,
     ranges,
     summary: { current, previous, lastYear },

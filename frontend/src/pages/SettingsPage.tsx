@@ -10,9 +10,10 @@ import LogoPicker from '../components/ui/LogoPicker';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { MONTH_NAMES, sampleInvoiceNumber } from '../lib/fy';
 import type { Shop } from '../types';
 
-type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl'>, string>;
+type Values = Record<Exclude<keyof Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl' | 'fyStartMonth'>, string>;
 const toValues = (s: Shop | null): Values => ({
   name: s?.name ?? '',
   phone: s?.phone ?? '',
@@ -54,6 +55,19 @@ export default function SettingsPage() {
   const [review, setReview] = useState(shop?.googleReviewUrl ?? '');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [fyBusy, setFyBusy] = useState(false);
+
+  const setFinancialYear = async (month: number) => {
+    setFyBusy(true);
+    try {
+      setShop(await shopApi.setFinancialYear(month));
+      toast('success', `Financial year now starts in ${MONTH_NAMES[month - 1]}`);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Could not save');
+    } finally {
+      setFyBusy(false);
+    }
+  };
 
   useEffect(() => setValues(toValues(shop)), [shop]);
   useEffect(() => setReview(shop?.googleReviewUrl ?? ''), [shop]);
@@ -160,7 +174,7 @@ export default function SettingsPage() {
               maxLength={6}
               onChange={(e) => setValues({ ...values, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
               error={errors.code}
-              hint={values.code ? `New invoices: INV-${values.code}-2026-000001` : 'Optional. Keeps invoice numbers unique across branches.'}
+              hint={values.code ? `New invoices: ${sampleInvoiceNumber(values.code, shop?.fyStartMonth)}` : 'Optional. Keeps invoice numbers unique across branches.'}
             />
             <TextField label="Phone" inputMode="tel" value={values.phone} onChange={set('phone')} error={errors.phone} />
             <TextField label="Email" type="email" value={values.email} onChange={set('email')} error={errors.email} />
@@ -175,6 +189,33 @@ export default function SettingsPage() {
             Save
           </Button>
         </form>
+      </Card>
+
+      <Card title="Financial year" className="mt-5">
+        <div className="space-y-3">
+          <label className="block max-w-xs">
+            <span className="mb-1.5 block text-[13px] font-medium text-ink-2">Financial year starts in</span>
+            <select
+              className="block h-9 w-full rounded-lg border border-line bg-surface px-3 pr-8 text-[14px] text-ink shadow-soft disabled:opacity-60"
+              value={shop?.fyStartMonth ?? 1}
+              disabled={fyBusy || !isOwner}
+              onChange={(e) => setFinancialYear(Number(e.target.value))}
+            >
+              {MONTH_NAMES.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                  {i === 0 ? ' (calendar year)' : i === 3 ? ' (India: April to March)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-[13px] text-ink-3">
+            Used for quarters and years on the Growth page, and for the year printed in new invoice, receipt, refund and return numbers
+            (next invoice: <span className="text-ink-2">{sampleInvoiceNumber(shop?.code ?? '', shop?.fyStartMonth)}</span>). Numbers already
+            issued don't change, and the running number carries on. Applies to all your branches.
+            {!isOwner && ' Only an owner can change it.'}
+          </p>
+        </div>
       </Card>
 
       <Card title="Stock" className="mt-5">

@@ -2,6 +2,7 @@ import { Db, pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, notFound } from '../../lib/errors';
 import { branchCode, formatDocNumber, nextSeq } from '../../lib/numbering';
+import { docYear } from '../../lib/fy';
 import { findCustomer } from '../customers/customers.repo';
 import { PaymentKind, PaymentMethod } from '../payments/payments.schemas';
 import { findShop } from '../shop/shop.repo';
@@ -63,9 +64,9 @@ export async function issueReceipt(
   if (!shop) throw notFound('Shop');
   const customer = r.customerId ? await findCustomer(c, r.shopId, r.customerId, { includeDeleted: true }) : null;
   // Only what's printed; internal settings stay out of the snapshot (as on invoices).
-  const { id: _id, allowNegativeStock: _setting, googleReviewUrl: _review, ...shopSnapshot } = shop;
+  const { id: _id, allowNegativeStock: _setting, googleReviewUrl: _review, fyStartMonth: _fy, ...shopSnapshot } = shop;
   const seq = await nextSeq(c, r.shopId, r.kind === 'payment' ? 'receipt' : 'refund');
-  const receiptNumber = formatDocNumber(r.kind === 'payment' ? 'RCPT' : 'RFND', r.date.slice(0, 4), seq, await branchCode(c, r.shopId));
+  const receiptNumber = formatDocNumber(r.kind === 'payment' ? 'RCPT' : 'RFND', await docYear(c, r.shopId, r.date), seq, await branchCode(c, r.shopId));
   const { rows } = await c.query(
     `INSERT INTO receipts (shop_id, kind, receipt_number, receipt_date, customer_id, method, reference, note, amount_paise,
        shop_snapshot, customer_snapshot, allocations, idempotency_key, created_by)

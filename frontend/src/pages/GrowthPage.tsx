@@ -6,6 +6,8 @@ import { PAYMENT_METHOD_LABEL } from '../components/orders/Payments';
 import { SectionHeader } from '../components/ui/Card';
 import { ErrorState, LoadingState } from '../components/ui/States';
 import { PageTop } from '../components/ui/Tabs';
+import { useAuth } from '../context/AuthContext';
+import { MONTH_NAMES } from '../lib/fy';
 import { useAsync } from '../lib/hooks';
 import { formatINR, formatINRCompact } from '../lib/money';
 import type { GrowthBasis, GrowthDimension, GrowthGrain, GrowthMetrics } from '../types';
@@ -71,10 +73,12 @@ export default function GrowthPage() {
   const [metric, setMetric] = useState<MetricKey>('revenuePaise');
   const r = useAsync(() => reportsApi.growth({ grain, basis, by }), [grain, basis, by]);
   const g = GRAIN_TEXT[grain];
+  const fy = useAuth().shop?.fyStartMonth ?? 1;
+  const tabLabel = (k: GrowthGrain) => (k === 'year' && fy !== 1 ? 'Financial year' : GRAIN_TEXT[k].tab);
 
   const top = (
     <PageTop
-      tabs={(Object.keys(GRAIN_TEXT) as GrowthGrain[]).map((k) => ({ key: k, label: GRAIN_TEXT[k].tab }))}
+      tabs={(Object.keys(GRAIN_TEXT) as GrowthGrain[]).map((k) => ({ key: k, label: tabLabel(k) }))}
       value={grain}
       onChange={(k) => setGrain(k as GrowthGrain)}
       actions={
@@ -122,6 +126,10 @@ export default function GrowthPage() {
           </>
         )}
         {yearOnly && ' (YoY)'}.{d.basis === 'to_date' && ' Same number of days in each, so the comparison is fair mid-period.'}
+        {d.grain !== 'month' &&
+          (d.fyStartMonth === 1
+            ? ' Calendar quarters and years.'
+            : ` Financial year from ${MONTH_NAMES[d.fyStartMonth - 1]} (change it in Settings).`)}
       </p>
 
       <StatStrip page="growth" dim={r.loading} even={3}>
@@ -162,7 +170,7 @@ export default function GrowthPage() {
         <div className="px-4 pb-2 sm:px-6">
           <p className="mb-3 text-[12px] text-ink-3">{m.hint}</p>
           <PeriodBars
-            data={d.series.map((p) => ({ key: p.start, label: p.label.replace(/ (\d{2})(\d{2})$/, " '$2"), value: p[metric], compare: p.lastYear[metric], partial: p.partial }))}
+            data={d.series.map((p) => ({ key: p.start, label: p.label.replace(/ (\d{2})(\d{2})$/, " '$2").replace('FY 20', 'FY'), value: p[metric], compare: p.lastYear[metric], partial: p.partial }))}
             label={`${m.label} by ${g.short}, against a year earlier`}
             formatAxis={(v) => (m.money ? formatINRCompact(v) : String(v))}
             formatValue={(v) => fmt(v)}

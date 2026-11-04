@@ -35,6 +35,8 @@ export interface Shop {
   allowNegativeStock: boolean;
   /** Google's "write a review" page for this branch; guests are sent there after a table order. */
   googleReviewUrl: string | null;
+  /** Month the financial year starts in: 1 = January (calendar year), 4 = April. Owners set it for all their branches. */
+  fyStartMonth: number;
 }
 
 export interface Branch {
@@ -864,6 +866,7 @@ export interface GrowthPeriod extends GrowthMetrics {
 export interface GrowthReport {
   grain: GrowthGrain;
   basis: GrowthBasis;
+  fyStartMonth: number;
   today: string;
   ranges: Record<'current' | 'previous' | 'lastYear', { from: string; to: string; label: string }>;
   summary: Record<'current' | 'previous' | 'lastYear', GrowthMetrics>;

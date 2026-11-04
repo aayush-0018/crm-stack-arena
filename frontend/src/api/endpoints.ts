@@ -86,8 +86,15 @@ export const branchesApi = {
 
 export const shopApi = {
   get: () => api.get<Shop>('/shop'),
-  update: (body: Omit<Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl'> & { allowNegativeStock?: boolean; googleReviewUrl?: string | null }) =>
-    api.put<Shop>('/shop', body),
+  update: (
+    body: Omit<Shop, 'id' | 'logoKey' | 'allowNegativeStock' | 'googleReviewUrl' | 'fyStartMonth'> & {
+      allowNegativeStock?: boolean;
+      googleReviewUrl?: string | null;
+      fyStartMonth?: number;
+    },
+  ) => api.put<Shop>('/shop', body),
+  /** Saved on every branch the owner owns. */
+  setFinancialYear: (startMonth: number) => api.put<Shop>('/shop/financial-year', { startMonth }),
   uploadLogo: (dataUrl: string) => api.put<Shop>('/shop/logo', { dataUrl }),
   removeLogo: () => api.delete<Shop>('/shop/logo'),
 };

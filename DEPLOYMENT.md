@@ -326,6 +326,7 @@ The runner skips files already applied, so it's safe to run any time.
 | `018_table_rounds_and_traitor.sql` | `game_rounds.table_id`, `party_games`, `party_players` | Just-your-table quiz rounds and Traitor — **run before deploying**: the game page reads them |
 | `019_product_images.sql` | `product_images`, `products.image_key` | Product photos — **run before deploying**: every product list, the catalogue and the table menu read `image_key` |
 | `020_staff_attendance.sql` | `employees`, `attendance` | Staff attendance — run before deploying: only the new Staff attendance page reads them |
+| `021_financial_year.sql` | `shops.fy_start_month` (default 1 = January) | Financial year setting — **run before deploying**: every shop read, invoice, receipt and return uses it |
 
 **Run 003 and 004 together, before pushing the branches code.** Login now reads `shop_members`; if the code goes live first, every login fails until the migration runs. To apply only these two:
 
@@ -349,6 +350,8 @@ psql "$SUPA" -v ON_ERROR_STOP=1 -1 -f db/migrations/004_last_branch_set_null.sql
 **019 (product photos):** additive; products without a photo look as before. Rollback: redeploy the previous code (it ignores the new column and table).
 
 **020 (staff attendance):** additive, two new tables only; nothing existing reads them. The Growth page needs no migration. Rollback: redeploy the previous code; keep the tables (they hold the attendance history).
+
+**021 (financial year):** additive; every shop starts at January, so reports and document numbers look exactly as before until an owner picks another month. Rollback: redeploy the previous code (it ignores the column).
 
 **018 (table rounds, Traitor):** additive; existing rounds stay all-tables rounds. Rollback: redeploy the previous code (it ignores the new column and tables).
 

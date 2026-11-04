@@ -3,6 +3,7 @@ import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
 import { lineTotalPaise, quantityToMilli } from '../../lib/money';
 import { branchCode, formatDocNumber, nextSeq, todayIST } from '../../lib/numbering';
+import { docYear } from '../../lib/fy';
 import { findCustomer } from '../customers/customers.repo';
 import { latestInvoiceForOrder } from '../invoices/invoices.repo';
 import { completeIfSettled, findItems, findOrder } from '../orders/orders.repo';
@@ -159,7 +160,7 @@ export async function createReturn(shopId: number, userId: number, orderId: numb
       };
       if (input.dryRun) return { type: 'preview' as const, preview };
 
-      const returnNumber = formatDocNumber('RTN', returnDate.slice(0, 4), await nextSeq(c, shopId, 'return'), await branchCode(c, shopId));
+      const returnNumber = formatDocNumber('RTN', await docYear(c, shopId, returnDate), await nextSeq(c, shopId, 'return'), await branchCode(c, shopId));
       const { rows } = await c.query(
         `INSERT INTO order_returns (shop_id, order_id, return_number, return_date, reason, value_paise, refund_paise, idempotency_key, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
@@ -313,7 +314,7 @@ export async function getReturn(shopId: number, id: number) {
     r.customerId ? findCustomer(pool, shopId, r.customerId, { includeDeleted: true }) : null,
     latestInvoiceForOrder(pool, r.orderId),
   ]);
-  const { id: _id, allowNegativeStock: _s, googleReviewUrl: _r, ...shopDetails } = shop!;
+  const { id: _id, allowNegativeStock: _s, googleReviewUrl: _r, fyStartMonth: _fy, ...shopDetails } = shop!;
   return {
     ...r,
     items,

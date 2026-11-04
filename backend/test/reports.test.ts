@@ -191,3 +191,73 @@ describe('growth (MoM, QoQ, YoY)', () => {
     assert.deepEqual(r.breakdown.rows, []);
   });
 });
+
+describe('financial year', () => {
+  test('quarters, years and labels follow the month the year starts in', async () => {
+    const { comparisonRanges, periodLabel, startOf } = await import('../src/modules/reports/growth');
+    const { fyLabel } = await import('../src/lib/fy');
+    assert.equal(fyLabel('2026-03-31', 4), '2025-26');
+    assert.equal(fyLabel('2026-04-01', 4), '2026-27');
+    assert.equal(fyLabel('2026-12-31', 1), '2026');
+    assert.equal(fyLabel('2027-01-05', 10), '2026-27');
+
+    assert.equal(startOf('year', '2026-02-10', 4), '2025-04-01');
+    assert.equal(startOf('quarter', '2026-02-10', 4), '2026-01-01');
+    assert.equal(startOf('quarter', '2026-06-30', 4), '2026-04-01');
+    assert.equal(startOf('quarter', '2026-05-10', 2), '2026-05-01');
+    assert.equal(periodLabel('quarter', '2026-01-01', 4), 'Q4 FY 2025-26');
+    assert.equal(periodLabel('quarter', '2026-04-01', 4), 'Q1 FY 2026-27');
+    assert.equal(periodLabel('year', '2026-04-01', 4), 'FY 2026-27');
+    assert.equal(periodLabel('year', '2026-01-01', 1), '2026');
+
+    const y = comparisonRanges('year', 'last_full', '2026-11-04', 4);
+    assert.deepEqual([y.current.from, y.current.to, y.current.label], ['2025-04-01', '2026-03-31', 'FY 2025-26']);
+    const q = comparisonRanges('quarter', 'to_date', '2026-05-10', 4);
+    assert.deepEqual([q.current.from, q.previous.from, q.previous.to, q.lastYear.from], ['2026-04-01', '2026-01-01', '2026-02-09', '2025-04-01']);
+  });
+
+  test('owners set it for all their branches; new document numbers and the growth report use it', async () => {
+    const { addMonths, startOf } = await import('../src/modules/reports/growth');
+    const { fyLabel } = await import('../src/lib/fy');
+    const { api, shopId } = await newShop();
+    const branch = (await api.post('/branches', { name: 'Second' })).body;
+    const today = await daysFromToday(0);
+
+    const before = await newOrder(api, { items: item('100') });
+    const inv1 = (await api.post(`/orders/${before.id}/invoice`)).body;
+    assert.match(inv1.invoiceNumber, new RegExp(`^INV-${today.slice(0, 4)}-[0-9]{6}$`), 'January start = calendar year, as before');
+
+    assert.equal((await api.put('/shop/financial-year', { startMonth: 13 })).status, 400);
+    const r = await api.put('/shop/financial-year', { startMonth: 4 });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.fyStartMonth, 4);
+    const [other] = await sql(`SELECT fy_start_month AS m FROM shops WHERE id = $1`, [branch.id ?? branch.shop?.id]);
+    assert.equal(other.m, 4, 'every branch the owner owns');
+
+    const o = await newOrder(api, { items: item('200'), amountPaid: '50' });
+    const inv2 = (await api.post(`/orders/${o.id}/invoice`)).body;
+    assert.match(inv2.invoiceNumber, new RegExp(`^INV-${fyLabel(today, 4)}-[0-9]{6}$`));
+    const [inv1Again] = await sql(`SELECT invoice_number FROM invoices WHERE id = $1`, [inv1.id]);
+    assert.equal(inv1Again.invoice_number, inv1.invoiceNumber, 'numbers already issued never change');
+
+    const later = (await api.post('/branches', { name: 'Third' })).body;
+    assert.equal((await sql(`SELECT fy_start_month AS m FROM shops WHERE id = $1`, [later.id]))[0].m, 4, 'new branches take it on');
+
+    // Money in the previous financial year's last month counts in that year, not this one.
+    const fyStart = startOf('year', today, 4);
+    await newOrder(api, { items: item('70'), orderDate: addMonths(fyStart, -1) });
+    const g = (await api.get('/reports/growth?grain=year')).body;
+    assert.equal(g.fyStartMonth, 4);
+    assert.equal(g.ranges.current.from, fyStart);
+    assert.equal(g.summary.current.revenuePaise, 10000 + 20000);
+    assert.equal(g.series.at(-1).start, fyStart);
+    assert.equal(g.series.at(-1).label, `FY ${fyLabel(today, 4)}`);
+    assert.equal(g.series.at(-2).revenuePaise, 7000);
+
+    // Staff can't change it.
+    const helper = await newShop();
+    await sql(`INSERT INTO shop_members (user_id, shop_id, role) SELECT id, $1, 'staff' FROM users WHERE email = $2`, [shopId, helper.email]);
+    const staffApi = (await import('./helpers')).client((await helper.api.post('/auth/switch-branch', { shopId })).body.token);
+    assert.equal((await staffApi.put('/shop/financial-year', { startMonth: 1 })).status, 403);
+  });
+});

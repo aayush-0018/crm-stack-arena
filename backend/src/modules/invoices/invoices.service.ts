@@ -3,6 +3,7 @@ import { pool } from '../../db/pool';
 import { withTransaction } from '../../db/tx';
 import { AppError, isUniqueViolation, notFound } from '../../lib/errors';
 import { branchCode, formatInvoiceNumber, nextSeq, todayIST } from '../../lib/numbering';
+import { docYear } from '../../lib/fy';
 import { findCustomer } from '../customers/customers.repo';
 import { completeIfSettled, findItems, findOrder } from '../orders/orders.repo';
 import { findShop } from '../shop/shop.repo';
@@ -44,7 +45,7 @@ export async function generateInvoice(shopId: number, userId: number | null, ord
       const invoiceDate = await todayIST(c);
       const invoiceNumber = latest
         ? latest.invoiceNumber
-        : formatInvoiceNumber(invoiceDate.slice(0, 4), await nextSeq(c, shopId, 'invoice'), await branchCode(c, shopId));
+        : formatInvoiceNumber(await docYear(c, shopId, invoiceDate), await nextSeq(c, shopId, 'invoice'), await branchCode(c, shopId));
 
       // Sequential: a single transaction client runs one query at a time.
       const shop = await findShop(c, shopId);
@@ -53,7 +54,7 @@ export async function generateInvoice(shopId: number, userId: number | null, ord
       if (!shop || (order.customerId && !customer)) throw new Error('Shop or customer missing for invoice');
 
       // Only what's printed on the invoice; internal settings stay out of the snapshot.
-      const { id: _shopId, allowNegativeStock: _setting, googleReviewUrl: _review, ...shopSnapshot } = shop;
+      const { id: _shopId, allowNegativeStock: _setting, googleReviewUrl: _review, fyStartMonth: _fy, ...shopSnapshot } = shop;
       const id = await repo.insertInvoice(c, {
         shopId,
         orderId,

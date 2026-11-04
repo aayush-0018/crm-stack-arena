@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { branchesApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { sampleInvoiceNumber } from '../../lib/fy';
 import type { Branch } from '../../types';
 import Button from '../ui/Button';
 import { TextField } from '../ui/Field';
@@ -187,6 +188,8 @@ function AddBranchModal({
   onClose: () => void;
   onCreated: (b: Branch, openNow: boolean) => void;
 }) {
+  // A new branch takes on the current one's financial year.
+  const fyStart = useAuth().shop?.fyStartMonth;
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [codeTouched, setCodeTouched] = useState(false);
@@ -262,7 +265,7 @@ function AddBranchModal({
               setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
             }}
             error={errors.code}
-            hint={code ? `Invoices: INV-${code}-2026-000001` : 'Optional, 2–6 letters'}
+            hint={code ? `Invoices: ${sampleInvoiceNumber(code, fyStart)}` : 'Optional, 2–6 letters'}
           />
           <TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} error={errors.city} />
         </div>

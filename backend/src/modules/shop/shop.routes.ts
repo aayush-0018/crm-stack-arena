@@ -43,6 +43,27 @@ shopRouter.put(
   }),
 );
 
+/**
+ * The month the financial year starts in. One business has one financial year, so it is saved on
+ * every branch this owner owns. Changes reports and the year in new document numbers only.
+ */
+shopRouter.put(
+  '/financial-year',
+  ah(async (req, res) => {
+    const { userId, shopId } = auth(req);
+    await assertOwner(userId, shopId, 'change the financial year');
+    const { startMonth } = z
+      .object({ startMonth: z.coerce.number({ invalid_type_error: 'Pick a month' }).int().min(1, 'Pick a month').max(12, 'Pick a month') })
+      .parse(req.body);
+    await pool.query(
+      `UPDATE shops SET fy_start_month = $2, updated_at = now()
+       WHERE id = $1 OR id IN (SELECT shop_id FROM shop_members WHERE user_id = $3 AND role = 'owner')`,
+      [shopId, startMonth, userId],
+    );
+    res.json(await findShop(pool, shopId));
+  }),
+);
+
 shopRouter.put(
   '/logo',
   ah(async (req, res) => {
@@ -92,9 +113,9 @@ branchesRouter.post(
 
     const branch = await withTransaction(async (c) => {
       const { rows } = await c.query(
-        // A new branch starts with the current branch's logo; it can be changed in its settings.
-        `INSERT INTO shops (name, code, city, phone, logo_key)
-         VALUES ($1, $2, $3, $4, (SELECT logo_key FROM shops WHERE id = $5))
+        // A new branch starts with the current branch's logo (changeable) and financial year.
+        `INSERT INTO shops (name, code, city, phone, logo_key, fy_start_month)
+         SELECT $1, $2, $3, $4, logo_key, fy_start_month FROM shops WHERE id = $5
          RETURNING id, name, code, city, logo_key AS "logoKey"`,
         [b.name, b.code, b.city, b.phone, shopId],
       );
