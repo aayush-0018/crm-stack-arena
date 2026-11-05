@@ -28,8 +28,8 @@
   --c-selected: 231 231 227;
   --c-ink: 23 23 23;
   --c-ink-2: 95 95 91;
-  --c-ink-3: 143 143 138;
-  --c-ink-4: 184 184 178;
+  --c-ink-3: 112 112 107; /* 4.5:1 on canvas (WCAG AA) */
+  --c-ink-4: 145 145 140; /* icons, placeholders: 3:1 on white */
   --c-ink-strong: 0 0 0;
   --c-on-ink: 255 255 255;
   --c-overlay: 23 23 23;
@@ -87,7 +87,7 @@
   --c-ink: 237 237 234;
   --c-ink-2: 180 180 174;
   --c-ink-3: 140 140 134;
-  --c-ink-4: 92 92 88;
+  --c-ink-4: 112 112 107; /* 3.5:1 on dark surface */
   --c-ink-strong: 255 255 255;
   --c-on-ink: 23 23 23;
   --c-overlay: 0 0 0;

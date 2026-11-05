@@ -43,6 +43,10 @@ const MyBookingPage = lazy(() => import('./pages/reservations/MyBookingPage'));
 const GrowthPage = lazy(() => import('./pages/GrowthPage'));
 const AttendancePage = lazy(() => import('./pages/staff/AttendancePage'));
 const ExpensesPage = lazy(() => import('./pages/expenses/ExpensesPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/LegalPages').then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/legal/LegalPages').then((m) => ({ default: m.TermsPage })));
+const RefundPage = lazy(() => import('./pages/legal/LegalPages').then((m) => ({ default: m.RefundPage })));
+const CookiesPage = lazy(() => import('./pages/legal/LegalPages').then((m) => ({ default: m.CookiesPage })));
 const later = (page: ReactNode) => <Suspense fallback={<LoadingState />}>{page}</Suspense>;
 
 export default function App() {
@@ -52,6 +56,11 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Public: policies. */}
+      <Route path="/privacy" element={later(<PrivacyPage />)} />
+      <Route path="/terms" element={later(<TermsPage />)} />
+      <Route path="/refunds" element={later(<RefundPage />)} />
+      <Route path="/cookies" element={later(<CookiesPage />)} />
       {/* Public: the link shops send to customers. */}
       <Route path="/c/:token" element={<PublicCataloguePage />} />
       {/* Public: a table's QR code, and the guest's order progress. */}

@@ -36,8 +36,8 @@ export async function register(input: z.infer<typeof registerSchema>) {
     const shopId: number = shop.rows[0].id;
     await c.query(`INSERT INTO shop_counters (shop_id) VALUES ($1)`, [shopId]);
     const u = await c.query(
-      `INSERT INTO users (shop_id, name, email, password_hash, role)
-       VALUES ($1, $2, $3, $4, 'owner') RETURNING ${USER_COLS}`,
+      `INSERT INTO users (shop_id, name, email, password_hash, role, terms_accepted_at)
+       VALUES ($1, $2, $3, $4, 'owner', now()) RETURNING ${USER_COLS}`,
       [shopId, input.name, input.email, passwordHash],
     );
     await c.query(`INSERT INTO shop_members (user_id, shop_id, role) VALUES ($1, $2, 'owner')`, [u.rows[0].id, shopId]);
@@ -106,4 +106,27 @@ async function session(u: { id: number; shopId: number }) {
     user,
     shop: await findShop(pool, user.shopId),
   };
+}
+
+/**
+ * Deletes the account (DPDP right to erasure). Branches this user is the only owner of are deleted
+ * with everything in them; branches with another owner are left to that owner. Needs the password.
+ */
+export async function deleteAccount(userId: number, password: string) {
+  const { rows } = await pool.query(`SELECT password_hash AS "passwordHash" FROM users WHERE id = $1`, [userId]);
+  if (!rows[0] || !(await bcrypt.compare(password, rows[0].passwordHash))) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Wrong password', { password: 'Wrong password' });
+  }
+  return withTransaction(async (c) => {
+    const { rows: own } = await c.query(
+      `SELECT m.shop_id AS id FROM shop_members m
+       WHERE m.user_id = $1 AND m.role = 'owner'
+         AND NOT EXISTS (SELECT 1 FROM shop_members o WHERE o.shop_id = m.shop_id AND o.role = 'owner' AND o.user_id <> $1)`,
+      [userId],
+    );
+    const ids = own.map((r) => r.id as number);
+    if (ids.length) await c.query(`DELETE FROM shops WHERE id = ANY($1::bigint[])`, [ids]);
+    await c.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    return { deletedBranches: ids.length };
+  });
 }

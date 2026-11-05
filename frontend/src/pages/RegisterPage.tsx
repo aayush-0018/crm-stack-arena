@@ -11,13 +11,13 @@ import { zodErrors } from '../lib/zod';
 import { registerSchema } from '../schemas';
 import { AuthLayout } from './LoginPage';
 
-type Values = { shopName: string; name: string; email: string; password: string };
+type Values = { shopName: string; name: string; email: string; password: string; acceptTerms: boolean };
 
 export default function RegisterPage() {
   const { status, signIn, setShop } = useAuth();
   const [logo, setLogo] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [values, setValues] = useState<Values>({ shopName: '', name: '', email: '', password: '' });
+  const [values, setValues] = useState<Values>({ shopName: '', name: '', email: '', password: '', acceptTerms: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,6 +75,34 @@ export default function RegisterPage() {
           error={errors.password}
           hint="At least 8 characters"
         />
+        <div>
+          <label className="flex cursor-pointer items-start gap-2.5 text-[13.5px] text-ink-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-ink"
+              checked={values.acceptTerms}
+              onChange={(e) => setValues({ ...values, acceptTerms: e.target.checked })}
+              aria-invalid={!!errors.acceptTerms}
+              aria-describedby={errors.acceptTerms ? 'accept-terms-error' : undefined}
+            />
+            <span>
+              I agree to the{' '}
+              <Link to="/terms" target="_blank" className="text-ink underline underline-offset-2">
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy" target="_blank" className="text-ink underline underline-offset-2">
+                Privacy Policy
+              </Link>
+              , and confirm I am 18 or older.
+            </span>
+          </label>
+          {errors.acceptTerms && (
+            <p id="accept-terms-error" role="alert" className="mt-1.5 text-[12px] text-danger">
+              {errors.acceptTerms}
+            </p>
+          )}
+        </div>
         <Button type="submit" className="w-full" loading={busy}>
           Create account
         </Button>

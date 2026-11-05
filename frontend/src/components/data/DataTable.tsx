@@ -123,7 +123,19 @@ export default function DataTable<T>({
               <tr
                 key={k}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`group ${onRowClick ? 'cursor-pointer' : ''} ${isSel ? 'bg-wash-2' : 'hover:bg-wash'}`}
+                // Keyboard: Tab to a row, Enter opens it (keys pressed inside its own buttons/inputs are theirs).
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (e) => {
+                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          onRowClick(row);
+                        }
+                      }
+                    : undefined
+                }
+                className={`group ${onRowClick ? 'cursor-pointer focus-visible:bg-wash focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink' : ''} ${isSel ? 'bg-wash-2' : 'hover:bg-wash'}`}
               >
                 {selectable && (
                   <td className="w-12 pl-4 sm:pl-6">

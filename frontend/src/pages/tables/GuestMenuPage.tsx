@@ -21,7 +21,7 @@ const price = (p: Product) => `${rupees(p.pricePaise)}${p.unit === 'pcs' ? '' : 
 /** Same rounding as the server (half-up, in paise). */
 const discountFor = (subtotal: number, pct: number) => Math.round((subtotal * pct) / 100);
 
-const input = 'h-12 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 text-[16px] text-[#1f1b16] outline-none focus:border-[#8a8276]';
+const input = 'h-12 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 text-[16px] text-[#1f1b16] outline-none focus:border-[#736b5f]';
 const primary = 'flex h-13 min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1f1b16] text-[16px] font-semibold text-white disabled:opacity-60';
 
 function Shell({ menu, children }: { menu: TableMenu; children: React.ReactNode }) {
@@ -32,7 +32,7 @@ function Shell({ menu, children }: { menu: TableMenu; children: React.ReactNode 
           <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{menu.shop.name}</h1>
-            <p className="text-[13px] text-[#8a8276]">{menu.table.floorName ? `${menu.table.floorName} · ` : ''}Table {menu.table.label}</p>
+            <p className="text-[13px] text-[#736b5f]">{menu.table.floorName ? `${menu.table.floorName} · ` : ''}Table {menu.table.label}</p>
           </div>
         </div>
         {children}
@@ -116,7 +116,7 @@ function Gate({ token, menu, onVerified }: { token: string; menu: TableMenu; onV
       {step === 'details' ? (
         <form onSubmit={send} noValidate className="mt-6 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <h2 className="text-[18px] font-semibold">Welcome! Who's ordering?</h2>
-          <p className="mt-1 text-[13.5px] text-[#8a8276]">We'll email you a code to open the menu, and your bill after the meal.</p>
+          <p className="mt-1 text-[13.5px] text-[#736b5f]">We'll email you a code to open the menu, and your bill after the meal.</p>
           <div className="mt-4 space-y-3">
             {(
               [
@@ -152,6 +152,12 @@ function Gate({ token, menu, onVerified }: { token: string; menu: TableMenu; onV
           <button type="submit" disabled={busy} className={`${primary} mt-5`}>
             {busy && <Spinner className="h-4 w-4" />} Email me a code
           </button>
+          <p className="mt-3 text-center text-[12px] leading-snug text-[#6f685d]">
+            Your details go only to {menu.shop.name} to handle your request. They’re remembered on this phone for next time.{' '}
+            <Link to="/privacy" target="_blank" className="underline underline-offset-2">
+              Privacy
+            </Link>
+          </p>
         </form>
       ) : (
         <form onSubmit={verify} noValidate className="mt-6 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -189,7 +195,7 @@ function Gate({ token, menu, onVerified }: { token: string; menu: TableMenu; onV
               {wait > 0 ? `Resend in ${wait}s` : 'Resend code'}
             </button>
           </div>
-          <p className="mt-3 text-[12px] text-[#a39a8c]">Can't find it? Check spam or promotions.</p>
+          <p className="mt-3 text-[12px] text-[#736b5f]">Can't find it? Check spam or promotions.</p>
         </form>
       )}
     </Shell>
@@ -368,7 +374,7 @@ export default function GuestMenuPage() {
           <ShopLogo logoKey={menu.shop.logoKey} name={menu.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{menu.shop.name}</h1>
-            <p className="truncate text-[13px] text-[#8a8276]">
+            <p className="truncate text-[13px] text-[#736b5f]">
               Hi {guest.name.split(' ')[0]} ·{' '}
               <button type="button" onClick={signOut} className="underline-offset-2 hover:underline">
                 Not you?
@@ -406,22 +412,22 @@ export default function GuestMenuPage() {
 
         {orders.length > 0 && (
           <Link to={`/t/${token}/orders`} className="mt-3 flex items-center gap-2.5 rounded-xl border border-[#ece6da] bg-white px-3.5 py-3 text-[14px]">
-            <Receipt size={17} className="shrink-0 text-[#8a8276]" />
+            <Receipt size={17} className="shrink-0 text-[#736b5f]" />
             <span className="min-w-0 flex-1">
               <span className="block font-medium">Your orders</span>
-              <span className="block text-[12.5px] text-[#8a8276]">
+              <span className="block text-[12.5px] text-[#736b5f]">
                 {orders.length} {orders.length === 1 ? 'order' : 'orders'}
                 {toPay > 0 ? ` · ${rupees(toPay)} to pay` : ' · all paid'}
               </span>
             </span>
-            <span aria-hidden className="text-[#8a8276]">→</span>
+            <span aria-hidden className="text-[#736b5f]">→</span>
           </Link>
         )}
       </header>
 
       <div className="sticky top-0 z-10 border-b border-[#ece6da] bg-[#faf8f4]/95 backdrop-blur">
         <div className="mx-auto max-w-2xl px-4 py-2.5">
-          <label className="flex h-10 items-center gap-2 rounded-full border border-[#e6dfd2] bg-white px-3.5 text-[#8a8276]">
+          <label className="flex h-10 items-center gap-2 rounded-full border border-[#e6dfd2] bg-white px-3.5 text-[#736b5f]">
             <Search size={16} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the menu" className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1b16] outline-none" />
             {query && (
@@ -443,7 +449,7 @@ export default function GuestMenuPage() {
       </div>
 
       <main className="mx-auto max-w-2xl px-4">
-        {sections.length === 0 && <p className="py-16 text-center text-[15px] text-[#8a8276]">{query ? 'Nothing matches your search.' : 'The menu is empty right now. Please ask the staff.'}</p>}
+        {sections.length === 0 && <p className="py-16 text-center text-[15px] text-[#736b5f]">{query ? 'Nothing matches your search.' : 'The menu is empty right now. Please ask the staff.'}</p>}
         {sections.map((s, i) => (
           <section key={s.name} id={`sec-${i}`} className="scroll-mt-28 pt-6">
             <h2 className="mb-1 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8c2f1b]">{s.name}</h2>
@@ -484,13 +490,13 @@ export default function GuestMenuPage() {
           <div role="dialog" aria-modal="true" aria-label="Your order" onClick={(e) => e.stopPropagation()} className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] sm:rounded-3xl">
             <div className="flex items-center justify-between">
               <h2 className="text-[19px] font-semibold">New order · Table {menu.table.label}</h2>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-1.5 text-[#8a8276] hover:bg-[#f3efe7]">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-full p-1.5 text-[#736b5f] hover:bg-[#f3efe7]">
                 <X size={18} />
               </button>
             </div>
 
             {lines.length === 0 ? (
-              <p className="py-10 text-center text-[15px] text-[#8a8276]">Your order is empty.</p>
+              <p className="py-10 text-center text-[15px] text-[#736b5f]">Your order is empty.</p>
             ) : (
               <>
                 <ul className="mt-3 divide-y divide-[#f0ebe1]">
@@ -498,7 +504,7 @@ export default function GuestMenuPage() {
                     <li key={p.id} className="flex items-center gap-3 py-3">
                       <div className="min-w-0 flex-1">
                         <p className="text-[15px]">{p.name}</p>
-                        <p className="text-[13px] tabular-nums text-[#8a8276]">{rupees(p.pricePaise * n)}</p>
+                        <p className="text-[13px] tabular-nums text-[#736b5f]">{rupees(p.pricePaise * n)}</p>
                       </div>
                       <Stepper n={n} onChange={(v) => setQty(p.id, v)} name={p.name} />
                     </li>
@@ -539,16 +545,16 @@ export default function GuestMenuPage() {
                     maxLength={300}
                     rows={2}
                     placeholder="Anything for the kitchen? e.g. less spicy, no onion"
-                    className="w-full resize-none rounded-xl border border-[#e6dfd2] px-3.5 py-2.5 text-[15px] outline-none focus:border-[#8a8276]"
+                    className="w-full resize-none rounded-xl border border-[#e6dfd2] px-3.5 py-2.5 text-[15px] outline-none focus:border-[#736b5f]"
                   />
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-dashed border-[#d9cfbd] bg-[#fbf7ef] px-3.5 py-3">
                     <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[#1f1b16]" />
                     <span className="text-[14px]">
                       I have paid {formatINR(total)}
-                      <span className="block text-[12.5px] text-[#8a8276]">Test mode: online payment isn't connected yet. Leave unticked to pay at the counter.</span>
+                      <span className="block text-[12.5px] text-[#736b5f]">Test mode: online payment isn't connected yet. Leave unticked to pay at the counter.</span>
                     </span>
                   </label>
-                  <p className="text-[12.5px] text-[#a39a8c]">Once placed, this order can't be changed. Your bill will be emailed to {guest.email}.</p>
+                  <p className="text-[12.5px] text-[#736b5f]">Once placed, this order can't be changed. Your bill will be emailed to {guest.email}.</p>
                 </div>
 
                 {error && <p className="mt-3 rounded-xl bg-[#fdecea] px-3.5 py-2.5 text-[14px] text-[#a8321f]">{error}</p>}

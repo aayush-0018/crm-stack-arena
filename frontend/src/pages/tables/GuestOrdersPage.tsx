@@ -24,7 +24,7 @@ function OrderCard({ o }: { o: GuestOrder }) {
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-semibold">{o.orderNumber}</p>
-          <p className="text-[12.5px] text-[#8a8276]">
+          <p className="text-[12.5px] text-[#736b5f]">
             {formatDateTime(o.createdAt)}
             {o.tableLabel ? ` · Table ${o.tableLabel}` : ''}
           </p>
@@ -41,13 +41,13 @@ function OrderCard({ o }: { o: GuestOrder }) {
       <ul className="mt-3 space-y-1 border-t border-[#f0ebe1] pt-3 text-[14px]">
         {o.items.map((it, i) => (
           <li key={i} className="flex gap-2">
-            <span className="tabular-nums text-[#8a8276]">{qty(it.quantity)}×</span>
+            <span className="tabular-nums text-[#736b5f]">{qty(it.quantity)}×</span>
             <span className="flex-1">{it.itemName}</span>
             <span className="tabular-nums">{rupees(it.lineTotalPaise)}</span>
           </li>
         ))}
       </ul>
-      {o.notes && <p className="mt-2 text-[13px] text-[#8a8276]">Note: {o.notes}</p>}
+      {o.notes && <p className="mt-2 text-[13px] text-[#736b5f]">Note: {o.notes}</p>}
 
       <dl className="mt-3 space-y-1 border-t border-[#f0ebe1] pt-3 text-[13.5px]">
         {o.discountPaise > 0 && (
@@ -169,13 +169,13 @@ export default function GuestOrdersPage() {
             {orders.length} {orders.length === 1 ? 'order' : 'orders'}
           </span>
           <span className="text-right">
-            <span className="block text-[12.5px] text-[#8a8276]">{toPay > 0 ? 'Still to pay' : 'All paid'}</span>
+            <span className="block text-[12.5px] text-[#736b5f]">{toPay > 0 ? 'Still to pay' : 'All paid'}</span>
             <span className="block text-[18px] font-semibold tabular-nums">{rupees(toPay)}</span>
           </span>
         </div>
         {now.length > 0 && (
           <section className="mt-5" aria-label="In progress">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">In progress</p>
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">In progress</p>
             <ul className="space-y-3">
               {now.map((o) => (
                 <OrderCard key={o.guestToken} o={o} />
@@ -185,7 +185,7 @@ export default function GuestOrdersPage() {
         )}
         {earlier.length > 0 && (
           <section className="mt-5" aria-label="Earlier">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">Ready and earlier</p>
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">Ready and earlier</p>
             <ul className="space-y-3">
               {earlier.map((o) => (
                 <OrderCard key={o.guestToken} o={o} />
@@ -193,7 +193,7 @@ export default function GuestOrdersPage() {
             </ul>
           </section>
         )}
-        <p className="mt-4 text-[12.5px] text-[#a39a8c]">
+        <p className="mt-4 text-[12.5px] text-[#736b5f]">
           Orders from the last 12 hours. Orders already placed can't be changed. To add something, order it from the menu; for anything else,
           ask the staff.
         </p>

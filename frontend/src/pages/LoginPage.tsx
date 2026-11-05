@@ -1,3 +1,4 @@
+import LegalLinks from '../components/layout/LegalLinks';
 import { FormEvent, ReactNode, useState } from 'react';
 import { Store } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -24,6 +25,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
           </div>
         </div>
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft">{children}</div>
+        <LegalLinks className="mt-5" />
       </div>
     </div>
   );

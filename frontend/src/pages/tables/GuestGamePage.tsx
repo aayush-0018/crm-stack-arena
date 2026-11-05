@@ -32,7 +32,7 @@ function Prompt({ q }: { q: GameQuestion }) {
   if (q.kind === 'ink') {
     return (
       <div className="text-center">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">Tap the colour of the ink</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">Tap the colour of the ink</p>
         <p className="mt-3 text-[44px] font-extrabold leading-none" style={{ color: INK[q.ink ?? 'red'] }}>
           {q.prompt}
         </p>
@@ -42,7 +42,7 @@ function Prompt({ q }: { q: GameQuestion }) {
   if (q.kind === 'count') {
     return (
       <div className="text-center">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">{q.prompt}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">{q.prompt}</p>
         <div className="mx-auto mt-3 grid max-w-[240px] grid-cols-4 justify-items-center gap-2.5" aria-label={`${q.count} cups`}>
           {Array.from({ length: q.count ?? 0 }, (_, i) => (
             <Coffee key={i} size={34} className="text-[#7a4c09]" />
@@ -51,7 +51,7 @@ function Prompt({ q }: { q: GameQuestion }) {
       </div>
     );
   }
-  if (q.kind === 'max') return <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">{q.prompt}</p>;
+  if (q.kind === 'max') return <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">{q.prompt}</p>;
   return <p className="text-center text-[46px] font-bold leading-none tabular-nums">{q.prompt}</p>;
 }
 
@@ -111,7 +111,7 @@ function Play({
         <span className="flex items-center gap-1.5 font-semibold tabular-nums">
           <Timer size={16} /> {clock(left)}
         </span>
-        <span className="text-[#8a8276]">{feedback ? `${right} right` : `${i} answered`}</span>
+        <span className="text-[#736b5f]">{feedback ? `${right} right` : `${i} answered`}</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#f3efe7]">
         <div className="h-full rounded-full bg-[#1f1b16] transition-[width] duration-200" style={{ width: `${Math.max(0, Math.min(100, (left / (seconds * 1000)) * 100))}%` }} />
@@ -141,7 +141,7 @@ function Play({
           ))}
         </div>
       )}
-      <p className="mt-3 text-center text-[12.5px] text-[#a39a8c]">A wrong answer takes a point off, so don't just guess.</p>
+      <p className="mt-3 text-center text-[12.5px] text-[#736b5f]">A wrong answer takes a point off, so don't just guess.</p>
     </div>
   );
 }
@@ -152,11 +152,11 @@ function Players({ players, showScores }: { players: GameRound['players']; showS
     <ol className="mt-3 divide-y divide-[#f0ebe1] rounded-xl border border-[#ece6da]">
       {players.map((p, i) => (
         <li key={i} className={`flex items-center gap-3 px-3.5 py-2.5 text-[14.5px] ${p.me ? 'bg-[#fbf7ef]' : ''}`}>
-          {showScores && <span className="w-5 text-[13px] tabular-nums text-[#8a8276]">{i + 1}</span>}
+          {showScores && <span className="w-5 text-[13px] tabular-nums text-[#736b5f]">{i + 1}</span>}
           <span className="min-w-0 flex-1 truncate">
             {p.name}
-            {p.me && <span className="text-[#8a8276]"> (you)</span>}
-            <span className="text-[#8a8276]"> · Table {p.tableLabel}</span>
+            {p.me && <span className="text-[#736b5f]"> (you)</span>}
+            <span className="text-[#736b5f]"> · Table {p.tableLabel}</span>
           </span>
           {(p.winner || (!anyWinner && p.top)) && <Trophy size={16} className="shrink-0 text-[#e0a21b]" />}
           {showScores && <span className="w-8 text-right font-semibold tabular-nums">{p.score ?? '–'}</span>}
@@ -218,7 +218,7 @@ function Traitor({
             {players.map((p) => (
               <li key={p.id} className={`px-3.5 py-2.5 text-[14.5px] ${p.me ? 'bg-[#fbf7ef]' : ''}`}>
                 {p.name}
-                {p.me && <span className="text-[#8a8276]"> (you)</span>}
+                {p.me && <span className="text-[#736b5f]"> (you)</span>}
               </li>
             ))}
           </ol>
@@ -256,9 +256,9 @@ function Traitor({
               </>
             ) : (
               <>
-                <span className="block text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[#8a8276]">{party.card.category}</span>
+                <span className="block text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[#736b5f]">{party.card.category}</span>
                 <span className="mt-1 block text-[28px] font-bold">{party.card.word}</span>
-                <span className="mt-1 block text-[13.5px] text-[#8a8276]">Give one-word clues, but don't make it too easy.</span>
+                <span className="mt-1 block text-[13.5px] text-[#736b5f]">Give one-word clues, but don't make it too easy.</span>
               </>
             )}
             {showCard && (
@@ -286,7 +286,7 @@ function Traitor({
                 </button>
               ))}
           </div>
-          <p className="mt-2 text-[13px] text-[#8a8276]">
+          <p className="mt-2 text-[13px] text-[#736b5f]">
             {players.filter((p) => p.voted).length} of {players.length} have voted. You can change your vote until everyone's in.
           </p>
           <button type="button" disabled={busy} onClick={() => onAction('reveal')} className={`${secondary} mt-4`}>
@@ -316,10 +316,10 @@ function Traitor({
               <li key={p.id} className={`flex items-center gap-3 px-3.5 py-2.5 text-[14.5px] ${p.me ? 'bg-[#fbf7ef]' : ''}`}>
                 <span className="min-w-0 flex-1 truncate">
                   {p.name}
-                  {p.me && <span className="text-[#8a8276]"> (you)</span>}
+                  {p.me && <span className="text-[#736b5f]"> (you)</span>}
                 </span>
                 {p.traitor && <VenetianMask size={16} className="shrink-0 text-[#8c2f1b]" />}
-                <span className="text-[13px] tabular-nums text-[#8a8276]">
+                <span className="text-[13px] tabular-nums text-[#736b5f]">
                   {p.votes} {p.votes === 1 ? 'vote' : 'votes'}
                 </span>
               </li>
@@ -410,7 +410,7 @@ export default function GuestGamePage() {
             <h1 className="flex items-center gap-2 text-[19px] font-semibold leading-tight">
               <Gamepad2 size={20} /> Table game
             </h1>
-            {state && <p className="text-[13px] text-[#8a8276]">Table {state.tableLabel}</p>}
+            {state && <p className="text-[13px] text-[#736b5f]">Table {state.tableLabel}</p>}
           </div>
         </div>
         {error && <p className="mt-4 rounded-xl bg-[#fdecea] px-3.5 py-2.5 text-[14px] text-[#a8321f]">{error}</p>}
@@ -451,7 +451,7 @@ export default function GuestGamePage() {
     return shell(
       <div className={`${card} mt-6 text-center`}>
         <p className="text-[16px] font-medium">The game opens after you order</p>
-        <p className="mt-1 text-[14px] text-[#8a8276]">Place an order from the menu, then come back to play.</p>
+        <p className="mt-1 text-[14px] text-[#736b5f]">Place an order from the menu, then come back to play.</p>
         <Link to={`/t/${token}`} className={`${primary} mt-4`}>
           Open the menu
         </Link>
@@ -683,7 +683,7 @@ export default function GuestGamePage() {
         </button>
       </section>
 
-      <p className="mt-4 text-[12.5px] text-[#a39a8c]">
+      <p className="mt-4 text-[12.5px] text-[#736b5f]">
         Right answers score a point and wrong ones take one off. Ties go to fewer wrong answers. The {state.prizePct}% is for all-tables rounds with two or
         more tables, once per guest per visit, taken off the winner's unpaid table order.
       </p>

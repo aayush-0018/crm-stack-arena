@@ -106,7 +106,7 @@ let n = 0;
 export async function newShop(name = 'Test Shop') {
   n += 1;
   const email = `owner${n}-${Date.now()}@example.test`;
-  const r = await client().post('/auth/register', { shopName: `${name} ${n}`, name: 'Owner', email, password: 'password123' });
+  const r = await client().post('/auth/register', { shopName: `${name} ${n}`, name: 'Owner', email, password: 'password123', acceptTerms: true });
   if (r.status !== 201) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.body)}`);
   return { api: client(r.body.token), token: r.body.token as string, shopId: r.body.shop.id as number, email };
 }

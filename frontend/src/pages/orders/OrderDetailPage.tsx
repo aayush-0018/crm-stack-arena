@@ -246,7 +246,9 @@ export default function OrderDetailPage() {
         <aside className="border-t border-line lg:border-t-0">
           <SectionHeader title="Customer" />
           <div className="px-4 py-4 sm:px-6">
-            {o.customer ? (
+            {o.customer?.deletedAt ? (
+              <p className="text-[13px] text-ink-3">This customer was deleted and their personal details erased. The order is kept as a sales record.</p>
+            ) : o.customer ? (
               <>
                 <Link to={`/customers/${o.customer.id}`} className="mb-2 flex items-center gap-3 hover:underline">
                   <Avatar name={o.customer.name} size={32} />

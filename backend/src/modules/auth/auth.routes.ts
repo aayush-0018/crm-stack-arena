@@ -31,6 +31,16 @@ authRouter.get(
   }),
 );
 
+/** Deletes the signed-in account, and every branch only it owns. Can't be undone. */
+authRouter.delete(
+  '/account',
+  requireAuth,
+  ah(async (req, res) => {
+    const { password } = z.object({ password: z.string().min(1, 'Enter your password') }).parse(req.body);
+    res.json(await service.deleteAccount(auth(req).userId, password));
+  }),
+);
+
 authRouter.post(
   '/switch-branch',
   requireAuth,

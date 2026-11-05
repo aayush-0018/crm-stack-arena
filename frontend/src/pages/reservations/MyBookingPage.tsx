@@ -73,24 +73,24 @@ export default function MyBookingPage() {
             <Icon size={22} />
           </span>
           <h1 className="mt-3 text-[21px] font-semibold">{head.title}</h1>
-          <p className="mt-0.5 text-[14px] text-[#8a8276]">Booked for {b.name}</p>
-          <ul className={`mt-4 space-y-2.5 text-[15.5px] ${b.status === 'cancelled' ? 'text-[#8a8276] line-through' : ''}`}>
+          <p className="mt-0.5 text-[14px] text-[#736b5f]">Booked for {b.name}</p>
+          <ul className={`mt-4 space-y-2.5 text-[15.5px] ${b.status === 'cancelled' ? 'text-[#736b5f] line-through' : ''}`}>
             <li className="flex items-center gap-3">
-              <CalendarDays size={18} className="text-[#8a8276]" /> {longDay(b.startsAt)}
+              <CalendarDays size={18} className="text-[#736b5f]" /> {longDay(b.startsAt)}
             </li>
             <li className="flex items-center gap-3">
-              <Clock size={18} className="text-[#8a8276]" /> {clock(b.startsAt)}
-              <span className="text-[13px] text-[#8a8276]">· table kept till {clock(b.endsAt)}</span>
+              <Clock size={18} className="text-[#736b5f]" /> {clock(b.startsAt)}
+              <span className="text-[13px] text-[#736b5f]">· table kept till {clock(b.endsAt)}</span>
             </li>
             <li className="flex items-center gap-3">
-              <Users size={18} className="text-[#8a8276]" /> {people(b.partySize)}
+              <Users size={18} className="text-[#736b5f]" /> {people(b.partySize)}
             </li>
           </ul>
           {b.notes && <p className="mt-3 rounded-xl bg-[#f8f5ef] px-3.5 py-2.5 text-[14px] text-[#5e574c]">“{b.notes}”</p>}
         </div>
 
         {b.status === 'booked' && (
-          <p className="mt-3 px-1 text-[13px] text-[#8a8276]">Please arrive on time. If you're running late, give us a call so we can hold your table.</p>
+          <p className="mt-3 px-1 text-[13px] text-[#736b5f]">Please arrive on time. If you're running late, give us a call so we can hold your table.</p>
         )}
 
         {b.shop.phone && (
@@ -118,7 +118,7 @@ export default function MyBookingPage() {
               Cancel booking
             </button>
           ))}
-        <p className="mt-6 text-center text-[11.5px] text-[#a39a8c]">Powered by CartWell</p>
+        <p className="mt-6 text-center text-[11.5px] text-[#736b5f]">Powered by CartWell</p>
       </div>
     </div>
   );

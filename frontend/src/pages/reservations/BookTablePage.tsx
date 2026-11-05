@@ -1,6 +1,6 @@
 import { CalendarDays, Clock, Mail, Minus, Phone, Plus, Users } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { bookingApi } from '../../api/endpoints';
 import { addDays, DAY_LONG, DAY_SHORT, durationLabel, people, timeLabel, weekdayOf } from '../../components/reservations/reservations';
@@ -9,7 +9,7 @@ import ShopLogo from '../../components/ui/ShopLogo';
 import Spinner from '../../components/ui/Spinner';
 import type { BookingPage, BookingTimes } from '../../types';
 
-const input = 'h-12 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 text-[16px] text-[#1f1b16] outline-none focus:border-[#8a8276]';
+const input = 'h-12 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 text-[16px] text-[#1f1b16] outline-none focus:border-[#736b5f]';
 const primary = 'flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1f1b16] text-[16px] font-semibold text-white disabled:opacity-50';
 const card = 'mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]';
 const DETAILS_KEY = 'cw.guestDetails';
@@ -187,7 +187,7 @@ export default function BookTablePage() {
           <ShopLogo logoKey={page.shop.logoKey} name={page.shop.name} size={44} zoom />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[19px] font-semibold leading-tight">{page.shop.name}</h1>
-            <p className="text-[13px] text-[#8a8276]">Book a table</p>
+            <p className="text-[13px] text-[#736b5f]">Book a table</p>
           </div>
         </div>
 
@@ -200,7 +200,7 @@ export default function BookTablePage() {
           <>
             {error && <p className="mt-4 rounded-xl bg-[#fdecea] px-3.5 py-2.5 text-[14px] text-[#a8321f]">{error}</p>}
             <div className={card}>
-              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">How many people?</p>
+              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#736b5f]">How many people?</p>
               <div className="mt-3 flex items-center justify-between">
                 <button type="button" aria-label="Fewer people" disabled={party <= 1} onClick={() => setParty(party - 1)} className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e6dfd2] disabled:opacity-40">
                   <Minus size={18} />
@@ -212,11 +212,11 @@ export default function BookTablePage() {
                   <Plus size={18} />
                 </button>
               </div>
-              {party >= page.maxParty && call && <p className="mt-2 text-center text-[12.5px] text-[#8a8276]">More than {page.maxParty}? Call us on {call}.</p>}
+              {party >= page.maxParty && call && <p className="mt-2 text-center text-[12.5px] text-[#736b5f]">More than {page.maxParty}? Call us on {call}.</p>}
             </div>
 
             <div className={card}>
-              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">Which day?</p>
+              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#736b5f]">Which day?</p>
               <div className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1" role="listbox" aria-label="Day">
                 {days.map((d) => {
                   const closed = page.closedDays.includes(weekdayOf(d));
@@ -233,9 +233,9 @@ export default function BookTablePage() {
                         on ? 'border-[#1f1b16] bg-[#1f1b16] text-white' : closed ? 'border-[#f0ebe1] text-[#cfc6b6]' : 'border-[#e6dfd2] bg-white'
                       }`}
                     >
-                      <span className={`text-[11.5px] ${on ? 'text-white/70' : 'text-[#8a8276]'}`}>{d === page.today ? 'Today' : DAY_SHORT[weekdayOf(d)]}</span>
+                      <span className={`text-[11.5px] ${on ? 'text-white/70' : 'text-[#736b5f]'}`}>{d === page.today ? 'Today' : DAY_SHORT[weekdayOf(d)]}</span>
                       <span className="text-[18px] font-semibold leading-tight">{dayNum(d)}</span>
-                      <span className={`text-[11px] ${on ? 'text-white/70' : 'text-[#8a8276]'}`}>{closed ? 'Closed' : monthShort(d)}</span>
+                      <span className={`text-[11px] ${on ? 'text-white/70' : 'text-[#736b5f]'}`}>{closed ? 'Closed' : monthShort(d)}</span>
                     </button>
                   );
                 })}
@@ -243,7 +243,7 @@ export default function BookTablePage() {
             </div>
 
             <div className={card}>
-              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">What time?</p>
+              <p className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#736b5f]">What time?</p>
               {!times ? (
                 <div className="flex justify-center py-6">
                   <Spinner className="h-5 w-5" />
@@ -277,19 +277,19 @@ export default function BookTablePage() {
                   ))}
                 </div>
               )}
-              <p className="mt-3 text-[12.5px] text-[#8a8276]">Your table is kept for {durationLabel(page.durationMinutes)}.</p>
+              <p className="mt-3 text-[12.5px] text-[#736b5f]">Your table is kept for {durationLabel(page.durationMinutes)}.</p>
             </div>
 
             <div className={card}>
               <label className="block">
-                <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#8a8276]">Anything we should know?</span>
+                <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-[#736b5f]">Anything we should know?</span>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   maxLength={300}
                   rows={2}
                   placeholder="Birthday, high chair, window seat… (optional)"
-                  className="mt-2 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 py-2.5 text-[16px] outline-none focus:border-[#8a8276]"
+                  className="mt-2 w-full rounded-xl border border-[#e6dfd2] bg-white px-3.5 py-2.5 text-[16px] outline-none focus:border-[#736b5f]"
                 />
               </label>
             </div>
@@ -311,7 +311,7 @@ export default function BookTablePage() {
             {summary}
             <form onSubmit={send} noValidate className={card}>
               <h2 className="text-[18px] font-semibold">Your details</h2>
-              <p className="mt-1 text-[13.5px] text-[#8a8276]">We'll email you a code to confirm, then your booking.</p>
+              <p className="mt-1 text-[13.5px] text-[#736b5f]">We'll email you a code to confirm, then your booking.</p>
               <div className="mt-4 space-y-3">
                 {(
                   [
@@ -347,6 +347,12 @@ export default function BookTablePage() {
               <button type="submit" disabled={busy} className={`${primary} mt-5`}>
                 {busy && <Spinner className="h-4 w-4" />} Email me a code
               </button>
+              <p className="mt-3 text-center text-[12px] leading-snug text-[#6f685d]">
+                Your details go only to {page.shop.name} to handle your request. They’re remembered on this phone for next time.{' '}
+                <Link to="/privacy" target="_blank" className="underline underline-offset-2">
+                  Privacy
+                </Link>
+              </p>
             </form>
           </>
         ) : (
@@ -386,11 +392,11 @@ export default function BookTablePage() {
                   {wait > 0 ? `Resend in ${wait}s` : 'Resend code'}
                 </button>
               </div>
-              <p className="mt-3 text-[12px] text-[#a39a8c]">Can't find it? Check spam or promotions.</p>
+              <p className="mt-3 text-[12px] text-[#736b5f]">Can't find it? Check spam or promotions.</p>
             </form>
           </>
         )}
-        <p className="mt-6 text-center text-[11.5px] text-[#a39a8c]">Powered by CartWell</p>
+        <p className="mt-6 text-center text-[11.5px] text-[#736b5f]">Powered by CartWell</p>
       </div>
     </div>
   );

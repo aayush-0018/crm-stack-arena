@@ -116,6 +116,6 @@ export const api = {
   post: <T>(path: string, body?: unknown, query?: Query) => json<T>('POST', path, { body: body ?? {}, query }),
   put: <T>(path: string, body: unknown) => json<T>('PUT', path, { body }),
   patch: <T>(path: string, body: unknown) => json<T>('PATCH', path, { body }),
-  delete: <T>(path: string) => json<T>('DELETE', path),
+  delete: <T>(path: string, body?: unknown) => json<T>('DELETE', path, body === undefined ? undefined : { body }),
   blob: async (path: string) => (await send('GET', path)).blob(),
 };

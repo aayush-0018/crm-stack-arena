@@ -404,7 +404,7 @@ export default function FloorPlanEditor({ plan, onSaved }: { plan: FloorPlan; on
             className={`h-8 rounded-lg border px-3 text-[13px] ${i === active ? 'border-ink bg-ink text-on-ink' : 'border-line text-ink-2 hover:bg-hover hover:text-ink'}`}
           >
             {f.name || 'Untitled'}
-            <span className={`ml-1.5 tabular-nums ${i === active ? 'opacity-70' : 'text-ink-4'}`}>{f.tables.length}</span>
+            <span className={`ml-1.5 tabular-nums ${i === active ? 'opacity-70' : 'text-ink-3'}`}>{f.tables.length}</span>
           </button>
         ))}
         {!locked && floors.length < 20 && (

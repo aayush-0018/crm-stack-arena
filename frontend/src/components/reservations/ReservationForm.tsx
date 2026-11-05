@@ -228,7 +228,7 @@ export default function ReservationForm({
                         }`}
                       >
                         {t.label}
-                        <span className={on && !taken ? 'opacity-70' : 'text-ink-4'}>{t.seats}</span>
+                        <span className={on && !taken ? 'opacity-70' : 'text-ink-3'}>{t.seats}</span>
                       </button>
                     );
                   })}

@@ -282,7 +282,7 @@ function LiveFloor() {
               >
                 {ready && <span className="h-2 w-2 rounded-full bg-success-strong" title="An order is ready to serve here" />}
                 {f.name}
-                <span className={`tabular-nums ${f === floor ? 'opacity-70' : 'text-ink-4'}`}>
+                <span className={`tabular-nums ${f === floor ? 'opacity-70' : 'text-ink-3'}`}>
                   {busy}/{f.tables.length}
                 </span>
               </button>

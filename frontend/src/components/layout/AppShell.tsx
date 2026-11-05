@@ -207,7 +207,7 @@ export default function AppShell() {
           )}
         </Popover>
       </div>
-      <p className="mt-2 select-none px-1.5 text-[11px] tracking-[0.04em] text-ink-4" aria-label="CartWell">
+      <p className="mt-2 select-none px-1.5 text-[11px] tracking-[0.04em] text-ink-3" aria-label="CartWell">
         Powered by <span className="font-semibold text-ink-3">CartWell</span>
       </p>
     </div>
@@ -215,6 +215,12 @@ export default function AppShell() {
 
   return (
     <div className="app-root flex h-screen bg-canvas">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-ink focus:px-3 focus:py-2 focus:text-[14px] focus:text-on-ink"
+      >
+        Skip to main content
+      </a>
       {/* Desktop: full sidebar, or a slim rail with one button to bring it back */}
       {sidebarOpen ? (
         <aside className="no-print hidden w-[272px] shrink-0 md:block">{sidebar(false)}</aside>
@@ -261,7 +267,7 @@ export default function AppShell() {
           <ShopLogo logoKey={shop?.logoKey} name={shop?.name} size={26} zoom />
           <span className="flex-1 truncate text-[15px] font-semibold">{shop?.name}</span>
         </header>
-        <main className="app-panel min-h-0 flex-1 overflow-y-auto border-line bg-surface md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
+        <main id="main" tabIndex={-1} className="app-panel focus:outline-none min-h-0 flex-1 overflow-y-auto border-line bg-surface md:my-2 md:mr-2 md:rounded-2xl md:border md:shadow-soft">
           {/* Keyed by branch: switching remounts every page, so nothing from the old branch lingers. */}
           <Outlet key={shop?.id} />
         </main>

@@ -99,7 +99,7 @@ export default function GuestOrderPage() {
           <ShopLogo logoKey={o.logoKey} name={o.shopName} size={40} zoom />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] font-semibold">{o.shopName}</p>
-            <p className="text-[13px] text-[#8a8276]">
+            <p className="text-[13px] text-[#736b5f]">
               {o.tableLabel ? `Table ${o.tableLabel} · ` : ''}
               {o.orderNumber}
             </p>
@@ -123,8 +123,8 @@ export default function GuestOrderPage() {
                     {state === 'done' ? <Check size={17} /> : <s.Icon size={17} />}
                   </span>
                   <div className="pt-1.5">
-                    <p className={`text-[15.5px] ${state === 'later' ? 'text-[#b7ad9c]' : 'font-medium'}`}>{s.label}</p>
-                    {state === 'now' && <p className="mt-0.5 text-[13.5px] text-[#8a8276]">{s.hint}</p>}
+                    <p className={`text-[15.5px] ${state === 'later' ? 'text-[#736b5f]' : 'font-medium'}`}>{s.label}</p>
+                    {state === 'now' && <p className="mt-0.5 text-[13.5px] text-[#736b5f]">{s.hint}</p>}
                   </div>
                 </li>
               );
@@ -148,7 +148,7 @@ export default function GuestOrderPage() {
             <p className="flex items-center gap-2 text-[15px] font-medium">
               <Star size={17} className="text-[#e0a21b]" fill="#e0a21b" /> Enjoying {o.shopName}?
             </p>
-            <p className="mt-0.5 text-[13.5px] text-[#8a8276]">A quick Google review helps us a lot.</p>
+            <p className="mt-0.5 text-[13.5px] text-[#736b5f]">A quick Google review helps us a lot.</p>
             <button type="button" onClick={openReview} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
               <Star size={16} /> Rate us on Google
             </button>
@@ -159,13 +159,13 @@ export default function GuestOrderPage() {
           <ul className="space-y-2 text-[15px]">
             {o.items.map((it, i) => (
               <li key={i} className="flex gap-3">
-                <span className="tabular-nums text-[#8a8276]">{qty(it.quantity)}×</span>
+                <span className="tabular-nums text-[#736b5f]">{qty(it.quantity)}×</span>
                 <span className="flex-1">{it.itemName}</span>
                 <span className="tabular-nums">{formatINR(it.lineTotalPaise)}</span>
               </li>
             ))}
           </ul>
-          {o.notes && <p className="mt-3 text-[13.5px] text-[#8a8276]">Note: {o.notes}</p>}
+          {o.notes && <p className="mt-3 text-[13.5px] text-[#736b5f]">Note: {o.notes}</p>}
           {o.discountPaise > 0 && (
             <div className="mt-3 space-y-1 border-t border-[#f0ebe1] pt-3 text-[14.5px]">
               <div className="flex justify-between text-[#5e574c]">
@@ -198,7 +198,7 @@ export default function GuestOrderPage() {
         {o.billToken && (
           <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <p className="text-[15px] font-medium">Your bill is ready</p>
-            <p className="mt-0.5 text-[13.5px] text-[#8a8276]">We've emailed it to you. Keep a copy here too:</p>
+            <p className="mt-0.5 text-[13.5px] text-[#736b5f]">We've emailed it to you. Keep a copy here too:</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <a href={`/bill/${o.billToken}`} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1f1b16] text-[14px] font-medium text-white">
                 <Download size={16} /> Download
@@ -215,7 +215,7 @@ export default function GuestOrderPage() {
           </div>
         )}
 
-        <p className="mt-3 text-center text-[12px] text-[#a39a8c]">Placed {formatDateTime(o.createdAt)} · this page updates by itself</p>
+        <p className="mt-3 text-center text-[12px] text-[#736b5f]">Placed {formatDateTime(o.createdAt)} · this page updates by itself</p>
 
         {o.tableToken && o.status !== 'cancelled' && (
           <Link to={`/t/${o.tableToken}`} className="mt-5 flex h-12 items-center justify-center rounded-2xl border border-[#1f1b16] text-[15px] font-medium">

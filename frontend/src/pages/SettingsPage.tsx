@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { shopApi } from '../api/endpoints';
+import { authApi, shopApi } from '../api/endpoints';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { PageTop } from '../components/ui/Tabs';
 import { TextField } from '../components/ui/Field';
+import { Modal } from '../components/ui/Modal';
 import LogoPicker from '../components/ui/LogoPicker';
 import { Alert } from '../components/ui/States';
 import { useAuth } from '../context/AuthContext';
@@ -292,7 +293,103 @@ export default function SettingsPage() {
           </div>
         </form>
       </Card>
+
+      <PrivacyCard />
       </div>
     </>
+  );
+}
+
+/** Policies, and deleting the account (DPDP right to erasure). */
+function PrivacyCard() {
+  const { logout } = useAuth();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [typed, setTyped] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    if (busy) return;
+    setOpen(false);
+    setPassword('');
+    setTyped('');
+    setError(null);
+  };
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await authApi.deleteAccount(password);
+      toast('success', 'Your account has been deleted');
+      logout();
+    } catch (err) {
+      setError(err instanceof ApiError ? (err.fieldErrors.password ?? err.message) : 'Could not delete the account. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card title="Privacy" className="mt-5">
+      <p className="text-[13.5px] text-ink-2">
+        Read our{' '}
+        <Link to="/privacy" className="text-ink underline underline-offset-2">
+          Privacy Policy
+        </Link>
+        ,{' '}
+        <Link to="/terms" className="text-ink underline underline-offset-2">
+          Terms
+        </Link>
+        ,{' '}
+        <Link to="/refunds" className="text-ink underline underline-offset-2">
+          Refund Policy
+        </Link>{' '}
+        and{' '}
+        <Link to="/cookies" className="text-ink underline underline-offset-2">
+          Cookie Policy
+        </Link>
+        . To download your data, use the CSV export on each list.
+      </p>
+      <div className="mt-4 rounded-xl border border-danger-line p-4">
+        <p className="text-[14px] font-medium text-ink">Delete account</p>
+        <p className="mt-1 text-[13px] text-ink-2">
+          Permanently deletes your login and every branch only you own, with all its customers, orders, invoices, products, staff and expenses.
+          Branches you share with another owner stay with them. This can’t be undone, so download anything you need first.
+        </p>
+        <Button variant="danger" size="sm" className="mt-3" onClick={() => setOpen(true)}>
+          Delete account
+        </Button>
+      </div>
+      <Modal
+        open={open}
+        title="Delete your account?"
+        onClose={close}
+        footer={
+          <>
+            <Button variant="secondary" onClick={close} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={run} loading={busy} disabled={!password || typed.trim().toUpperCase() !== 'DELETE'}>
+              Delete everything
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="space-y-3.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (password && typed.trim().toUpperCase() === 'DELETE') run();
+          }}
+        >
+          {error && <Alert tone="error">{error}</Alert>}
+          <p className="text-[13.5px] text-ink-2">All your data will be erased immediately. This can’t be undone.</p>
+          <TextField label="Your password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+          <TextField label="Type DELETE to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+          <button type="submit" hidden />
+        </form>
+      </Modal>
+    </Card>
   );
 }

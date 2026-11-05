@@ -198,9 +198,12 @@ export async function hardDeleteCustomer(db: Db, shopId: number, id: number) {
   await db.query(`DELETE FROM customers WHERE shop_id = $1 AND id = $2`, [shopId, id]);
 }
 
+/** A customer with orders: the orders stay (sales records), but the person's details are erased. */
 export async function softDeleteCustomer(db: Db, shopId: number, id: number) {
   await db.query(
-    `UPDATE customers SET deleted_at = now(), updated_at = now() WHERE shop_id = $1 AND id = $2`,
+    `UPDATE customers SET deleted_at = now(), updated_at = now(),
+       name = 'Deleted customer', phone = NULL, email = NULL, address = NULL, notes = NULL
+     WHERE shop_id = $1 AND id = $2`,
     [shopId, id],
   );
 }

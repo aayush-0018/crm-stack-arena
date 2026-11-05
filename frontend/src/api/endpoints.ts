@@ -72,8 +72,10 @@ import type {
 import { api } from './client';
 
 export const authApi = {
+  /** Deletes the account and every branch only it owns. */
+  deleteAccount: (password: string) => api.delete<{ deletedBranches: number }>('/auth/account', { password }),
   login: (body: { email: string; password: string }) => api.post<Session>('/auth/login', body),
-  register: (body: { shopName: string; name: string; email: string; password: string }) =>
+  register: (body: { shopName: string; name: string; email: string; password: string; acceptTerms: true }) =>
     api.post<Session>('/auth/register', body),
   me: () => api.get<{ user: User; shop: Shop }>('/auth/me'),
   switchBranch: (shopId: number) => api.post<Session>('/auth/switch-branch', { shopId }),

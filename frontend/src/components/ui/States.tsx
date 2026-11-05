@@ -43,5 +43,10 @@ export function Alert({ tone = 'info', children }: { tone?: 'info' | 'warning' |
     error: 'border-danger-line bg-danger-bg text-danger-strong',
     success: 'border-success-line bg-success-bg text-success-strong',
   };
-  return <div className={`rounded-lg border px-3.5 py-2.5 text-[13.5px] ${styles[tone]}`}>{children}</div>;
+  // Errors are announced to screen readers as soon as they appear.
+  return (
+    <div role={tone === 'error' ? 'alert' : 'status'} className={`rounded-lg border px-3.5 py-2.5 text-[13.5px] ${styles[tone]}`}>
+      {children}
+    </div>
+  );
 }

@@ -424,7 +424,7 @@ function MonthView({ month, setMonth, onOpenDay, isOwner }: { month: string; set
               {d.days.map((day) => {
                 const wd = new Date(`${day}T00:00:00Z`).getUTCDay();
                 return (
-                  <th key={day} className={`${th} min-w-[30px] text-center ${wd === 0 ? 'text-ink-4' : ''}`}>
+                  <th key={day} className={`${th} min-w-[30px] text-center ${wd === 0 ? 'text-ink-3' : ''}`}>
                     <span className="block">{Number(day.slice(8))}</span>
                     <span className="block text-[10px] font-normal">{'SMTWTFS'[wd]}</span>
                   </th>

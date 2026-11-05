@@ -29,7 +29,11 @@ function Wrap({ id, label, error, hint, required, className = '', children }: Wr
           {error}
         </p>
       ) : (
-        hint && <p className="mt-1.5 text-[12px] text-ink-3">{hint}</p>
+        hint && (
+          <p id={`${id}-hint`} className="mt-1.5 text-[12px] text-ink-3">
+            {hint}
+          </p>
+        )
       )}
     </div>
   );
@@ -46,6 +50,9 @@ export function numericOnly(mode: 'numeric' | 'decimal' | 'tel', value: string):
   return rest.length ? `${whole}.${rest.join('')}` : whole;
 }
 
+/** Links the error (or, without one, the hint) to the control so screen readers read it out. */
+const describedBy = (id: string, error?: string, hint?: unknown) => (error ? `${id}-err` : hint ? `${id}-hint` : undefined);
+
 export function TextField({ label, error, hint, required, className, type, inputMode, onChange, ...rest }: WrapProps & InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
   // type="number" still lets e, + and - in, so it becomes a text box that only takes digits.
@@ -58,7 +65,8 @@ export function TextField({ label, error, hint, required, className, type, input
         type={type === 'number' ? 'text' : type}
         inputMode={mode}
         aria-invalid={!!error}
-        aria-describedby={error ? `${id}-err` : undefined}
+        aria-describedby={describedBy(id, error, hint)}
+        aria-required={required || undefined}
         className={controlClass(!!error, 'h-9')}
         onChange={
           filter && onChange
@@ -85,7 +93,8 @@ export function PasswordField({ label, error, hint, required, className, ...rest
           id={id}
           type={visible ? 'text' : 'password'}
           aria-invalid={!!error}
-          aria-describedby={error ? `${id}-err` : undefined}
+          aria-describedby={describedBy(id, error, hint)}
+          aria-required={required || undefined}
           className={controlClass(!!error, 'h-9 pr-10')}
           {...rest}
         />
@@ -114,7 +123,7 @@ export function TextAreaField({
   const id = useId();
   return (
     <Wrap id={id} label={label} error={error} hint={hint} required={required} className={className}>
-      <textarea id={id} aria-invalid={!!error} rows={3} className={controlClass(!!error, 'py-2')} {...rest} />
+      <textarea id={id} aria-invalid={!!error} aria-describedby={describedBy(id, error, hint)} aria-required={required || undefined} rows={3} className={controlClass(!!error, 'py-2')} {...rest} />
     </Wrap>
   );
 }
@@ -131,7 +140,7 @@ export function SelectField({
   const id = useId();
   return (
     <Wrap id={id} label={label} error={error} hint={hint} required={required} className={className}>
-      <select id={id} aria-invalid={!!error} className={controlClass(!!error, 'h-9 pr-8')} {...rest}>
+      <select id={id} aria-invalid={!!error} aria-describedby={describedBy(id, error, hint)} aria-required={required || undefined} className={controlClass(!!error, 'h-9 pr-8')} {...rest}>
         {children}
       </select>
     </Wrap>

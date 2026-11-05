@@ -33,6 +33,7 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1, 'Your name is required'),
   email: z.string().trim().email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Please accept the Terms and Privacy Policy to continue' }) }),
 });
 
 const money = (msg = 'Enter a valid amount (up to 2 decimals)') =>
