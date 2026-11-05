@@ -6,15 +6,15 @@
 export const BUSINESS = {
   brand: 'CartWell',
   /** Registered name of the business (proprietorship, LLP or company). */
-  legalName: '[FILL IN: registered business name]',
-  address: '[FILL IN: registered address, city, state, PIN]',
-  supportEmail: '[FILL IN: support email]',
+  legalName: 'CartWell Technologies',
+  address: 'Jaipur, Rajasthan, India',
+  supportEmail: 'b210907@skit.ac.in',
   /** Required by the DPDP Act 2023 and the Consumer Protection (E-Commerce) Rules 2020. */
-  grievanceOfficer: '[FILL IN: Grievance Officer name]',
-  grievanceEmail: '[FILL IN: grievance email]',
+  grievanceOfficer: 'Aayush Goswami',
+  grievanceEmail: 'b210907@skit.ac.in',
   /** Courts named in the Terms, e.g. "Jaipur, Rajasthan". */
-  jurisdiction: '[FILL IN: city, state]',
-  trialDays: '[FILL IN: number of]',
+  jurisdiction: 'Jaipur, Rajasthan',
+  trialDays: '14',
   lastUpdated: '6 November 2026',
 };
 
