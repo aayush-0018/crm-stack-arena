@@ -128,24 +128,15 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
   );
 }
 
-/** Tick gauge: ticks up to the value are ink, the rest light, with a marker above the value. */
+/** Progress bar: the filled part shows the value; an optional thin mark shows a reference point. */
 export function TickGauge({ value, reference, label }: { value: number; reference?: number; label: string }) {
   const v = Math.min(1, Math.max(0, value));
-  const N = 56;
-  const refIdx = reference === undefined ? -1 : Math.round(Math.min(1, Math.max(0, reference)) * (N - 1));
+  const r = reference === undefined ? null : Math.min(1, Math.max(0, reference));
   return (
-    <div className="relative h-8 w-full max-w-[220px] pt-3" role="img" aria-label={label}>
-      <span
-        className="absolute top-0 -ml-[4px] h-0 w-0 border-x-[4px] border-t-[6px] border-x-transparent border-t-ink"
-        style={{ left: `${v * 100}%` }}
-      />
-      <div className="flex h-2.5 items-start justify-between">
-        {Array.from({ length: N }, (_, i) => (
-          <span
-            key={i}
-            className={`w-px ${i === refIdx ? 'h-[15px]' : 'h-2.5'} ${i / (N - 1) <= v ? 'bg-ink' : 'bg-line-strong'}`}
-          />
-        ))}
+    <div className="flex h-8 w-full max-w-[220px] items-center" role="img" aria-label={label}>
+      <div className="relative h-2 w-full overflow-hidden rounded-full bg-line-strong">
+        <div className="h-full rounded-full bg-ink transition-[width] duration-300" style={{ width: `${v * 100}%` }} />
+        {r !== null && <span className="absolute inset-y-0 w-px bg-surface" style={{ left: `${r * 100}%` }} />}
       </div>
     </div>
   );
