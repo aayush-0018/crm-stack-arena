@@ -8,6 +8,7 @@ import type {
   ReservationStatus,
   AgeingReport,
   CollectionsReport,
+  GstReport,
   ImportResult,
   OrderReturn,
   Receipt,
@@ -224,6 +225,7 @@ export interface ProductPayload {
   cost: string | null;
   trackStock: boolean;
   lowStockAt: string | null;
+  gstRate: number | null;
 }
 
 export const productsApi = {
@@ -380,6 +382,7 @@ export const returnsApi = {
 export const reportsApi = {
   ageing: (q: { from?: string; to?: string }) => api.get<AgeingReport>('/reports/ageing', q),
   collections: (q: { from?: string; to?: string }) => api.get<CollectionsReport>('/reports/collections', q),
+  gst: (q: { from?: string; to?: string }) => api.get<GstReport>('/reports/gst', q),
   growth: (q: { grain: GrowthGrain; basis: GrowthBasis; by: GrowthDimension }) => api.get<GrowthReport>('/reports/growth', q),
 };
 

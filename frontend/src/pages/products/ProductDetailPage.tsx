@@ -86,8 +86,10 @@ export default function ProductDetailPage() {
         <Stat label="Warn at" value={p.trackStock && p.lowStockMilli != null ? formatStock(p.lowStockMilli, p.unit) : '—'} />
       </StatStrip>
 
-      {(p.sku || p.category) && (
-        <p className="border-b border-line px-4 py-3 text-[13.5px] text-ink-2 sm:px-6">{[p.sku && `SKU ${p.sku}`, p.category].filter(Boolean).join(' · ')}</p>
+      {(p.sku || p.category || p.gstRate != null) && (
+        <p className="border-b border-line px-4 py-3 text-[13.5px] text-ink-2 sm:px-6">
+          {[p.sku && `SKU ${p.sku}`, p.category, p.gstRate != null && `GST ${p.gstRate}% (included in price)`].filter(Boolean).join(' · ')}
+        </p>
       )}
 
       <SectionHeader title="Photo" />

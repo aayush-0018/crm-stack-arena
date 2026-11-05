@@ -9,6 +9,8 @@ export interface ComputedLine {
   quantity: string;
   unitPricePaise: number;
   lineTotalPaise: number;
+  /** GST % copied from the product when the line was saved (read back from the database only). */
+  gstRate?: number | null;
 }
 
 export interface ComputedTotals {

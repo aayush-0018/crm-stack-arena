@@ -15,9 +15,9 @@ import { downloadCsv, rupees } from '../lib/csv';
 import { formatDate, todayIST } from '../lib/date';
 import { useAsync } from '../lib/hooks';
 import { formatINR } from '../lib/money';
-import type { AgeingBucket, AgeingReport, CollectionsReport } from '../types';
+import type { AgeingBucket, AgeingReport, CollectionsReport, GstRow } from '../types';
 
-type Tab = 'ageing' | 'collections';
+type Tab = 'ageing' | 'collections' | 'gst';
 const BUCKET_LABEL: Record<AgeingBucket, string> = { '0-30': '0–30 days', '31-60': '31–60 days', '61-90': '61–90 days', '90+': '90+ days' };
 const methodLabel = (m: string) => PAYMENT_METHOD_LABEL[m as keyof typeof PAYMENT_METHOD_LABEL] ?? m;
 
@@ -71,6 +71,7 @@ export default function ReportsPage() {
         tabs={[
           { key: 'ageing', label: 'Outstanding & ageing' },
           { key: 'collections', label: 'Collections' },
+          { key: 'gst', label: 'GST summary' },
         ]}
         value={tab}
         onChange={(k) => update({ tab: k === 'ageing' ? undefined : k })}
@@ -84,7 +85,7 @@ export default function ReportsPage() {
           }}
         >
           <TextField
-            label={tab === 'ageing' ? 'Orders from' : 'Paid from'}
+            label={tab === 'ageing' ? 'Orders from' : tab === 'gst' ? 'Sales from' : 'Paid from'}
             type="date"
             value={draft.from}
             max={todayIST()}
@@ -102,7 +103,7 @@ export default function ReportsPage() {
           )}
         </form>
       </Toolbar>
-      {tab === 'ageing' ? <AgeingView from={from} to={to} /> : <CollectionsView from={from} to={to} />}
+      {tab === 'ageing' ? <AgeingView from={from} to={to} /> : tab === 'gst' ? <GstView from={from} to={to} /> : <CollectionsView from={from} to={to} />}
     </>
   );
 }
@@ -304,6 +305,101 @@ function CollectionsView({ from, to }: { from: string; to: string }) {
       ) : (
         <DataTable label="Collections by date and method" rows={r.rows} columns={dayCols} rowKey={(d) => `${d.date}-${d.method}`} dim={report.loading} />
       )}
+    </>
+  );
+}
+
+const monthLabel = (ym: string) => new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' }).format(new Date(`${ym}-01T00:00:00`));
+
+/** GST inside the sales (prices include GST), by rate or by month and rate. Sales minus returns. */
+function GstView({ from, to }: { from: string; to: string }) {
+  const [view, setView] = useState<'rates' | 'months'>('rates');
+  const report = useAsync(() => reportsApi.gst({ from: from || undefined, to: to || undefined }), [from, to]);
+  if (report.loading && !report.data) return <LoadingState />;
+  if (report.error || !report.data) return <ErrorState error={report.error ?? 'Could not load the report'} onRetry={report.reload} />;
+  const r = report.data;
+  const t = r.totals;
+  const rows = view === 'rates' ? r.byRate : r.byMonth;
+  const money = (v: number): ReactNode => (v ? formatINR(v) : '—');
+
+  const cols: Column<GstRow>[] = [
+    ...(view === 'months' ? [{ key: 'month', header: 'Month', cell: (g: GstRow) => monthLabel(g.month!) }] : []),
+    { key: 'rate', header: 'GST rate', cell: (g) => <span className="text-ink">{g.rate}%</span> },
+    { key: 'sales', header: 'Sales', align: 'right', hideBelow: 'lg', cell: (g) => money(g.salesPaise) },
+    { key: 'returns', header: 'Returns', align: 'right', hideBelow: 'lg', cell: (g) => money(g.returnsPaise) },
+    { key: 'taxable', header: 'Taxable value', align: 'right', cell: (g) => formatINR(g.taxablePaise) },
+    { key: 'cgst', header: 'CGST', align: 'right', hideBelow: 'sm', cell: (g) => money(g.cgstPaise) },
+    { key: 'sgst', header: 'SGST', align: 'right', hideBelow: 'sm', cell: (g) => money(g.sgstPaise) },
+    { key: 'tax', header: 'Total GST', align: 'right', cell: (g) => <span className="font-medium text-ink">{formatINR(g.taxPaise)}</span> },
+  ];
+
+  const exportCsv = () =>
+    downloadCsv(`gst-summary-${r.from}-to-${r.to}.csv`, r.byMonth, [
+      { header: 'Month', value: (g) => g.month },
+      { header: 'GST rate (%)', value: (g) => g.rate },
+      { header: 'Sales incl. GST (Rs)', value: (g) => rupees(g.salesPaise) },
+      { header: 'Returns incl. GST (Rs)', value: (g) => rupees(g.returnsPaise) },
+      { header: 'Taxable value (Rs)', value: (g) => rupees(g.taxablePaise) },
+      { header: 'CGST (Rs)', value: (g) => rupees(g.cgstPaise) },
+      { header: 'SGST (Rs)', value: (g) => rupees(g.sgstPaise) },
+      { header: 'Total GST (Rs)', value: (g) => rupees(g.taxPaise) },
+    ]);
+  const unratedNet = r.unrated.salesPaise - r.unrated.returnsPaise;
+
+  return (
+    <>
+      <StatStrip page="report-gst" dim={report.loading}>
+        <Stat label="Taxable value" value={formatINR(t.taxablePaise)} />
+        <Stat label="CGST" value={formatINR(t.cgstPaise)} />
+        <Stat label="SGST" value={formatINR(t.sgstPaise)} />
+        <Stat label="Total GST" value={formatINR(t.taxPaise)} />
+      </StatStrip>
+      <SectionHeader
+        title={
+          <span className="text-[14px] font-normal text-ink-2">
+            {formatDate(r.from)} – {formatDate(r.to)} · sales by order date, returns by return date · prices include GST
+          </span>
+        }
+        actions={
+          <>
+            <Toggle
+              label="Group by"
+              value={view}
+              onChange={setView}
+              options={[
+                ['rates', 'By rate'],
+                ['months', 'By month'],
+              ]}
+            />
+            <button type="button" onClick={exportCsv} disabled={!r.byMonth.length} className={exportBtn}>
+              <Download size={16} strokeWidth={1.75} /> Export
+            </button>
+          </>
+        }
+      />
+      {!rows.length ? (
+        <EmptyState
+          title="No GST to show"
+          description={
+            unratedNet
+              ? 'None of the items sold in these dates has a GST rate. Set the rate on each product to see GST here.'
+              : 'No sales in these dates.'
+          }
+        />
+      ) : (
+        <DataTable label="GST summary" rows={rows} columns={cols} rowKey={(g) => `${g.month ?? ''}-${g.rate}`} dim={report.loading} />
+      )}
+      {unratedNet !== 0 && rows.length > 0 && (
+        <p className="px-4 py-3 text-[13px] text-ink-3 sm:px-6">
+          {formatINR(unratedNet)} of sales had no GST rate (items typed in by hand, or products without a rate) and is not counted above.{' '}
+          <Link to="/products" className="text-ink-2 underline-offset-2 hover:underline">
+            Set rates on products
+          </Link>
+        </p>
+      )}
+      <p className="px-4 pb-6 text-[12.5px] text-ink-3 sm:px-6">
+        All sales are treated as within your state (CGST + SGST). Check the figures with your accountant before filing.
+      </p>
     </>
   );
 }

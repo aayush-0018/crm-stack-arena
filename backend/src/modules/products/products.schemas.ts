@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GST_RATES } from '../../lib/gst';
 import { moneyInput, quantityToMilli } from '../../lib/money';
 import { optionalText, paginationQuery } from '../../lib/validation';
 
@@ -17,6 +18,25 @@ const optionalQty = z
   .optional()
   .transform((v) => (v === '' || v === null || v === undefined ? null : v));
 
+/**
+ * GST rate in %, e.g. 18, "18" or "18%". Empty or null = no rate. Left out (undefined) = keep the
+ * current rate, so a CSV without a GST column doesn't wipe rates on update.
+ */
+export const gstRateInput = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
+  .transform((v, ctx) => {
+    if (v === undefined) return undefined;
+    if (v === null) return null;
+    const s = String(v).trim().replace(/%$/, '').trim();
+    if (!s) return null;
+    const n = Number(s);
+    if (!(GST_RATES as readonly number[]).includes(n)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `GST rate must be one of: ${GST_RATES.join(', ')}` });
+      return z.NEVER;
+    }
+    return n;
+  });
+
 export const productInput = z.object({
   name: z.string({ required_error: 'Name is required' }).trim().min(1, 'Name is required').max(120),
   sku: optionalText(40),
@@ -30,6 +50,7 @@ export const productInput = z.object({
   trackStock: z.boolean().default(true),
   /** Warn when stock falls to this level or below. Empty = no warning (except below zero). */
   lowStockAt: optionalQty,
+  gstRate: gstRateInput,
 });
 export type ProductInput = z.infer<typeof productInput>;
 

@@ -94,7 +94,8 @@ export async function findOrderIdByIdempotencyKey(db: Db, shopId: number, key: s
 export async function findItems(db: Db, orderId: number): Promise<ComputedLine[]> {
   const { rows } = await db.query(
     `SELECT position, product_id AS "productId", item_name AS "itemName", quantity,
-       unit_price_paise AS "unitPricePaise", line_total_paise AS "lineTotalPaise"
+       unit_price_paise AS "unitPricePaise", line_total_paise AS "lineTotalPaise",
+       gst_rate::float8 AS "gstRate"
      FROM order_items WHERE order_id = $1 ORDER BY position`,
     [orderId],
   );
@@ -152,10 +153,12 @@ export async function replaceItems(db: Db, orderId: number, lines: ComputedLine[
   const values = lines.map((l) => {
     params.push(l.position, l.productId, l.itemName, l.quantity, l.unitPricePaise, l.lineTotalPaise);
     const n = params.length;
-    return `($1, $${n - 5}, $${n - 4}, $${n - 3}, $${n - 2}, $${n - 1}, $${n})`;
+    // The product's GST rate is copied onto the line, so changing it later never changes this sale.
+    return `($1, $${n - 5}, $${n - 4}::bigint, $${n - 3}, $${n - 2}, $${n - 1}, $${n},
+      (SELECT p.gst_rate FROM products p WHERE p.id = $${n - 4}::bigint))`;
   });
   await db.query(
-    `INSERT INTO order_items (order_id, position, product_id, item_name, quantity, unit_price_paise, line_total_paise)
+    `INSERT INTO order_items (order_id, position, product_id, item_name, quantity, unit_price_paise, line_total_paise, gst_rate)
      VALUES ${values.join(', ')}`,
     params,
   );

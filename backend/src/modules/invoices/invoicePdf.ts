@@ -1,5 +1,6 @@
 import PdfPrinter from 'pdfmake';
 import type { Column, Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import { gstBreakup } from '../../lib/gst';
 import { formatRupees } from '../../lib/money';
 import { Invoice } from './invoices.repo';
 
@@ -163,6 +164,58 @@ export function buildInvoiceDoc(inv: Invoice, logo: string | null = null): TDocu
       ],
     },
   ];
+
+  // GST inside the prices, by rate. Invoices issued before GST rates existed have none.
+  const gst = gstBreakup(inv.itemsSnapshot, inv.discountPaise);
+  if (gst.rows.length) {
+    const cgstPct = (r: number) => `${r / 2}%`;
+    content.push({
+      margin: [0, 22, 0, 0],
+      unbreakable: true,
+      stack: [
+        label('GST breakup (prices include GST)'),
+        {
+          margin: [0, 6, 0, 0],
+          table: {
+            headerRows: 1,
+            widths: [40, '*', '*', '*', '*'],
+            body: [
+              [th('Rate'), th('Taxable value', 'right'), th('CGST', 'right'), th('SGST', 'right'), th('Total GST', 'right')],
+              ...gst.rows.map((r): TableCell[] => [
+                { text: `${r.rate}%` },
+                { text: formatRupees(r.taxablePaise), alignment: 'right' },
+                { text: `${formatRupees(r.cgstPaise)} (${cgstPct(r.rate)})`, alignment: 'right' },
+                { text: `${formatRupees(r.sgstPaise)} (${cgstPct(r.rate)})`, alignment: 'right' },
+                { text: formatRupees(r.taxPaise), alignment: 'right' },
+              ]),
+              ...(gst.rows.length > 1
+                ? [
+                    [
+                      { text: 'Total', bold: true },
+                      { text: formatRupees(gst.rows.reduce((s, r) => s + r.taxablePaise, 0)), alignment: 'right', bold: true },
+                      { text: formatRupees(gst.rows.reduce((s, r) => s + r.cgstPaise, 0)), alignment: 'right', bold: true },
+                      { text: formatRupees(gst.rows.reduce((s, r) => s + r.sgstPaise, 0)), alignment: 'right', bold: true },
+                      { text: formatRupees(gst.rows.reduce((s, r) => s + r.taxPaise, 0)), alignment: 'right', bold: true },
+                    ] as TableCell[],
+                  ]
+                : []),
+            ],
+          },
+          layout: {
+            hLineWidth: (i: number) => (i === 0 ? 0 : 0.5),
+            vLineWidth: () => 0,
+            hLineColor: () => LINE,
+            paddingLeft: (i: number) => (i === 0 ? 0 : 8),
+            paddingRight: (i: number) => (i === 4 ? 0 : 8),
+            paddingTop: () => 5,
+            paddingBottom: () => 5,
+          },
+          fontSize: 9,
+        },
+        ...(gst.unratedPaise ? [{ text: `Items without a GST rate: ${formatRupees(gst.unratedPaise)}`, style: 'muted', margin: [0, 4, 0, 0] } as Content] : []),
+      ],
+    });
+  }
 
   if (inv.orderSnapshot.notes) {
     content.push({

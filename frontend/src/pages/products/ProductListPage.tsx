@@ -30,6 +30,7 @@ const IMPORT_COLUMNS: ImportColumn[] = [
   { key: 'trackStock', header: 'Track stock' },
   { key: 'lowStockAt', header: 'Low stock at', aliases: ['low stock level', 'warning level', 'reorder level'] },
   { key: 'openingStock', header: 'Opening stock', aliases: ['stock', 'quantity'] },
+  { key: 'gstRate', header: 'GST %', aliases: ['gst', 'gst rate', 'tax', 'tax rate'] },
 ];
 
 const COLUMNS: Column<Product>[] = [
@@ -147,12 +148,12 @@ export default function ProductListPage() {
         title="Import products"
         noun={['product', 'products']}
         columns={IMPORT_COLUMNS}
-        example={{ id: '', name: 'Basmati rice', sku: 'RICE-5', category: 'Grocery', unit: 'kg', price: '95', cost: '80', trackStock: 'yes', lowStockAt: '10', openingStock: '50' }}
+        example={{ id: '', name: 'Basmati rice', sku: 'RICE-5', category: 'Grocery', unit: 'kg', price: '95', cost: '80', trackStock: 'yes', lowStockAt: '10', openingStock: '50', gstRate: '5' }}
         templateName="products-template.csv"
         help={
           <>
             Columns: Name and Price (required), SKU, Category, Unit (pcs, kg, g, l, ml, m, box, pack, dozen, pair, set), Cost, Track stock (yes/no), Low
-            stock at, Opening stock and ID. A row with a product's ID updates that product, but never its stock; leave ID blank to add a new one. The
+            stock at, Opening stock, GST % (0, 0.25, 3, 5, 12, 18, 28 or 40) and ID. A row with a product's ID updates that product, but never its stock; leave ID blank to add a new one. The
             ID is the number at the end of the product's page address.
           </>
         }

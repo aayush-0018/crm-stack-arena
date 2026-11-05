@@ -12,6 +12,8 @@ export interface Product {
   costPaise: number | null;
   trackStock: boolean;
   lowStockMilli: number | null;
+  /** GST % included in the price; null = not set. */
+  gstRate: number | null;
   active: boolean;
   imageKey: string | null;
   stockMilli: number;
@@ -27,7 +29,7 @@ const FROM = `FROM products p
     ON s.product_id = p.id`;
 const LOW = `(p.track_stock AND COALESCE(s.qty, 0) <= COALESCE(p.low_stock_milli, -1))`;
 const COLS = `p.id, p.name, p.sku, p.category, p.unit, p.price_paise AS "pricePaise", p.cost_paise AS "costPaise",
-  p.track_stock AS "trackStock", p.low_stock_milli AS "lowStockMilli", p.active, p.image_key AS "imageKey",
+  p.track_stock AS "trackStock", p.low_stock_milli AS "lowStockMilli", p.gst_rate::float8 AS "gstRate", p.active, p.image_key AS "imageKey",
   COALESCE(s.qty, 0)::bigint AS "stockMilli", ${LOW} AS low,
   p.created_at AS "createdAt", p.updated_at AS "updatedAt"`;
 
@@ -65,9 +67,9 @@ export async function countLowStock(db: Db, shopId: number): Promise<number> {
 
 export async function insertProduct(db: Db, shopId: number, p: ProductInput): Promise<number> {
   const { rows } = await db.query(
-    `INSERT INTO products (shop_id, name, sku, category, unit, price_paise, cost_paise, track_stock, low_stock_milli)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-    [shopId, p.name, p.sku, p.category, p.unit, p.price, p.cost, p.trackStock, p.lowStockAt],
+    `INSERT INTO products (shop_id, name, sku, category, unit, price_paise, cost_paise, track_stock, low_stock_milli, gst_rate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+    [shopId, p.name, p.sku, p.category, p.unit, p.price, p.cost, p.trackStock, p.lowStockAt, p.gstRate ?? null],
   );
   return rows[0].id;
 }
@@ -75,9 +77,10 @@ export async function insertProduct(db: Db, shopId: number, p: ProductInput): Pr
 export async function updateProduct(db: Db, shopId: number, id: number, p: ProductInput) {
   const { rowCount } = await db.query(
     `UPDATE products SET name = $3, sku = $4, category = $5, unit = $6, price_paise = $7, cost_paise = $8,
-       track_stock = $9, low_stock_milli = $10, updated_at = now()
+       track_stock = $9, low_stock_milli = $10,
+       gst_rate = CASE WHEN $11::boolean THEN $12::numeric ELSE gst_rate END, updated_at = now()
      WHERE shop_id = $1 AND id = $2`,
-    [shopId, id, p.name, p.sku, p.category, p.unit, p.price, p.cost, p.trackStock, p.lowStockAt],
+    [shopId, id, p.name, p.sku, p.category, p.unit, p.price, p.cost, p.trackStock, p.lowStockAt, p.gstRate !== undefined, p.gstRate ?? null],
   );
   return (rowCount ?? 0) > 0;
 }

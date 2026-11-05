@@ -6,6 +6,7 @@ import { AppError } from '../../lib/errors';
 import { todayIST } from '../../lib/numbering';
 import { dateInput } from '../../lib/validation';
 import { auth } from '../../middleware/auth';
+import { gstReport } from './gst';
 import { growthQuery, growthReport } from './growth';
 
 export const reportsRouter = Router();
@@ -117,6 +118,15 @@ reportsRouter.get(
       byDate: dates.map((date) => ({ date, ...sum(rowsOut.filter((r) => r.date === date)) })),
       totals: sum(rowsOut),
     });
+  }),
+);
+
+/** GST summary by rate and month: taxable value, CGST and SGST. Defaults to this month so far. */
+reportsRouter.get(
+  '/gst',
+  ah(async (req, res) => {
+    const shopId = auth(req).shopId;
+    res.json(await gstReport(shopId, await todayIST(pool), rangeQuery.parse(req.query)));
   }),
 );
 

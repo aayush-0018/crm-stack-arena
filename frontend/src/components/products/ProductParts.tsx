@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { productsApi, ProductPayload } from '../../api/endpoints';
+import { GST_RATES } from '../../lib/gst';
 import { isValidMoney, paiseToInput } from '../../lib/money';
 import { uuid } from '../../lib/uuid';
 import { PRODUCT_UNITS, type Product, type ProductDetail, type ProductUnit } from '../../types';
@@ -35,6 +36,7 @@ interface FormValues {
   trackStock: boolean;
   lowStockAt: string;
   openingStock: string;
+  gstRate: string;
 }
 
 /** Create (with opening stock) and edit share this form. */
@@ -59,6 +61,7 @@ export function ProductForm({
     trackStock: product?.trackStock ?? true,
     lowStockAt: milliToInput(product?.lowStockMilli ?? null),
     openingStock: '',
+    gstRate: product?.gstRate != null ? String(product.gstRate) : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -89,6 +92,7 @@ export function ProductForm({
       cost: v.cost.trim() || null,
       trackStock: v.trackStock,
       lowStockAt: v.trackStock ? v.lowStockAt.trim() || null : null,
+      gstRate: v.gstRate === '' ? null : Number(v.gstRate),
     };
     try {
       onSaved(
@@ -129,6 +133,14 @@ export function ProductForm({
           error={errors.cost}
           hint="Optional, for your reference only"
         />
+        <SelectField label="GST rate" value={v.gstRate} onChange={(e) => setV({ ...v, gstRate: e.target.value })} error={errors.gstRate} hint="Included in the selling price. Shown on invoices and in the GST report.">
+          <option value="">No GST / not set</option>
+          {GST_RATES.map((r) => (
+            <option key={r} value={String(r)}>
+              {r}%
+            </option>
+          ))}
+        </SelectField>
       </div>
 
       <div className="space-y-4 rounded-xl border border-line p-4">

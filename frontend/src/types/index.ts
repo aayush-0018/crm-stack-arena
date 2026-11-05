@@ -125,6 +125,8 @@ export interface OrderItem {
   quantity: string;
   unitPricePaise: number;
   lineTotalPaise: number;
+  /** GST % included in the price, copied from the product when sold; null = none. */
+  gstRate?: number | null;
 }
 
 export interface OrderBase {
@@ -323,6 +325,29 @@ export interface CollectionTotals {
   refunds: number;
 }
 
+export interface GstRow {
+  /** YYYY-MM, on month rows. */
+  month?: string;
+  rate: number;
+  salesPaise: number;
+  returnsPaise: number;
+  grossPaise: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  taxPaise: number;
+}
+
+export interface GstReport {
+  from: string;
+  to: string;
+  byRate: GstRow[];
+  byMonth: GstRow[];
+  totals: Omit<GstRow, 'rate' | 'month'>;
+  /** Sales of items with no GST rate. */
+  unrated: { salesPaise: number; returnsPaise: number };
+}
+
 export interface CollectionsReport {
   from: string;
   to: string;
@@ -455,6 +480,8 @@ export interface Product {
   costPaise: number | null;
   trackStock: boolean;
   lowStockMilli: number | null;
+  /** GST % included in the price; null = not set. */
+  gstRate: number | null;
   active: boolean;
   /** The product's photo (public URL from productImageUrl), or null. */
   imageKey: string | null;

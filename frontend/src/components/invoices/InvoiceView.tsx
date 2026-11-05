@@ -1,4 +1,5 @@
 import { formatDate } from '../../lib/date';
+import { gstBreakup } from '../../lib/gst';
 import { formatINR, formatQty } from '../../lib/money';
 import type { Invoice } from '../../types';
 import { PAYMENT_STATUS_LABEL } from '../ui/Badge';
@@ -12,6 +13,8 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   const balance = invoice.totalPaise - invoice.amountPaidPaise;
   const cityLine = [s.city, s.state, s.pincode].filter(Boolean).join(', ');
   const label = 'text-[11px] font-medium uppercase tracking-[0.06em] text-ink-3';
+  // Invoices issued before GST rates existed have none, so show nothing.
+  const gst = gstBreakup(invoice.itemsSnapshot, invoice.discountPaise);
 
   return (
     <article className="theme-light print-plain relative mx-auto max-w-[820px] overflow-hidden rounded-xl border border-line bg-surface px-6 py-8 text-[14px] text-ink shadow-soft sm:px-12 sm:py-12">
@@ -107,6 +110,51 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
           <p className="mt-1.5 text-right text-[11.5px] text-ink-3">Paid and balance as on the invoice date</p>
         </dl>
       </section>
+
+      {gst.rows.length > 0 && (
+        <section className="relative mt-8">
+          <p className={label}>GST breakup · prices include GST</p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[480px] text-[13px]">
+              <thead>
+                <tr className="border-b border-line text-left">
+                  <th className={`pb-2 pr-3 font-medium ${label}`}>Rate</th>
+                  <th className={`px-3 pb-2 text-right font-medium ${label}`}>Taxable value</th>
+                  <th className={`px-3 pb-2 text-right font-medium ${label}`}>CGST</th>
+                  <th className={`px-3 pb-2 text-right font-medium ${label}`}>SGST</th>
+                  <th className={`pb-2 pl-3 text-right font-medium ${label}`}>Total GST</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {gst.rows.map((r) => (
+                  <tr key={r.rate} className="border-b border-line">
+                    <td className="py-2 pr-3">{r.rate}%</td>
+                    <td className="px-3 py-2 text-right">{formatINR(r.taxablePaise)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {formatINR(r.cgstPaise)} <span className="text-ink-3">({r.rate / 2}%)</span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {formatINR(r.sgstPaise)} <span className="text-ink-3">({r.rate / 2}%)</span>
+                    </td>
+                    <td className="py-2 pl-3 text-right">{formatINR(r.taxPaise)}</td>
+                  </tr>
+                ))}
+                {gst.rows.length > 1 && (
+                  <tr className="font-medium">
+                    <td className="py-2 pr-3">Total</td>
+                    {(['taxablePaise', 'cgstPaise', 'sgstPaise', 'taxPaise'] as const).map((k, i) => (
+                      <td key={k} className={`py-2 text-right ${i === 3 ? 'pl-3' : 'px-3'}`}>
+                        {formatINR(gst.rows.reduce((s, r) => s + r[k], 0))}
+                      </td>
+                    ))}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {gst.unratedPaise > 0 && <p className="mt-1.5 text-[12px] text-ink-3">Items without a GST rate: {formatINR(gst.unratedPaise)}</p>}
+        </section>
+      )}
 
       {o.notes && (
         <section className="relative mt-8">
