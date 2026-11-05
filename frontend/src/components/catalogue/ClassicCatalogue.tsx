@@ -142,7 +142,7 @@ export default function ClassicCatalogue({ cat }: { cat: PublicCatalogue }) {
           </label>
           <div className="cc-bar-actions">
             {whatsapp ? (
-              <a className="cc-btn cc-btn-solid" href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">
+              <a className="cc-btn cc-btn-solid" href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hello ${shop.name}! I saw your catalogue and would like to place an order.`)}`} target="_blank" rel="noopener noreferrer">
                 <MessageCircle size={15} /> <span>WhatsApp</span>
               </a>
             ) : (
