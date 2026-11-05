@@ -24,7 +24,7 @@ const envSchema = z
     MAIL_PROVIDER: z.enum(['console', 'brevo', 'resend']).default('console'),
     MAIL_API_KEY: z.string().optional(),
     MAIL_FROM: z.string().email().optional(),
-    MAIL_FROM_NAME: z.string().default('CartWell'),
+    MAIL_FROM_NAME: z.string().default('INVi'),
     /** Where complaints from the app's Complaints form are emailed (the Grievance Officer). */
     GRIEVANCE_EMAIL: z.string().email().default('b210907@skit.ac.in'),
   })

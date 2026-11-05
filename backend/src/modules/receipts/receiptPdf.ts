@@ -123,13 +123,13 @@ export function buildReceiptDoc(r: Receipt, logo: string | null = null): TDocume
     pageMargins: [36, 36, 36, 48],
     info: { title: r.receiptNumber },
     defaultStyle: { font: 'Helvetica', fontSize: 10, lineHeight: 1.3, color: INK },
-    watermark: cancelled ? { text: 'CANCELLED', opacity: 0.08, bold: true } : { text: 'CartWell', opacity: 0.04, bold: true, fontSize: 72 },
+    watermark: cancelled ? { text: 'CANCELLED', opacity: 0.08, bold: true } : { text: 'INVi', opacity: 0.04, bold: true, fontSize: 72 },
     content,
     footer: (page, pages) => ({
       margin: [36, 14, 36, 0],
       columns: [
         { text: refund ? 'Refund issued.' : 'Thank you for your payment!', style: 'muted' },
-        { text: 'Made with CartWell', alignment: 'center', style: 'muted', color: INK_3 },
+        { text: 'Made with INVi', alignment: 'center', style: 'muted', color: INK_3 },
         { text: `Page ${page} of ${pages}`, alignment: 'right', style: 'muted' },
       ],
     }),

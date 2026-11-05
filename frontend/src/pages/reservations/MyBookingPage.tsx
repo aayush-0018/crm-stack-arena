@@ -118,7 +118,7 @@ export default function MyBookingPage() {
               Cancel booking
             </button>
           ))}
-        <p className="mt-6 text-center text-[11.5px] text-[#736b5f]">Powered by CartWell</p>
+        <p className="mt-6 text-center text-[11.5px] text-[#736b5f]">Powered by INVi</p>
       </div>
     </div>
   );

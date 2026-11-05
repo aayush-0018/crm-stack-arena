@@ -272,7 +272,7 @@ export default function ClassicCatalogue({ cat }: { cat: PublicCatalogue }) {
             {cat.showPrices ? 'Prices and availability' : 'Availability'} as of {fullDate(cat.generatedAt)} and may change. Please confirm with us
             before you order.
           </p>
-          <p className="cc-made">Made with CartWell</p>
+          <p className="cc-made">Made with INVi</p>
         </footer>
       </main>
     </div>

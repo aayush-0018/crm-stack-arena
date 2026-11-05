@@ -60,7 +60,7 @@ export async function sendBill(shopId: number, orderId: number) {
     <tr><td style="padding:8px 0;border-top:1px solid #e5e5e2;font-weight:600">Total (paid)</td><td style="padding:8px 0;border-top:1px solid #e5e5e2;text-align:right;font-weight:600">${formatPaise(inv.totalPaise)}</td></tr>
   </table>
   <p style="margin:24px 0"><a href="${escape(link)}" style="background:#171717;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;display:inline-block">Download bill (PDF)</a></p>
-  <p style="color:#8f8f8a;font-size:12px">Sent by ${escape(shop)} using CartWell.</p>
+  <p style="color:#8f8f8a;font-size:12px">Sent by ${escape(shop)} using INVi.</p>
 </div>`,
     });
     await logShare(pool, { shopId, invoiceId: id, channel: 'email', recipient: email, userId: null });

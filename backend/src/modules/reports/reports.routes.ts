@@ -13,7 +13,7 @@ export const reportsRouter = Router();
 
 const rangeQuery = z.object({ from: dateInput.optional(), to: dateInput.optional() });
 
-/** Ageing buckets by days since the order date (there are no due dates in CartWell). */
+/** Ageing buckets by days since the order date (there are no due dates in INVi). */
 export const AGEING_BUCKETS = ['0-30', '31-60', '61-90', '90+'] as const;
 type Bucket = (typeof AGEING_BUCKETS)[number];
 export const bucketFor = (ageDays: number): Bucket => (ageDays <= 30 ? '0-30' : ageDays <= 60 ? '31-60' : ageDays <= 90 ? '61-90' : '90+');

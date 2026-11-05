@@ -1,4 +1,4 @@
-import { Store } from 'lucide-react';
+import InviLogo from '../../components/ui/InviLogo';
 import { ReactNode, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import LegalLinks from '../../components/layout/LegalLinks';
@@ -37,9 +37,7 @@ function Layout({ title, children }: { title: string; children: ReactNode }) {
       <div className="mx-auto max-w-[760px]">
         <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5 text-ink">
-            <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-ink text-on-ink">
-              <Store size={16} strokeWidth={1.8} aria-hidden="true" />
-            </span>
+            <InviLogo size={32} />
             <span className="text-[16px] font-semibold">{BUSINESS.brand}</span>
           </Link>
           <nav aria-label="Policies" className="flex flex-wrap gap-1">

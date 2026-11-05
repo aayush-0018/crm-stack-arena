@@ -207,8 +207,8 @@ export default function AppShell() {
           )}
         </Popover>
       </div>
-      <p className="mt-2 select-none px-1.5 text-[11px] tracking-[0.04em] text-ink-3" aria-label="CartWell">
-        Powered by <span className="font-semibold text-ink-3">CartWell</span>
+      <p className="mt-2 select-none px-1.5 text-[11px] tracking-[0.04em] text-ink-3" aria-label="INVi">
+        Powered by <span className="font-semibold text-ink-3">INVi</span>
       </p>
     </div>
   );

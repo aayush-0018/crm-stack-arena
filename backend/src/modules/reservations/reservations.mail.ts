@@ -50,7 +50,7 @@ export async function sendBookingMail(kind: BookingMail, shopId: number, id: num
       : `<p style="margin:24px 0"><a href="${escape(link)}" style="background:#171717;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;display:inline-block">See or cancel booking</a></p>`
   }
   ${call ? `<p style="color:#5f5f5b;font-size:14px">${escape(call)}</p>` : ''}
-  <p style="color:#8f8f8a;font-size:12px">Sent by ${escape(r.shopName)} using CartWell.</p>
+  <p style="color:#8f8f8a;font-size:12px">Sent by ${escape(r.shopName)} using INVi.</p>
 </div>`,
   });
 }

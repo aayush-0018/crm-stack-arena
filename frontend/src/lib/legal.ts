@@ -1,12 +1,12 @@
 /**
- * Who runs CartWell, for the Privacy Policy, Terms, Refund Policy and page footers.
+ * Who runs INVi, for the Privacy Policy, Terms, Refund Policy and page footers.
  * Fill in every [FILL IN] before sharing the app with shop owners. Values marked [FILL IN] are
  * shown highlighted on the legal pages so a missing one is easy to spot.
  */
 export const BUSINESS = {
-  brand: 'CartWell',
+  brand: 'INVi',
   /** Registered name of the business (proprietorship, LLP or company). */
-  legalName: 'CartWell Technologies',
+  legalName: 'INVi Technologies',
   address: 'Jaipur, Rajasthan, India',
   supportEmail: 'b210907@skit.ac.in',
   /** Required by the DPDP Act 2023 and the Consumer Protection (E-Commerce) Rules 2020. */

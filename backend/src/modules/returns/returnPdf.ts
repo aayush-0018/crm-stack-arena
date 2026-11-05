@@ -124,7 +124,7 @@ export function buildReturnDoc(r: ReturnDoc, logo: string | null = null): TDocum
     footer: (page, pages) => ({
       margin: [36, 16, 36, 0],
       columns: [
-        { text: 'Made with CartWell', style: 'muted', color: INK_3 },
+        { text: 'Made with INVi', style: 'muted', color: INK_3 },
         { text: `Page ${page} of ${pages}`, alignment: 'right', style: 'muted' },
       ],
     }),

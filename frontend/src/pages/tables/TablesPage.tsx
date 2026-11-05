@@ -347,7 +347,7 @@ function QrCard({ shopName, logoKey, label, token }: { shopName: string; logoKey
         <QrImage text={url} size={168} label={`QR code for table ${label}`} />
       </div>
       <p className="mt-3 text-[13px] font-medium">Scan to see the menu and order</p>
-      <p className="mt-0.5 text-[11px] text-[#8f8f8a]">No app needed · Powered by CartWell</p>
+      <p className="mt-0.5 text-[11px] text-[#8f8f8a]">No app needed · Powered by INVi</p>
       <div className="no-print mt-3 flex gap-1">
         {png && (
           <a href={png} download={`table-${label}.png`} className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-[#5f5f5b] hover:bg-[#efefec]">

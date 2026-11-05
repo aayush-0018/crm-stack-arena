@@ -1,6 +1,6 @@
 import LegalLinks from '../components/layout/LegalLinks';
 import { FormEvent, ReactNode, useState } from 'react';
-import { Store } from 'lucide-react';
+import InviLogo from '../components/ui/InviLogo';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { authApi } from '../api/endpoints';
@@ -16,11 +16,9 @@ export function AuthLayout({ title, children }: { title: string; children: React
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <div className="w-full max-w-[380px]">
         <div className="mb-6 flex flex-col items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-ink text-on-ink">
-            <Store size={19} strokeWidth={1.8} />
-          </span>
+          <InviLogo size={44} />
           <div className="text-center">
-            <h1 className="text-[20px] font-semibold text-ink">CartWell</h1>
+            <h1 className="text-[20px] font-semibold text-ink">INVi</h1>
             <p className="mt-0.5 text-[14px] text-ink-3">{title}</p>
           </div>
         </div>
