@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import { authApi, shopApi } from '../api/endpoints';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ComplaintLink from '../components/layout/ComplaintLink';
 import { PageTop } from '../components/ui/Tabs';
 import { TextField } from '../components/ui/Field';
 import { Modal } from '../components/ui/Modal';
@@ -349,7 +350,8 @@ function PrivacyCard() {
         <Link to="/cookies" className="text-ink underline underline-offset-2">
           Cookie Policy
         </Link>
-        . To download your data, use the CSV export on each list.
+        . To download your data, use the CSV export on each list.{' '}
+        <ComplaintLink label="Raise a complaint" className="text-ink-3" />
       </p>
       <div className="mt-4 rounded-xl border border-danger-line p-4">
         <p className="text-[14px] font-medium text-ink">Delete account</p>

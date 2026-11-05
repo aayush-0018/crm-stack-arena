@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { BUSINESS, LEGAL_LINKS } from '../../lib/legal';
+import ComplaintLink from './ComplaintLink';
 
 /** Footer links to the legal pages. */
 export default function LegalLinks({ className = '' }: { className?: string }) {
@@ -11,6 +12,7 @@ export default function LegalLinks({ className = '' }: { className?: string }) {
           {l.label}
         </Link>
       ))}
+      <ComplaintLink />
     </nav>
   );
 }

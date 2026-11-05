@@ -435,3 +435,10 @@ export const expensesApi = {
   update: (id: number, body: ExpensePayload) => api.put<Expense>(`/expenses/${id}`, body),
   remove: (id: number) => api.delete<void>(`/expenses/${id}`),
 };
+
+export type ComplaintTopic = 'privacy' | 'billing' | 'other';
+
+export const complaintsApi = {
+  /** Public: saved, and emailed to the Grievance Officer. */
+  send: (body: { topic: ComplaintTopic; name: string; email: string; message: string }) => api.post<{ reference: string }>('/public/complaints', body),
+};

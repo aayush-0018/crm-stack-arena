@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { attendanceRouter, staffRouter } from './modules/attendance/attendance.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { catalogueRouter, publicCatalogueRouter } from './modules/catalogue/catalogue.routes';
+import { publicComplaintsRouter } from './modules/complaints/complaints.routes';
 import { customersRouter } from './modules/customers/customers.routes';
 import { floorPlanRouter, kitchenRouter, publicTablesRouter } from './modules/dinein/dinein.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
@@ -59,6 +60,7 @@ app.use('/api/public', publicProductImageRouter);
 app.use('/api/public', publicCatalogueRouter);
 app.use('/api/public', publicTablesRouter);
 app.use('/api/public', publicBookingRouter);
+app.use('/api/public', publicComplaintsRouter);
 
 app.use('/api', requireAuth);
 app.use('/api/shop', shopRouter);
