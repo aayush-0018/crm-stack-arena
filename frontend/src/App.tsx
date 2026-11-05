@@ -42,6 +42,7 @@ const BookTablePage = lazy(() => import('./pages/reservations/BookTablePage'));
 const MyBookingPage = lazy(() => import('./pages/reservations/MyBookingPage'));
 const GrowthPage = lazy(() => import('./pages/GrowthPage'));
 const AttendancePage = lazy(() => import('./pages/staff/AttendancePage'));
+const ExpensesPage = lazy(() => import('./pages/expenses/ExpensesPage'));
 const later = (page: ReactNode) => <Suspense fallback={<LoadingState />}>{page}</Suspense>;
 
 export default function App() {
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="analytics/reports" element={<AnalyticsReportsPage />} />
           <Route path="analytics/growth" element={later(<GrowthPage />)} />
           <Route path="attendance" element={later(<AttendancePage />)} />
+          <Route path="expenses" element={later(<ExpensesPage />)} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="receipts/:id" element={<ReceiptPage />} />
           <Route path="returns/:id" element={<ReturnPage />} />

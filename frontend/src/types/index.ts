@@ -900,3 +900,28 @@ export interface GrowthReport {
   series: (GrowthPeriod & { previous: GrowthPeriod | null; lastYear: GrowthPeriod })[];
   breakdown: { by: GrowthDimension; rows: { label: string; current: number; previous: number; lastYear: number }[] };
 }
+
+export type ExpenseMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
+
+export interface Expense {
+  id: number;
+  spentOn: string;
+  category: string;
+  amountPaise: number;
+  method: ExpenseMethod;
+  note: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface ExpenseMonth {
+  month: string;
+  today: string;
+  rows: Expense[];
+  totalPaise: number;
+  /** The month's sales (orders not cancelled, by order date), to compare against. */
+  salesPaise: number;
+  byCategory: { category: string; totalPaise: number; count: number }[];
+  /** Categories this shop has used (most used first), then common ones. */
+  categories: string[];
+}

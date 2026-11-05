@@ -21,6 +21,7 @@ import {
   X,
   CalendarCheck,
   TrendingUp,
+  Receipt,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -167,6 +168,7 @@ export default function AppShell() {
         <NavItem to="/products" icon={<Package {...ICON} />} label="Products" count={counts.lowStock} />
         <NavItem to="/customers" icon={<Contact {...ICON} />} label="Customers" />
         <NavItem to="/attendance" icon={<CalendarCheck {...ICON} />} label="Staff attendance" />
+        <NavItem to="/expenses" icon={<Receipt {...ICON} />} label="Expenses" />
 
         <SectionLabel>Analytics</SectionLabel>
         <NavItem to="/analytics/customers" icon={<Users {...ICON} />} label="Customer analytics" />

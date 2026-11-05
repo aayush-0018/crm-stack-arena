@@ -11,6 +11,7 @@ import { catalogueRouter, publicCatalogueRouter } from './modules/catalogue/cata
 import { customersRouter } from './modules/customers/customers.routes';
 import { floorPlanRouter, kitchenRouter, publicTablesRouter } from './modules/dinein/dinein.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { expensesRouter } from './modules/expenses/expenses.routes';
 import { invoicesRouter, publicInvoicesRouter } from './modules/invoices/invoices.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
 import { paymentsRouter } from './modules/payments/payments.routes';
@@ -74,6 +75,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/attendance', attendanceRouter);
+app.use('/api/expenses', expensesRouter);
 app.use('/api/receipts', receiptsRouter);
 app.use('/api', invoicesRouter);
 app.use('/api', returnsRouter);

@@ -8,6 +8,9 @@ import type {
   ReservationStatus,
   AgeingReport,
   CollectionsReport,
+  Expense,
+  ExpenseMethod,
+  ExpenseMonth,
   GstReport,
   ImportResult,
   OrderReturn,
@@ -414,4 +417,19 @@ export const attendanceApi = {
   day: (date?: string) => api.get<AttendanceDay>('/attendance/day', { date }),
   save: (date: string, marks: MarkPayload[]) => api.put<AttendanceDay>('/attendance/day', { date, marks }),
   month: (month?: string) => api.get<AttendanceMonth>('/attendance/month', { month }),
+};
+
+export interface ExpensePayload {
+  spentOn: string;
+  category: string;
+  amount: string;
+  method: ExpenseMethod;
+  note: string | null;
+}
+
+export const expensesApi = {
+  month: (month?: string) => api.get<ExpenseMonth>('/expenses', { month }),
+  create: (body: ExpensePayload) => api.post<Expense>('/expenses', body),
+  update: (id: number, body: ExpensePayload) => api.put<Expense>(`/expenses/${id}`, body),
+  remove: (id: number) => api.delete<void>(`/expenses/${id}`),
 };
